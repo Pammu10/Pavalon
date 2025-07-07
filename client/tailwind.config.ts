@@ -9,7 +9,6 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        cinzel: ['var(--font-cinzel)', 'serif'],
         eaglelake: ['var(--font-eagle-lake)', 'cursive'],
       },
     },
