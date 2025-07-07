@@ -56,8 +56,8 @@ const RoleCustomization: React.FC<{ playerCount: number; onStart: (roles: Role[]
         rolesWithDefaults.add(Role.ASSASSIN);
         
         const requiredEvilCount = EVIL_PLAYER_COUNT[playerCount as keyof typeof EVIL_PLAYER_COUNT] || 0;
-        const currentEvilRoles = [...rolesWithDefaults].filter(r => ROLES[r].alignment === Alignment.EVIL);
-        const currentGoodRoles = [...rolesWithDefaults].filter(r => ROLES[r].alignment === Alignment.GOOD);
+        const currentEvilRoles = [...rolesWithDefaults].filter((r: Role) => ROLES[r].alignment === Alignment.EVIL);
+        const currentGoodRoles = [...rolesWithDefaults].filter((r: Role) => ROLES[r].alignment === Alignment.GOOD);
 
         const evilSlotsToFill = requiredEvilCount - currentEvilRoles.length;
         const goodSlotsToFill = playerCount - requiredEvilCount - currentGoodRoles.length;
@@ -111,7 +111,7 @@ const RoleCustomization: React.FC<{ playerCount: number; onStart: (roles: Role[]
                 </div>
             </div>
             <div className="mt-6 text-center bg-slate-900/50 p-4 rounded-lg">
-                <p>Final Roles ({finalRoles.length}): {finalRoles.filter(r => ROLES[r].alignment === Alignment.GOOD).length} Good, {finalRoles.filter(r => ROLES[r].alignment === Alignment.EVIL).length} Evil</p>
+                <p>Final Roles ({finalRoles.length}): {finalRoles.filter((r: Role) => ROLES[r].alignment === Alignment.GOOD).length} Good, {finalRoles.filter((r: Role) => ROLES[r].alignment === Alignment.EVIL).length} Evil</p>
                 <p className="text-xs text-slate-400">{[...new Set(finalRoles)].sort().join(', ')}</p>
             </div>
             <div className="mt-6 text-center">
