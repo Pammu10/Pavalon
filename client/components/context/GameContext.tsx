@@ -39,6 +39,7 @@ const initialGameState: GameState = {
     endGameReason: '',
     chat: [],
     readyPlayers: [],
+    reconnectingPlayer: null
 };
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
