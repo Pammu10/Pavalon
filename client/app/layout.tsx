@@ -22,8 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${eagleLake.variable} font-eaglelake`}>
-        <div className="fixed top-0 left-0 w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 -z-10"></div>
+        <div className="min-h-[100dvh] overflow-hidden bg-cover bg-center relative" style={{ backgroundImage: `url(background/5-players.jpg)` }}>
         {children}
+        </div>
       </body>
     </html>
   );
