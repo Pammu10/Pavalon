@@ -67,13 +67,12 @@ const RoleRevealScreen: React.FC = () => {
   const isReady = gameState.readyPlayers.includes(playerId!);
 
   return (
-    <div className="animate-fadeIn flex flex-col items-center justify-center p-4">
-      <h1 className="font-cinzel text-3xl md:text-4xl mb-8 text-center text-white">
+    <div className="animate-fadeIn flex flex-col items-center justify-center p-2 sm:p4">
+      <h1 className="font-eaglelake text-2xl sm:text-3xl md:text-4xl mb-6 text-center text-white">
         Your Identity is Revealed
       </h1>
-      import Image from 'next/image';
       <div
-        className={`card w-full max-w-sm h-96 perspective-1000 relative ${
+        className={`card w-full max-w-sm min-h-[28rem] perspective-1000 relative ${
           isFlipped ? "is-flipped" : ""
         }`}
       >
@@ -82,7 +81,7 @@ const RoleRevealScreen: React.FC = () => {
           <div className="text-center">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-24 w-24 mx-auto text-yellow-600 animate-pulse"
+              className="h-20 w-20 sm:h-24 sm:w-24 mx-auto text-yellow-600 animate-pulse"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -94,22 +93,23 @@ const RoleRevealScreen: React.FC = () => {
                 d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
               />
             </svg>
-            <p className="font-eaglelake text-2xl mt-4 text-yellow-500">
+            <p className="font-eaglelake text-xl sm:text-2xl mt-4 text-yellow-500">
               Awaiting Your Role
             </p>
           </div>
         </div>
 
         {/* Card Front */}
-        <div className="card-face card-face-back absolute w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 border-4 border-slate-600 rounded-2xl shadow-2xl p-6 flex flex-col justify-between backface-hidden">
-          <div className="space-y-4">
+        <div className="card-face card-face-back absolute w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 border-4 border-slate-600 rounded-2xl shadow-2xl p-4 sm:p-6 flex flex-col justify-around backface-hidden">
             {/* Character Image */}
             <div className="w-full flex justify-center">
               <div
-                className={`relative w-24 h-24 rounded-full overflow-hidden border-4 shadow-lg ${
+                className={`relative w-40 h-40 rounded-full overflow-hidden border-4 shadow-lg ${
                   alignmentColor === "text-red-500"
                     ? "border-red-600 shadow-red-500/50"
                     : "border-blue-500 shadow-blue-500/50"
+                } ${
+                  visiblePlayers.length > 0 ? "sm:w-50 sm:h-50" : "sm:w-60 sm:h-60"
                 }`}
               >
                 <Image
@@ -123,17 +123,18 @@ const RoleRevealScreen: React.FC = () => {
             </div>
 
             {/* Role Title and Alignment */}
+            <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="font-eaglelake text-3xl font-bold text-white">
+              <h2 className="font-eaglelake text-2xl sm:text-3xl font-bold text-white">
                 {player.role}
               </h2>
-              <span className={`font-bold text-lg ${alignmentColor}`}>
+              <span className={`font-bold text-base sm:text-lg ${alignmentColor}`}>
                 {roleInfo.alignment}
               </span>
             </div>
 
             {/* Role Description */}
-            <p className="text-slate-400 italic text-sm">
+            <p className="text-slate-400 italic text-sx sm:text-sm">
               {roleInfo.description}
             </p>
 
@@ -163,7 +164,7 @@ const RoleRevealScreen: React.FC = () => {
       </div>
       <div className="mt-8 text-center w-full max-w-lg">
         <div className="bg-slate-900/50 p-4 rounded-lg">
-          <h4 className="font-cinzel text-xl text-yellow-500 mb-3">
+          <h4 className="font-eaglelake text-xl text-yellow-500 mb-3">
             Player Status
           </h4>
           <ul className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-left">

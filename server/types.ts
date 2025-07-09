@@ -96,6 +96,14 @@ export interface Match {
     won: boolean;
     playedAt: string;
 }
+
+export interface MatchPlayerPerformance {
+    username: string;
+    role: Role;
+    alignment: Alignment;
+    won: boolean;
+}
+
 export interface PlayerStats {
     totalGames: number;
     totalWins: number;

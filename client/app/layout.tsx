@@ -10,7 +10,7 @@ const eagleLake = Eagle_Lake({
 });
 
 export const metadata: Metadata = {
-  title: "Avalon Online",
+  title: "Pavalon",
   description: "A multiplayer social deduction game of loyalty and deception, set in the age of Arthurian legends. Uncover the spies or sabotage the kingdom from within.",
 };
 

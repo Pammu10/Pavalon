@@ -13,6 +13,8 @@ interface GameContextType {
     isAuthenticated: boolean;
     authError: string | null;
     isLoading: boolean;
+    hasUnreadMessages: boolean;
+    clearUnreadMessages: () => void;
     login: (credentials: LoginCredentials) => Promise<void>;
     register: (credentials: RegisterCredentials) => Promise<void>;
     logout: () => void;
@@ -49,7 +51,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [playerId, setPlayerId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
-    
+    const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+
     // Auth state
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
@@ -63,6 +66,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const autoClearError = (setter: React.Dispatch<React.SetStateAction<string | null>>, message: string) => {
       setter(message);
       setTimeout(() => setter(null), 5000);
+    }
+
+    const clearUnreadMessages = () => {
+        setHasUnreadMessages(false);
     }
 
     useEffect(() => {
@@ -201,6 +208,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isAuthenticated,
         authError,
         isLoading,
+        hasUnreadMessages,
+        clearUnreadMessages,
         login,
         register,
         logout,

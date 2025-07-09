@@ -3,7 +3,7 @@ import { io, Socket } from "socket.io-client";
 import { ServerToClientEvents, ClientToServerEvents } from '@/types';
 
 // Use a Next.js public environment variable
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || "https://pavalon.onrender.com";
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3001";
 
 class SocketService {
     public socket: Socket<ServerToClientEvents, ClientToServerEvents>;

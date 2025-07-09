@@ -29,7 +29,7 @@ export const ROLES: Record<Role, { alignment: Alignment, description: string, vi
         alignment: Alignment.EVIL,
         description: "You are a hidden killer. If the forces of Good succeed on three quests, you have one chance to assassinate Merlin to win.",
         vision: "You see your fellow Minions of Mordred, but not Oberon.",
-        img: "/characters/assasin.jpg",
+        img: "/characters/assassin.jpg",
     },
     [Role.MORDRED]: {
         alignment: Alignment.EVIL,
