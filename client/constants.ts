@@ -1,53 +1,85 @@
 import { Role, Alignment, RoleDescription } from './types';
 
-export const ROLES: Record<Role, { alignment: Alignment, description: string, vision: string, img: string }> = {
+export const ROLES: Record<Role, { alignment: Alignment, description: string, vision: string, img: string, strategy: string, color: string,  bgColor: string }> = {
     [Role.MERLIN]: {
         alignment: Alignment.GOOD,
-        description: "You know who the forces of Evil are, but you must hide your identity. If the Assassin discovers you, Good loses.",
+        description: "The great wizard who sees all evil players except Mordred. Must guide good while staying hidden.",
         vision: "You see Morgana, the Assassin, Oberon, and Minions as Evil. You do NOT see Mordred.",
-        img: "/characters/merlin.png"
+        img: "/characters/merlin.png",
+        strategy: "Give subtle hints about evil players without revealing yourself. Beware of Mordred!",
+        color: "text-blue-600",
+      bgColor:
+        "bg-gradient-to-br from-blue-600/15 to-blue-800/10 border-2 border-blue-400/40 backdrop-blur-sm",
     },
     [Role.PERCIVAL]: {
         alignment: Alignment.GOOD,
-        description: "You see two people who appear to be Merlin. One is the true Merlin, the other is the deceptive Morgana.",
+        description: "Sees both Merlin and Morgana but cannot distinguish between them.",
         vision: "You see Merlin and Morgana, but you don't know which is which.",
         img: "/characters/percival.jpg",
+        strategy: "Watch for subtle differences in behavior to identify the real Merlin.",
+        color: "text-blue-600",
+      bgColor:
+        "bg-gradient-to-br from-blue-600/15 to-blue-800/10 border-2 border-blue-400/40 backdrop-blur-sm",
     },
     [Role.LOYAL_SERVANT]: {
         alignment: Alignment.GOOD,
-        description: "You are a loyal knight of Arthur. Find and support your fellow loyalists to complete the quests.",
+        description: "Loyal servants of Arthur m  ust help complete quests successfully and identify evil players.",
         vision: "You know nothing.",
         img: "/characters/loyal-servant.jpg",
+        strategy: "Pay attention to voting patterns and quest failures to identify evil players.",
+        color: "text-blue-600",
+      bgColor:
+        "bg-gradient-to-br from-blue-600/15 to-blue-800/10 border-2 border-blue-400/40 backdrop-blur-sm",
     },
     [Role.MORGANA]: {
         alignment: Alignment.EVIL,
-        description: "You appear as Merlin to Percival. Use this to deceive him and sow chaos among the ranks of Good.",
+        description: "The false wizard who appears as Merlin to Percival. Must fail quests and confuse good.",
         vision: "You see your fellow Minions of Mordred, but not Oberon.",
         img: "/characters/morgana.jpg",
+        strategy: "Act like Merlin to confuse Percival while secretly coordinating with evil.",
+        color: "text-red-600",
+      bgColor:
+        "bg-gradient-to-br from-red-600/15 to-red-800/10 border-2 border-red-400/40 backdrop-blur-sm",
     },
     [Role.ASSASSIN]: {
         alignment: Alignment.EVIL,
-        description: "You are a hidden killer. If the forces of Good succeed on three quests, you have one chance to assassinate Merlin to win.",
+        description: "You are the evil killer. If the forces of Good succeed on three quests, you have one chance to assassinate Merlin to win.",
         vision: "You see your fellow Minions of Mordred, but not Oberon.",
         img: "/characters/assassin.jpg",
+        strategy: "Your main job is to identify Merlin. Pay attention to who seem to have too much information.",
+        color: "text-red-600",
+      bgColor:
+        "bg-gradient-to-br from-red-600/15 to-red-800/10 border-2 border-red-400/40 backdrop-blur-sm",
     },
     [Role.MORDRED]: {
         alignment: Alignment.EVIL,
-        description: "Your identity is hidden from Merlin. You are the true mastermind behind the plot to destroy Camelot.",
+        description: "The hidden evil knight unknown to Merlin. Can operate in complete secrecy.",
         vision: "You see your fellow Minions of Mordred, but not Oberon.",
         img: "/characters/mordred.png",
+        strategy: "Use your invisibility to Merlin to your advantage. Lead from the shadows.",
+        color: "text-red-600",
+      bgColor:
+        "bg-gradient-to-br from-red-600/15 to-red-800/10 border-2 border-red-400/40 backdrop-blur-sm",
     },
     [Role.OBERON]: {
         alignment: Alignment.EVIL,
-        description: "You are a servant of evil, but your identity is hidden from both Good and Evil. You do not know who your allies are.",
+        description: "The lone wolf of evil, unknown to other evil players and vice versa.",
         vision: "You know nothing. You appear as Good to Merlin.",
         img: "/characters/oberon.jpg",
+        strategy: "Work alone and try to deduce who the other evil players are.",
+        color: "text-red-600",
+      bgColor:
+        "bg-gradient-to-br from-red-600/15 to-red-800/10 border-2 border-red-400/40 backdrop-blur-sm",
     },
     [Role.MINION]: {
         alignment: Alignment.EVIL,
-        description: "You are a loyal follower of Mordred. Your job is to fail quests and identify Merlin for the Assassin.",
+        description: "Standard evil minion. Works with other evil players to fail quests.",
         vision: "You see your fellow Minions of Mordred, but not Oberon.",
         img: "/characters/minion-of-mordred.jpg",
+        strategy: "Coordinate with other evil players and blend in with good players.",
+        color: "text-red-600",
+      bgColor:
+        "bg-gradient-to-br from-red-600/15 to-red-800/10 border-2 border-red-400/40 backdrop-blur-sm",
     }
 };
 

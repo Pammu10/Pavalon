@@ -1,33 +1,18 @@
+
+
 import React, { useState, useRef, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
-import { Send } from "lucide-react";
+import { Send, X } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface ChatProps {
   isMobileView?: boolean;
+  onHeaderClose?: () => void; // Prop to handle close from a parent modal
 }
 
-const SendIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className="w-6 h-6"
-  >
-    <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
-  </svg>
-);
-
-export const Chat: React.FC<ChatProps> = ({ isMobileView = false }) => {
-  const {
-    messages,
-    sendMessage,
-    playerId,
-    gameState,
-    hasUnreadMessages,
-    clearUnreadMessages,
-  } = useGame();
+export const Chat: React.FC<ChatProps> = ({ isMobileView = false, onHeaderClose }) => {
+  const { messages, sendMessage, user, gameState } = useGame();
   const [newMessage, setNewMessage] = useState("");
-  const [isOpen, setIsOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isGameActive = !!gameState.roomCode;
 
@@ -35,94 +20,99 @@ export const Chat: React.FC<ChatProps> = ({ isMobileView = false }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  useEffect(scrollToBottom, [messages]);
-
   useEffect(() => {
-    if (hasUnreadMessages) clearUnreadMessages();
-  }, [hasUnreadMessages]);
+    // A small timeout allows the view to render before scrolling
+    const timer = setTimeout(() => scrollToBottom(), 50);
+    return () => clearTimeout(timer);
+  }, [messages]);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim()) {
+    if (newMessage.trim() && isGameActive) {
       sendMessage(newMessage.trim());
       setNewMessage("");
     }
   };
 
-  if (!isMobileView && !isOpen) {
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 w-24 h-12 font-eaglelake bg-yellow-600/80 hover:bg-yellow-500/90 backdrop-blur-md border border-yellow-500/50 rounded-lg shadow-2xl shadow-yellow-500/20 flex items-center justify-center text-white z-50"
-      >
-        Chat
-      </button>
-    );
-  }
-
-  const mobileClasses =
-    "w-full h-full bg-slate-900/50 flex flex-col font-eaglelake";
-  const desktopClasses =
-    "fixed bottom-4 right-4 w-full max-w-xs h-[450px] bg-black/50 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl flex flex-col font-eaglelake animate-fadeIn z-50";
-
+  const containerClasses = isMobileView
+    ? "w-full h-full flex flex-col bg-slate-900 overflow-hidden"
+    : "w-full h-full max-h-[calc(100vh-220px)] flex flex-col font-sans bg-slate-900/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden";
+  
   return (
-    <div className={isMobileView ? mobileClasses : desktopClasses}>
-      <div className="flex justify-between items-center p-3 border-b border-slate-700/50">
+    <div className={containerClasses}>
+      {/* Header */}
+      <header className="flex-shrink-0 flex justify-between items-center p-3 border-b border-slate-700/50 pt-safe-top">
         <h3 className="font-eaglelake text-lg text-yellow-500">Game Chat</h3>
-        {!isMobileView && (
+        {onHeaderClose && (
           <button
-            onClick={() => setIsOpen(false)}
-            className="text-slate-400 hover:text-white text-2xl leading-none"
+            onClick={onHeaderClose}
+            className="text-slate-400 hover:text-white rounded-full p-1 transition-colors"
+            aria-label="Close chat"
           >
-            &times;
+            <X size={20} />
           </button>
         )}
-      </div>
-      <div className="flex-1 p-3 overflow-y-auto space-y-3">
-        {messages.map((msg, index) => (
-          <div
-            key={index}
-            className={`flex flex-col ${
-              msg.senderId === playerId ? "items-end" : "items-start"
-            }`}
-          >
-            <span
-              className={`text-xs px-2 ${
-                msg.senderId === playerId ? "text-yellow-400" : "text-slate-400"
-              }`}
-            >
-              {msg.senderId === playerId ? "You" : msg.senderName}
-            </span>
+      </header>
+
+      {/* Messages */}
+      <div className="flex-grow p-4 overflow-y-auto scroll-hide space-y-4">
+        {messages.map((msg, index) => {
+          const isSelf = msg.senderUserId === user?.id;
+          return (
             <div
-              className={`max-w-[85%] p-2 rounded-lg text-sm ${
-                msg.senderId === playerId
-                  ? "bg-yellow-800/50 text-white"
-                  : "bg-slate-800/70 text-slate-200"
+              key={index}
+              className={`flex items-end gap-2 ${
+                isSelf ? "justify-end" : "justify-start"
               }`}
             >
-              {msg.text}
+              <div
+                className={`flex flex-col space-y-1 w-full max-w-[85%] ${
+                  isSelf ? "items-end" : "items-start"
+                }`}
+              >
+                <span className="text-xs text-slate-400 px-1">
+                  {isSelf ? "You" : msg.senderName}
+                </span>
+                <motion.div
+                  className={`px-3 py-2 rounded-xl text-sm break-words ${
+                    isSelf
+                      ? "bg-yellow-700 text-white rounded-br-none"
+                      : "bg-slate-700 text-slate-200 rounded-bl-none"
+                  }`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {msg.text}
+                </motion.div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
-      <form onSubmit={handleSend} className="p-2 border-t border-slate-700/50 flex items-center gap-2">
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Say something..."
-          className="flex-grow bg-slate-900/80 border border-slate-600 rounded-md p-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-        <button
-          type="submit"
-          className="bg-yellow-600 p-2 rounded-md text-white hover:bg-yellow-500 transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
-          disabled={!isGameActive || !newMessage.trim()}
-          aria-label="Send message"
-        >
-          <Send size={18} />
-        </button>
-      </form>
+      
+      {/* Input Form */}
+      <footer className="flex-shrink-0 bg-slate-800/80">
+        <form onSubmit={handleSend} className="p-3 border-t border-slate-700/50 flex items-center gap-3">
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder={isGameActive ? "Type a message..." : "Chat disabled"}
+            className="flex-grow bg-slate-800 border-2 border-slate-700 rounded-full py-2 px-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-transparent transition-all disabled:opacity-50"
+            disabled={!isGameActive}
+          />
+          <button
+            type="submit"
+            className="bg-yellow-600 p-3 rounded-full text-white hover:bg-yellow-500 transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed flex-shrink-0"
+            disabled={!isGameActive || !newMessage.trim()}
+            aria-label="Send message"
+          >
+            <Send size={18} />
+          </button>
+        </form>
+      </footer>
     </div>
   );
 };

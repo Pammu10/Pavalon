@@ -1,19 +1,65 @@
+
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { GameProvider, useGame } from "@/components/context/GameContext";
+import { AudioProvider, useAudio } from "@/components/context/AudiContext";
 import AuthScreen from "@/components/screens/AuthScreen";
 import LobbyScreen from "@/components/screens/LobbyScreen";
 import RoleRevealScreen from "@/components/screens/RoleRevealScreen";
 import GameScreen from "@/components/screens/GameScreen";
 import EndGameScreen from "@/components/screens/EndGameScreen";
-import StatsScreen from "@/components/screens/StatsScreen";
+import SettingsScreen from "@/components/screens/SettingsScreen";
+import LeaderboardScreen from "@/components/screens/LeaderboardScreen";
+import RestartVoteOverlay from "@/components/ui/RestartVoteOverlay";
 import { Chat } from "@/components/ui/Chat";
 import PlayerInfoBar from "@/components/ui/PlayerInfoBar";
 import { GamePhase } from "@/types";
 import Spinner from "@/components/ui/Spinner";
+import { Swords, MessageSquare, Settings, Trophy, Star, ChevronUp, X } from "lucide-react";
+import HomeScreen from "@/components/screens/HomeScreen";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion, AnimatePresence } from "framer-motion";
+import AchievementsTab from "../components/ui/AchievementsTab";
+import { Toaster } from "@/components/ui/sonner";
 
-type Tab = "game" | "chat" | "stats";
+type Tab = "game" | "chat" | "leaderboard" | "achievements" | "settings";
+
+const TABS_CONFIG: { id: Tab; label: string; icon: React.ReactNode; desktop: boolean; mobile: boolean; }[] = [
+  { id: 'game', label: 'Game', icon: <Swords size={24} />, desktop: true, mobile: true },
+  { id: 'chat', label: 'Chat', icon: <MessageSquare size={24} />, desktop: true, mobile: false },
+  { id: 'leaderboard', label: 'Hall of Heroes', icon: <Trophy size={24} />, desktop: true, mobile: true },
+  { id: 'achievements', label: 'Achievements', icon: <Star size={24} />, desktop: true, mobile: false },
+  { id: 'settings', label: 'Settings', icon: <Settings size={24} />, desktop: true, mobile: true },
+];
+
+const desktopTabs = TABS_CONFIG.filter(t => t.desktop);
+const mobileTabs = TABS_CONFIG.filter(t => t.mobile);
+
+
+const InteractionContext = React.createContext({
+  hasInteracted: false,
+});
+
+const InteractionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [hasInteracted, setHasInteracted] = useState(false);
+    
+    const handleFirstInteraction = React.useCallback(() => {
+        if (!hasInteracted) {
+            setHasInteracted(true);
+        }
+    }, [hasInteracted]);
+
+    return (
+        <InteractionContext.Provider value={{ hasInteracted }}>
+            <div onClick={handleFirstInteraction} className="h-full w-full">
+                {children}
+            </div>
+        </InteractionContext.Provider>
+    );
+};
+const useInteraction = () => React.useContext(InteractionContext);
+
 
 const ReconnectionBanner: React.FC<{
   player: { name: string; endsAt: number };
@@ -41,33 +87,108 @@ const ReconnectionBanner: React.FC<{
 };
 
 const MainContent: React.FC = () => {
-  const { gameState, isAuthenticated, user, messages, playerId } = useGame();
+  const { gameState, isAuthenticated, isLoading, messages, user, settings } = useGame();
+  const { playSound, playLobbyMusic, playInGameMusic, stopBackgroundMusic } = useAudio();
+  const { hasInteracted } = useInteraction();
   const [activeTab, setActiveTab] = useState<Tab>("game");
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  
+  const [showIntro, setShowIntro] = useState(true);
+
+  const mainContentRef = useRef<HTMLElement>(null);
+  const prevPhase = useRef(gameState.phase);
+  const prevTab = useRef(activeTab);
+
+  useEffect(() => {
+    if (settings.skipIntro) {
+      setShowIntro(false);
+    }
+  }, [settings.skipIntro]);
+
+
+  useEffect(() => {
+    if (gameState.phase !== prevPhase.current || activeTab !== prevTab.current) {
+        mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    
+    if (gameState.phase === GamePhase.LOBBY && prevPhase.current === GamePhase.HOME) {
+        playSound('transition');
+    }
+
+    prevPhase.current = gameState.phase;
+    prevTab.current = activeTab;
+  }, [gameState.phase, activeTab, playSound]);
+
+  useEffect(() => {
+    if (!hasInteracted) return;
+
+    const isGamePhase = [
+        GamePhase.ROLE_REVEAL,
+        GamePhase.TEAM_SELECTION,
+        GamePhase.TEAM_VOTE,
+        GamePhase.QUEST_VOTE,
+        GamePhase.QUEST_RESULT,
+        GamePhase.ASSASSINATION,
+    ].includes(gameState.phase);
+
+    const isLobbyPhase = [
+        GamePhase.HOME,
+        GamePhase.LOBBY,
+    ].includes(gameState.phase);
+
+    if (isGamePhase) {
+        playInGameMusic();
+    } else if (isLobbyPhase) {
+        playLobbyMusic();
+    } else if (gameState.phase !== GamePhase.END_GAME) { 
+        stopBackgroundMusic();
+    }
+  }, [gameState.phase, hasInteracted, playInGameMusic, playLobbyMusic, stopBackgroundMusic]);
+
 
   useEffect(() => {
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
-      if (activeTab !== "chat" && lastMessage.senderId !== playerId) {
+      if (activeTab !== "chat" && !isChatOpen && lastMessage.senderUserId !== user?.id) {
         setUnreadMessages((prev) => prev + 1);
       }
     }
-  }, [messages, activeTab, playerId]);
+  }, [messages, user?.id, activeTab, isChatOpen]);
 
-  const handleTabClick = (tab: Tab) => {
+  const handleTabChange = (value: string) => {
+    const tab = value as Tab;
     if (tab === "chat") {
       setUnreadMessages(0);
     }
     setActiveTab(tab);
   };
+  
+  const handleOpenChat = () => {
+    setIsChatOpen(true);
+    setUnreadMessages(0);
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
 
-  if (!isAuthenticated || !user) {
+  if (showIntro) {
+    return <HomeScreen onEnter={() => setShowIntro(false)} />;
+  }
+  
+  if (!isAuthenticated) {
     return <AuthScreen />;
   }
 
   const renderGameScreen = () => {
     switch (gameState.phase) {
       case GamePhase.LOBBY:
+      case GamePhase.HOME:
         return <LobbyScreen />;
       case GamePhase.ROLE_REVEAL:
         return <RoleRevealScreen />;
@@ -84,67 +205,129 @@ const MainContent: React.FC = () => {
     }
   };
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case "chat":
-        return <Chat isMobileView={true} />;
-      case "stats":
-        return <StatsScreen />;
-      case "game":
-      default:
-        return renderGameScreen();
-    }
-  };
-
   const showPlayerInfo =
+    isAuthenticated &&
     gameState.phase !== GamePhase.HOME &&
     gameState.phase !== GamePhase.LOBBY &&
     gameState.phase !== GamePhase.END_GAME &&
     gameState.phase !== GamePhase.ROLE_REVEAL;
-  const showTabs = gameState.phase !== GamePhase.HOME;
 
   return (
-    <div className="flex flex-col h-screen w-screen">
+    <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-[100dvh] w-screen">
       {gameState.reconnectingPlayer && (
         <ReconnectionBanner player={gameState.reconnectingPlayer} />
       )}
-      <header className="w-full bg-slate-900/70 backdrop-blur-md border-b border-slate-700 z-40">
+      {gameState.restartVote && (
+        <RestartVoteOverlay />
+      )}
+      
+      {/* HEADER: Player info + Desktop Nav */}
+      <header className="w-full bg-slate-900/70 backdrop-blur-md border-b border-slate-700 z-30 flex-shrink-0">
         {showPlayerInfo && <PlayerInfoBar />}
-        {showTabs && (
-          <nav className="flex justify-center">
-            {(["game", "chat", "stats"] as Tab[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => handleTabClick(tab)}
-                className={`relative flex-1 md:flex-none md:px-8 py-3 text-center font-eagleLake text-lg capitalize transition-colors duration-200 ${
-                  activeTab === tab
-                    ? "text-yellow-500 border-b-2 border-yellow-500"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                {tab}
-                {tab === "chat" && unreadMessages > 0 && (
-                  <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-800"></span>
-                )}
-              </button>
-            ))}
-          </nav>
-        )}
+
+        <TabsList className="hidden md:flex bg-transparent p-0 rounded-none h-auto">
+          {desktopTabs.map(({ id, label }) => (
+            <TabsTrigger
+              key={id}
+              value={id}
+              className="relative flex-1 py-4 font-eagleLake text-lg capitalize transition-colors duration-200 rounded-none 
+                        text-slate-400 data-[state=active]:text-yellow-500 
+                        data-[state=active]:border-b-2 data-[state=active]:border-yellow-500
+                        hover:text-white focus-visible:ring-0 focus-visible:ring-offset-0 
+                        data-[state=active]:shadow-none data-[state=active]:bg-transparent p-0"
+            >
+              {label}
+              {id === "chat" && unreadMessages > 0 && (
+                <span className="absolute top-2 right-4 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-800"></span>
+              )}
+            </TabsTrigger>
+          ))}
+        </TabsList>
       </header>
 
-      <main className="flex-grow p-2 sm:p-4 md:p-6 overflow-y-auto">
-        <div className="w-full max-w-7xl mx-auto h-full">
-          {renderTabContent()}
+      <main ref={mainContentRef} className="flex-grow p-2 sm:p-4 md:p-6 overflow-y-auto pb-28 md:pb-6 scroll-smooth">
+        <div className="w-full max-w-7xl mx-auto">
+            <TabsContent value="game" className="mt-0 outline-none">
+              {renderGameScreen()}
+            </TabsContent>
+            <TabsContent value="chat" className="mt-0 outline-none"><Chat /></TabsContent>
+            <TabsContent value="settings" className="mt-0 outline-none"><SettingsScreen /></TabsContent>
+            <TabsContent value="leaderboard" className="mt-0 outline-none"><LeaderboardScreen /></TabsContent>
+            <TabsContent value="achievements" className="mt-0 outline-none"><AchievementsTab /></TabsContent>
         </div>
       </main>
-    </div>
+      
+      {/* MOBILE: Chat pop-up button */}
+      <div className="md:hidden fixed bottom-20 right-4 z-30">
+        <button
+          onClick={handleOpenChat}
+          className="relative flex items-center justify-center w-16 h-16 bg-slate-800/80 backdrop-blur-md border-2 border-yellow-600 rounded-full text-yellow-500 shadow-lg hover:bg-slate-700 hover:border-yellow-500 hover:text-yellow-400 active:scale-95 transition-all pointer-events-auto"
+          aria-label="Open chat"
+        >
+          <MessageSquare size={32} />
+          {unreadMessages > 0 && (
+            <span className="absolute -top-1 -right-1 w-6 h-6 text-sm flex items-center justify-center bg-red-500 text-white font-sans font-bold rounded-full border-2 border-slate-900">
+              {unreadMessages > 9 ? '9+' : unreadMessages}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* MOBILE: Chat Modal */}
+      <AnimatePresence>
+        {isChatOpen && (
+          <motion.div
+            key="chat-modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="md:hidden fixed inset-0 bg-black/60 z-50"
+            onClick={() => setIsChatOpen(false)}
+          >
+            <motion.div
+              key="chat-modal-content"
+              initial={{ y: "100%" }}
+              animate={{ y: "0%" }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 400, damping: 40 }}
+              className="absolute bottom-16 left-0 right-0 h-[calc(100dvh-4rem)] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Chat isMobileView={true} onHeaderClose={() => setIsChatOpen(false)} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
+      <TabsList className="md:hidden fixed bottom-0 left-0 w-full h-16 flex justify-around bg-slate-900/80 backdrop-blur-xl border-t border-slate-700 z-40 p-0 rounded-none">
+        {mobileTabs.map(({ id, label, icon }) => (
+          <TabsTrigger
+            key={id}
+            value={id}
+            className="group relative h-full flex-1 flex flex-col items-center justify-center gap-1 text-xs capitalize transition-colors duration-200 
+                     text-slate-400 data-[state=active]:text-yellow-500 font-eagleLake
+                     focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none p-0"
+          >
+            {icon}
+            <span className="mt-[-2px]">{label}</span>
+            <div className="absolute top-0 w-12 h-1 rounded-b-full bg-transparent group-data-[state=active]:bg-yellow-500"></div>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   );
 };
 
 export default function Home() {
-  return (
+  return (<AudioProvider>
     <GameProvider>
-      <MainContent />
-    </GameProvider>
+      
+        <InteractionProvider>
+          <MainContent />
+          <Toaster richColors position="top-right" />
+        </InteractionProvider>
+      
+    </GameProvider></AudioProvider>
   );
 }

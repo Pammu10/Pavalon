@@ -1,50 +1,16 @@
-import React, { useState } from "react";
+
+
+import React, { useState, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
-import { GamePhase, Player, Alignment, Role, GameState, Quest } from "@/types";
+import { GamePhase, Player, Alignment, Role, Quest } from "@/types";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import QuestProgressWithPopover from "@/components/ui/QuestProgressWithPopover";
+import PlayerStatusList from "../ui/PlayerStatusList";
+import QuestResultOverlay from "@/components/ui/QuestResultOverlay";
+import PlayerTile from "../ui/PlayerTile";
 
 // --- Reusable UI Components ---
-
-const getAvatarInitials = (name: string) => {
-  const parts = name.trim().split(" ");
-  if (parts.length > 1 && parts[1]) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return name.substring(0, 2).toUpperCase();
-};
-
-const PlayerDisplay: React.FC<{ player: Player; size?: "sm" | "md" }> = ({
-  player,
-  size = "md",
-}) => {
-  const sizeClasses = {
-    sm: "w-12 h-12 text-base",
-    md: "w-16 h-16 sm:w-20 sm:h-20 text-xl sm:text-2xl",
-  };
-  const isDisconnected = player.status === "DISCONNECTED";
-  return (
-    <div
-      className={`flex flex-col items-center justify-center text-center relative ${
-        isDisconnected ? "grayscale" : ""
-      }`}
-    >
-      <div
-        className={`mx-auto rounded-full flex items-center justify-center font-bold border-4 bg-slate-700 border-slate-600 ${sizeClasses[size]}`}
-      >
-        {getAvatarInitials(player.name)}
-        {isDisconnected && (
-          <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center text-white text-xs font-bold">
-            DC
-          </div>
-        )}
-      </div>
-      <p className="mt-1 text-xs sm:text-sm font-bold break-words w-16 sm:w-20">
-        {player.name}
-      </p>
-    </div>
-  );
-};
 
 const VoteResultDisplay: React.FC<{
   vote: Quest["pastVotes"][0] | Quest["approvedVote"];
@@ -57,40 +23,51 @@ const VoteResultDisplay: React.FC<{
   const rejections = vote.votes.filter((v) => v.vote === "REJECT");
 
   const title = isApproved
-    ? `Team Approved (${approvals.length}-${rejections.length})`
-    : `Team Rejected (${approvals.length}-${rejections.length})`;
+    ? `Team Approved (${approvals.length} - ${rejections.length})`
+    : `Team Rejected (${rejections.length} - ${approvals.length})`;
   const titleColor = isApproved ? "text-blue-400" : "text-red-400";
-  const borderColor = isApproved ? "border-blue-700" : "border-red-700";
+  const borderColor = isApproved ? "border-blue-700/50" : "border-red-700/50";
+  const bgColor = isApproved ? "bg-blue-900/20" : "bg-red-900/20";
 
   return (
-    <div className={`bg-slate-800/50 p-3 rounded-lg border ${borderColor}`}>
-      <h4 className={`font-eaglelake text-center ${titleColor} mb-2`}>
+    <div className={`p-4 sm:p-5 rounded-xl border-2 ${borderColor} ${bgColor}`}>
+      <h4
+        className={`font-eaglelake text-center text-lg ${titleColor} mb-4 pb-3 border-b ${borderColor}`}
+      >
         {title}
       </h4>
-      <div className="flex justify-center flex-wrap gap-2 mb-3">
+      <div className="flex justify-center flex-wrap gap-2 mb-5">
         {vote.team.map((p) => (
-          <PlayerDisplay key={p.id} player={p} size="sm" />
+           <div key={p.id} className="w-32">
+            <PlayerTile player={p} />
+          </div>
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-x-2 text-xs">
+      <div className="grid grid-cols-2 gap-x-4 sm:gap-x-6 text-xs sm:text-sm">
         <div>
-          <h5 className="font-bold text-blue-400">Approved By:</h5>
-          <ul className="list-none pl-0 mt-1 space-y-1">
+          <h5 className="font-bold text-blue-400 mb-2 text-center">Approved By:</h5>
+          <ul className="list-none pl-0 mt-1 space-y-1.5 text-slate-200">
             {approvals.map((v) => (
               <li key={v.playerId}>
-                {players.find((p) => p.id === v.playerId)?.name}
+                {players.find((p) => p.id === v.playerId)?.name || "Unknown"}
               </li>
             ))}
+            {approvals.length === 0 && (
+              <li className="italic text-slate-500">None</li>
+            )}
           </ul>
         </div>
         <div>
-          <h5 className="font-bold text-red-400">Rejected By:</h5>
-          <ul className="list-none pl-0 mt-1 space-y-1">
+          <h5 className="font-bold text-red-400 mb-2">Rejected By:</h5>
+          <ul className="list-none pl-0 mt-1 space-y-1.5 text-slate-200">
             {rejections.map((v) => (
               <li key={v.playerId}>
-                {players.find((p) => p.id === v.playerId)?.name}
+                {players.find((p) => p.id === v.playerId)?.name || "Unknown"}
               </li>
             ))}
+            {rejections.length === 0 && (
+              <li className="italic text-slate-500">None</li>
+            )}
           </ul>
         </div>
       </div>
@@ -101,20 +78,30 @@ const VoteResultDisplay: React.FC<{
 // --- Game Phase Components ---
 
 const TeamSelection: React.FC = () => {
-  const { gameState, playerId, selectTeam } = useGame();
-  const [selectedTeam, setSelectedTeam] = useState<string[]>([]);
+  const { gameState, playerId, selectTeam, updatePendingTeam } = useGame();
   const isLeader = gameState.leader?.id === playerId;
   const currentQuest = gameState.questHistory[gameState.currentQuest - 1];
   const isPaused = !!gameState.reconnectingPlayer;
+  const pendingTeam = gameState.pendingTeam || [];
 
   const handlePlayerClick = (id: string) => {
-    if (isPaused) return;
-    setSelectedTeam((prev) =>
-      prev.includes(id) ? prev.filter((pId) => pId !== id) : [...prev, id]
-    );
+    if (isPaused || !isLeader) return;
+    
+    let newTeam;
+    if (pendingTeam.includes(id)) {
+      newTeam = pendingTeam.filter((pId) => pId !== id);
+    } else {
+      // Prevent selecting more than required
+      if (pendingTeam.length < currentQuest.teamSize) {
+        newTeam = [...pendingTeam, id];
+      } else {
+        newTeam = pendingTeam;
+      }
+    }
+    updatePendingTeam(newTeam);
   };
 
-  const canSubmit = selectedTeam.length === currentQuest.teamSize;
+  const canSubmit = pendingTeam.length === currentQuest.teamSize;
 
   return (
     <Card className="w-full">
@@ -123,16 +110,13 @@ const TeamSelection: React.FC = () => {
           ? "Choose Your Team"
           : `Waiting for ${gameState.leader?.name} to choose`}
       </h2>
-      <p className="text-center text-slate-400 mb-4">
-        Vote Track: {gameState.voteTrack} / 5
-      </p>
 
       {currentQuest.pastVotes.length > 0 && (
-        <div className="mb-4 space-y-2">
+        <div className="my-6 space-y-4">
           <h3 className="font-eaglelake text-lg text-center mb-2">
             Rejected Team Votes
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {currentQuest.pastVotes.map((vote, index) => (
               <VoteResultDisplay
                 key={`past-${index}`}
@@ -145,54 +129,25 @@ const TeamSelection: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1 sm:gap-4">
-        {gameState.players.map((p) => {
-          const isSelected = selectedTeam.includes(p.id);
-          const isDisconnected = p.status === "DISCONNECTED";
-          return (
-            <div
-              key={p.id}
-              onClick={() => isLeader && handlePlayerClick(p.id)}
-              className={`relative p-1 sm:p-2 rounded-lg text-center transition-all duration-200 ${
-                isLeader && !isPaused ? "cursor-pointer" : "cursor-default"
-              }`}
-            >
-              <div
-                className={`w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full flex items-center justify-center text-xl sm:text-2xl font-bold border-4 transition-all duration-200 relative ${
-                  isDisconnected ? "grayscale" : ""
-                } ${
-                  isSelected
-                    ? "bg-yellow-500 border-yellow-300 shadow-lg scale-110"
-                    : "bg-slate-700 border-slate-600"
-                }`}
-              >
-                {getAvatarInitials(p.name)}
-                {isDisconnected && (
-                  <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    DC
-                  </div>
-                )}
-              </div>
-              <p className="mt-2 text-xs sm:text-sm font-bold break-words">
-                {p.name}
-              </p>
-              {p.id === gameState.leader?.id && (
-                <span className="absolute top-0 right-0 text-xs bg-yellow-600 text-white px-2 py-0.5 rounded-full font-bold shadow">
-                  L
-                </span>
-              )}
-            </div>
-          );
-        })}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 my-6">
+        {gameState.players.map((p) => (
+          <PlayerTile
+            key={p.id}
+            player={p}
+            isLeader={p.id === gameState.leader?.id}
+            isSelected={pendingTeam.includes(p.id)}
+            onClick={() => handlePlayerClick(p.id)}
+          />
+        ))}
       </div>
 
       {isLeader && (
         <div className="text-center mt-6">
           <Button
-            onClick={() => selectTeam(selectedTeam)}
+            onClick={() => selectTeam(pendingTeam)}
             disabled={!canSubmit || isPaused}
           >
-            Propose Team ({selectedTeam.length}/{currentQuest.teamSize})
+            Propose Team ({pendingTeam.length}/{currentQuest.teamSize})
           </Button>
         </div>
       )}
@@ -205,6 +160,7 @@ const TeamVote: React.FC = () => {
   const player = gameState.players.find((p) => p.id === playerId);
   const teamOnMission = gameState.questHistory[gameState.currentQuest - 1].team;
   const isPaused = !!gameState.reconnectingPlayer;
+  const votedPlayerIds = gameState.players.filter(p => p.hasVoted).map(p => p.id);
 
   return (
     <Card className="w-full">
@@ -212,41 +168,37 @@ const TeamVote: React.FC = () => {
         Vote on the Proposed Team
       </h2>
 
-      <div className="flex justify-center flex-wrap gap-2 sm:gap-4 bg-slate-900/50 p-4 rounded-lg mb-4">
+      <div className="flex justify-center flex-wrap gap-4 bg-slate-900/50 p-4 rounded-lg mb-4">
         {teamOnMission.map((p) => (
-          <PlayerDisplay key={p.id} player={p} />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mb-6">
-        {gameState.players.map((p) => (
-          <div
-            key={p.id}
-            className={`p-2 rounded-md text-center text-sm transition-colors ${
-              p.hasVoted ? "bg-green-800/50" : "bg-slate-800/50"
-            } ${p.status === "DISCONNECTED" ? "grayscale opacity-60" : ""}`}
-          >
-            <span
-              className={`mr-2 ${
-                p.hasVoted ? "text-green-400" : "text-slate-500"
-              }`}
-            >
-              ●
-            </span>
-            <span className="truncate">{p.name}</span>
+          <div key={p.id} className="w-36">
+            <PlayerTile player={p} />
           </div>
         ))}
       </div>
 
+      <div className="mb-6">
+        <PlayerStatusList 
+            title="Voter Status"
+            players={gameState.players}
+            readyPlayerIds={votedPlayerIds}
+        />
+      </div>
+
       {player && !player.hasVoted ? (
-        <div className="flex justify-center gap-4 mt-6">
-          <Button onClick={() => voteOnTeam("APPROVE")} disabled={isPaused}>
+        <div className="flex justify-center gap-4 sm:gap-8 mt-6">
+          <Button
+            variant="success"
+            onClick={() => voteOnTeam("APPROVE")}
+            disabled={isPaused}
+            className="flex-1 max-w-xs py-4 sm:py-5 text-xl sm:text-2xl"
+          >
             Approve
           </Button>
           <Button
-            variant="danger"
+            variant="fail"
             onClick={() => voteOnTeam("REJECT")}
             disabled={isPaused}
+            className="flex-1 max-w-xs py-4 sm:py-5 text-xl sm:text-2xl"
           >
             Reject
           </Button>
@@ -266,14 +218,17 @@ const QuestVote: React.FC = () => {
   const currentQuest = gameState.questHistory[gameState.currentQuest - 1];
   const isOnTeam = currentQuest.team.some((p) => p.id === playerId);
   const isPaused = !!gameState.reconnectingPlayer;
+  const votedPlayerIds = currentQuest.team.filter(p => p.hasVoted).map(p => p.id);
 
   return (
     <Card className="w-full">
       <h2 className="font-eaglelake text-xl sm:text-2xl text-yellow-500 mb-4 text-center">
         {isOnTeam ? "Your Mission" : "Awaiting Mission Result"}
       </h2>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <div className="mb-4">
+        <h3 className="font-eaglelake text-lg text-center mb-2">
+          Approved Team
+        </h3>
         <VoteResultDisplay
           vote={currentQuest.approvedVote}
           players={gameState.players}
@@ -281,40 +236,49 @@ const QuestVote: React.FC = () => {
         />
       </div>
 
-      {isOnTeam ? (
-        <>
-          <div className="flex justify-center flex-wrap gap-2 mb-6">
-            {currentQuest.team.map((p) => (
-              <div
-                key={p.id}
-                className={`flex items-center justify-center p-2 rounded-md text-s transition-colors ${
-                  p.hasVoted ? "bg-green-800/50" : "bg-slate-800/50"
-                } ${p.status === "DISCONNECTED" ? "grayscale opacity-60" : ""}`}
-              >
-                <span
-                  className={`mr-2 ${
-                    p.hasVoted ? "text-green-400" : "text-slate-500"
-                  }`}
-                >
-                  ●
-                </span>
-                <span className="truncate">{p.name}</span>
-              </div>
+      {currentQuest.pastVotes.length > 0 && (
+        <div className="my-6 space-y-2">
+          <h3 className="font-eaglelake text-lg text-center mb-2 text-slate-400">
+            Rejected Votes this Quest
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-70">
+            {currentQuest.pastVotes.map((vote, index) => (
+              <VoteResultDisplay
+                key={`past-${index}`}
+                vote={vote}
+                players={gameState.players}
+                isApproved={false}
+              />
             ))}
           </div>
+        </div>
+      )}
+
+      {isOnTeam ? (
+        <>
+          <div className="my-6">
+            <PlayerStatusList 
+              title="Mission Team Status"
+              players={currentQuest.team}
+              readyPlayerIds={votedPlayerIds}
+            />
+          </div>
           {player && !player.hasVoted ? (
-            <div className="flex justify-center gap-4 mt-6">
+            <div className="flex justify-center gap-4 sm:gap-8 mt-6">
               <Button
+                variant="success"
                 onClick={() => voteOnQuest("SUCCESS")}
                 disabled={isPaused}
+                className="flex-1 max-w-xs py-4 sm:py-5 text-xl sm:text-2xl"
               >
                 Success
               </Button>
               {player.alignment === Alignment.EVIL && (
                 <Button
-                  variant="danger"
+                  variant="fail"
                   onClick={() => voteOnQuest("FAIL")}
                   disabled={isPaused}
+                  className="flex-1 max-w-xs py-4 sm:py-5 text-xl sm:text-2xl"
                 >
                   Fail
                 </Button>
@@ -327,7 +291,7 @@ const QuestVote: React.FC = () => {
           )}
         </>
       ) : (
-        <p className="text-center text-slate-400">
+        <p className="text-center text-slate-400 mt-6">
           Waiting for the quest team to complete their mission...
         </p>
       )}
@@ -337,40 +301,25 @@ const QuestVote: React.FC = () => {
 
 const QuestResult: React.FC = () => {
   const { gameState } = useGame();
+  
   const quest = gameState.questHistory[gameState.currentQuest - 1];
-  const isSuccess = quest.status === "PASSED";
-  const failVotes = quest.results.filter((r) => r === "FAIL").length;
+  if (!quest) return null;
+
+  const failVotes = quest.results.filter((r) => r.vote === "FAIL").length;
+  const successVotes = quest.results.filter((r) => r.vote === "SUCCESS").length;
 
   return (
-    <Card
-      className={`border-4 ${isSuccess ? "border-blue-500" : "border-red-600"}`}
-    >
-      <h2
-        className={`font-eaglelake text-3xl md:text-4xl text-center font-bold ${
-          isSuccess ? "text-blue-400" : "text-red-500"
-        }`}
-      >
-        Quest {isSuccess ? "Succeeded" : "Failed"}
-      </h2>
-      <div className="flex justify-center gap-2 md:gap-4 mt-4">
-        {quest.results.sort().map((r, i) => (
-          <div
-            key={i}
-            className={`w-16 h-16 md:w-20 md:h-20 p-3 rounded-full flex items-center justify-center font-bold text-white text-xs md:text-sm shadow-lg animate-fadeIn ${
-              r === "SUCCESS" ? "bg-blue-600" : "bg-red-700"
-            }`}
-          >
-            {r}
-          </div>
-        ))}
-      </div>
-      <p className="text-center text-slate-400 mt-4 text-sm md:text-base">
-        {failVotes} Fail vote{failVotes !== 1 ? "s" : ""} submitted.{" "}
-        {quest.failsRequired} required to Fail.
-      </p>
-    </Card>
+    <QuestResultOverlay
+      show={true}
+      isSuccess={quest.status === "PASSED"}
+      failVotes={failVotes}
+      successVotes={successVotes}
+      failsRequired={quest.failsRequired}
+      onClose={() => {}} // This is handled by phase changes
+    />
   );
 };
+
 
 const Assassination: React.FC = () => {
   const { gameState, playerId, assassinate } = useGame();
@@ -413,92 +362,6 @@ const Assassination: React.FC = () => {
   );
 };
 
-const QuestMarker: React.FC<{ quest: Quest }> = ({ quest }) => {
-  const {
-    status,
-    questNumber,
-    teamSize,
-    failsRequired,
-    results,
-    questLeader,
-    team,
-  } = quest;
-  let bgColor = "border-slate-600";
-  let pulseClass = "";
-
-  if (status === "PASSED") {
-    bgColor = "bg-blue-600 border-blue-400";
-  } else if (status === "FAILED") {
-    bgColor = "bg-red-700 border-red-500";
-  } else if (status === "ACTIVE") {
-    bgColor = "border-yellow-500";
-    pulseClass = "animate-pulse-glow";
-  }
-
-  return (
-    <div className="flex flex-col items-center group relative">
-      <div
-        className={`w-16 h-14 sm:w-20 sm:h-16 rounded-lg flex flex-col items-center justify-center border-2 transition-all ${bgColor} ${pulseClass}`}
-      >
-        <div className="font-eaglelake text-xs text-slate-300">
-          Q{questNumber}
-        </div>
-        <div className="text-sm font-bold">{teamSize}</div>
-      </div>
-      {failsRequired > 1 && (
-        <span className="text-xs font-bold text-slate-400 mt-1">*</span>
-      )}
-
-      {status !== "PENDING" && (
-        <div className="quest-marker-tooltip">
-          <p className="font-bold border-b border-slate-600 mb-1 pb-1">
-            Quest {questNumber} Details
-          </p>
-          <p>
-            <span className="font-semibold text-slate-400">Leader:</span>{" "}
-            {questLeader?.name || "N/A"}
-          </p>
-          <p>
-            <span className="font-semibold text-slate-400">Team:</span>{" "}
-            {team.map((p) => p.name).join(", ")}
-          </p>
-          <p>
-            <span className="font-semibold text-slate-400">Result:</span>{" "}
-            {quest.results.filter((r) => r === "SUCCESS").length} Success,{" "}
-            {quest.results.filter((r) => r === "FAIL").length} Fail
-          </p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const GameHeader: React.FC<{ gameState: GameState }> = ({ gameState }) => {
-  const goodScore = gameState.questHistory.filter(
-    (q) => q.status === "PASSED"
-  ).length;
-  const evilScore = gameState.questHistory.filter(
-    (q) => q.status === "FAILED"
-  ).length;
-
-  return (
-    <div className="w-full mb-6">
-      <div className="flex justify-between items-center bg-slate-900/50 p-2 md:p-4 rounded-lg border border-slate-700 mb-4 text-sm md:text-base">
-        <div className="text-blue-400 font-bold">Good: {goodScore}</div>
-        <div className="font-eaglelake text-lg md:text-xl">
-          Vote Track: {gameState.voteTrack}
-        </div>
-        <div className="text-red-500 font-bold">Evil: {evilScore}</div>
-      </div>
-      <div className="flex justify-center gap-1 sm:gap-2 md:gap-4">
-        {gameState.questHistory.map((q) => (
-          <QuestMarker key={q.questNumber} quest={q} />
-        ))}
-      </div>
-    </div>
-  );
-};
-
 // -- Main Game Screen Component --
 
 const GameScreen: React.FC = () => {
@@ -521,9 +384,54 @@ const GameScreen: React.FC = () => {
     }
   };
 
+  const questProgressData = gameState.questHistory.map((quest) => {
+    // If game is in assassination, any "ACTIVE" quest must have been the one that
+    // passed to trigger the win condition. This corrects the UI state.
+    const finalStatus =
+      gameState.phase === GamePhase.ASSASSINATION && quest.status === "ACTIVE"
+        ? "PASSED"
+        : quest.status;
+
+    return {
+      status: finalStatus,
+      successVotes: quest.results.filter((r) => r.vote === "SUCCESS").length,
+      failVotes: quest.results.filter((r) => r.vote === "FAIL").length,
+    };
+  });
+
+  const questConfig = {
+    quests: gameState.questHistory.map((q) => q.teamSize),
+  };
+
+  const goodScore = gameState.questHistory.filter(
+    (q) => q.status === "PASSED"
+  ).length;
+  const evilScore = gameState.questHistory.filter(
+    (q) => q.status === "FAILED"
+  ).length;
+
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col items-center">
-      <GameHeader gameState={gameState} />
+      <div className="w-full mb-4 bg-slate-900/50 p-2 md:p-3 rounded-xl border border-slate-700">
+        <div className="flex justify-between items-center text-sm md:text-base">
+          <div className="text-blue-400 font-bold">Good: {goodScore}</div>
+          <div className="font-eaglelake text-lg md:text-xl">
+            Rejected Count: {gameState.voteTrack}
+          </div>
+          <div className="text-red-500 font-bold">Evil: {evilScore}</div>
+        </div>
+      </div>
+
+      {gameState.questHistory.length > 0 && (
+        <div className="w-full">
+          <QuestProgressWithPopover
+            currentQuest={gameState.currentQuest}
+            questResults={questProgressData}
+            config={questConfig}
+          />
+        </div>
+      )}
+
       <div className="w-full animate-slideInUp">{renderPhaseComponent()}</div>
     </div>
   );

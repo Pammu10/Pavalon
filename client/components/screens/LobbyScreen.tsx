@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback } from "react";
 import { useGame } from "@/components/context/GameContext";
 import Button from "@/components/ui/Button";
@@ -5,29 +6,8 @@ import Card from "@/components/ui/Card";
 import { Player, Role, Alignment } from "@/types";
 import { ROLES, EVIL_PLAYER_COUNT } from "@/constants";
 import Spinner from "@/components/ui/Spinner";
-
-const PlayerIcon: React.FC<{ player: Player }> = ({ player }) => {
-  const isDisconnected = player.status === "DISCONNECTED";
-  return (
-    <div
-      className={`animate-fadeIn bg-slate-700 p-4 rounded-lg flex items-center justify-between shadow-md relative ${
-        isDisconnected ? "grayscale" : ""
-      }`}
-    >
-      <span className="text-lg font-bold text-slate-200">{player.name}</span>
-      {isDisconnected && (
-        <div className="absolute top-1 right-1 text-xs bg-slate-600 px-2 py-0.5 rounded-full">
-          DC
-        </div>
-      )}
-      {player.isHost && (
-        <span className="text-xs font-bold text-yellow-500 bg-slate-800 px-2 py-1 rounded">
-          HOST
-        </span>
-      )}
-    </div>
-  );
-};
+import { Copy, Check, LogOut } from "lucide-react";
+import PlayerTile from "@/components/ui/PlayerTile";
 
 const RoleToggle: React.FC<{
   role: Role;
@@ -142,18 +122,18 @@ const RoleCustomization: React.FC<{
 
   return (
     <div className="mt-8 border-t-2 border-slate-700 pt-6">
-      <h2 className="font-eaglelake text-2xl font-bold text-yellow-600 mb-4">
+      <h3 className="font-eaglelake text-xl font-bold text-yellow-500 mb-4 text-center">
         Customize Roles
-      </h2>
+      </h3>
       <div className="mb-4 bg-slate-900/50 p-3 rounded-lg text-center">
-        <h3 className="font-eaglelake text-lg text-yellow-500">
+        <h4 className="font-bold text-base text-yellow-400">
           Core Roles (Always In)
-        </h3>
-        <p className="text-slate-300">Merlin & Assassin</p>
+        </h4>
+        <p className="text-slate-300 text-sm">Merlin & Assassin</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <h3 className="font-bold mb-2 text-blue-400">Optional Good Roles</h3>
+          <h4 className="font-bold mb-2 text-blue-400">Optional Good Roles</h4>
           <div className="space-y-2">
             {availableSpecialGood.map((role) => (
               <RoleToggle
@@ -166,7 +146,7 @@ const RoleCustomization: React.FC<{
           </div>
         </div>
         <div>
-          <h3 className="font-bold mb-2 text-red-500">Optional Evil Roles</h3>
+          <h4 className="font-bold mb-2 text-red-500">Optional Evil Roles</h4>
           <div className="space-y-2">
             {availableSpecialEvil.map((role) => (
               <RoleToggle
@@ -183,22 +163,22 @@ const RoleCustomization: React.FC<{
         </div>
       </div>
       <div className="mt-6 text-center bg-slate-900/50 p-4 rounded-lg">
-        <p>
-          Final Roles ({finalRoles.length}):{" "}
-          {
+        <p className="font-bold">
+          Final Roster ({finalRoles.length}):{" "}
+          <span className="text-blue-400">{
             finalRoles.filter(
               (r: Role) => ROLES[r].alignment === Alignment.GOOD
             ).length
           }{" "}
-          Good,{" "}
-          {
+          Good</span>,{" "}
+          <span className="text-red-400">{
             finalRoles.filter(
               (r: Role) => ROLES[r].alignment === Alignment.EVIL
             ).length
           }{" "}
-          Evil
+          Evil</span>
         </p>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-400 mt-1">
           {[...new Set(finalRoles)].sort().join(", ")}
         </p>
       </div>
@@ -218,65 +198,107 @@ const RoleCustomization: React.FC<{
 };
 
 const LobbyView: React.FC = () => {
-  const { gameState, playerId, startGame } = useGame();
-  const { roomCode, players } = gameState;
-  const isPaused = !!gameState.reconnectingPlayer;
-
-  const currentPlayer = players.find((p) => p.id === playerId);
-  const canStart = players.length >= 5 && players.length <= 10;
-
-  return (
-    <div className="animate-fadeIn w-full max-w-4xl mx-auto">
-      <Card className="text-center">
-        <h1 className="font-eaglelake text-3xl md:text-4xl font-bold text-yellow-500 mb-2">
-          Game Lobby
-        </h1>
-        <p className="text-slate-400 mb-6">Waiting for players to join...</p>
-
-        <div className="mb-6">
-          <p className="text-slate-400 text-sm uppercase tracking-widest">
-            Room Code
-          </p>
-          <p className="font-eaglelake text-4xl md:text-5xl font-bold text-white tracking-[0.2em] bg-slate-900/50 py-3 rounded-lg">
-            {roomCode}
-          </p>
-        </div>
-
-        <div className="mb-8">
-          <h2 className="font-eaglelake text-xl md:text-2xl font-bold text-yellow-600 mb-4 border-b-2 border-slate-700 pb-2">
-            Players ({players.length}/10)
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {players.map((p) => (
-              <PlayerIcon key={p.userId} player={p} />
-            ))}
-          </div>
-        </div>
-
-        {currentPlayer?.isHost &&
-          (canStart ? (
-            <RoleCustomization
-              playerCount={players.length}
-              onStart={(selectedRoles) => startGame({ selectedRoles })}
-              isPaused={isPaused}
-            />
-          ) : (
-            <div className="mt-8">
-              <Button disabled={true}>Need 5-10 Players</Button>
-              <p className="text-red-500 mt-2 text-sm">
-                You have {players.length} players.
-              </p>
+    const { gameState, playerId, startGame, leaveRoom } = useGame();
+    const { roomCode, players } = gameState;
+    const isPaused = !!gameState.reconnectingPlayer;
+    const [copied, setCopied] = useState(false);
+  
+    const handleCopyClick = () => {
+      if (roomCode) {
+        navigator.clipboard.writeText(roomCode).then(
+          () => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          },
+          (err) => {
+            console.error("Could not copy text: ", err);
+          }
+        );
+      }
+    };
+  
+    const currentPlayer = players.find((p) => p.id === playerId);
+    const canStart = players.length >= 5 && players.length <= 10;
+  
+    return (
+      <div className="animate-fadeIn w-full max-w-5xl mx-auto">
+        <Card className="text-center relative">
+          {/* Header Section */}
+          <header className="flex flex-col sm:flex-row justify-between items-center mb-6 text-center sm:text-left gap-4">
+            <div>
+              <h1 className="font-eaglelake text-3xl md:text-4xl font-bold text-yellow-500">
+                Game Lobby
+              </h1>
+              <p className="text-slate-400">Waiting for players to join...</p>
             </div>
-          ))}
-        {!currentPlayer?.isHost && (
-          <p className="text-slate-400 mt-8">
-            Waiting for the host to start the game...
-          </p>
-        )}
-      </Card>
-    </div>
-  );
-};
+            <Button variant="danger" onClick={leaveRoom} className="text-sm py-1.5 px-4 flex items-center gap-2 w-full sm:w-auto justify-center">
+              <LogOut size={16} />
+              Leave
+            </Button>
+          </header>
+  
+          {/* Room Code Section */}
+          <div className="mb-6 border-t-2 border-slate-800 pt-6">
+              <Card className="bg-slate-800/50">
+                  <h3 className="text-slate-300 text-sm uppercase tracking-widest font-bold mb-2">
+                  Room Code
+                  </h3>
+                  <div className="flex items-center justify-center gap-2 bg-slate-900/70 p-2 rounded-lg w-fit mx-auto border-2 border-slate-700">
+                      <p className="font-mono text-3xl md:text-4xl font-bold text-white tracking-[0.1em] px-4">
+                      {roomCode}
+                      </p>
+                      <button
+                      onClick={handleCopyClick}
+                      className="bg-slate-700/70 p-2 rounded-md hover:bg-slate-600 transition-colors"
+                      aria-label="Copy room code"
+                      >
+                      {copied ? (
+                          <Check className="w-5 h-5 text-green-400" />
+                      ) : (
+                          <Copy className="w-5 h-5 text-slate-400" />
+                      )}
+                      </button>
+                  </div>
+              </Card>
+          </div>
+  
+          {/* Players Section */}
+          <div className="mb-6">
+            <h2 className="font-eaglelake text-xl md:text-2xl font-bold text-yellow-500 mb-4 pb-2 border-b-2 border-slate-700">
+              Players ({players.length}/10)
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {players.map((p) => (
+                <PlayerTile key={p.userId} player={p} />
+              ))}
+            </div>
+          </div>
+  
+          {/* Host Controls Section */}
+          {currentPlayer?.isHost &&
+            (canStart ? (
+              <RoleCustomization
+                playerCount={players.length}
+                onStart={(selectedRoles) => startGame({ selectedRoles })}
+                isPaused={isPaused}
+              />
+            ) : (
+              <div className="mt-8 p-4 bg-slate-800/40 rounded-lg">
+                <Button disabled={true}>Need 5-10 Players to Start</Button>
+                <p className="text-red-400 mt-2 font-semibold">
+                  You currently have {players.length} players.
+                </p>
+              </div>
+            ))}
+          {!currentPlayer?.isHost && (
+            <p className="text-slate-400 mt-8 italic text-lg">
+              Waiting for the host, <span className="font-bold text-white">{players.find(p => p.isHost)?.name || '...'}</span>, to start the game...
+            </p>
+          )}
+        </Card>
+      </div>
+    );
+  };
 
 const JoinHostView: React.FC = () => {
   const { joinRoom, user, logout } = useGame();
@@ -339,10 +361,10 @@ const JoinHostView: React.FC = () => {
 };
 
 const LobbyScreen: React.FC = () => {
-  const { gameState, playerId } = useGame();
+  const { gameState, user } = useGame();
 
-  // Player is in a room
-  if (gameState.roomCode && gameState.players.some((p) => p.id === playerId)) {
+  // Player is in a room if there's a room code and they are in the players list
+  if (gameState.roomCode && gameState.players.some((p) => p.userId === user?.id)) {
     return <LobbyView />;
   }
 

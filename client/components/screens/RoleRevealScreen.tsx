@@ -1,27 +1,39 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useEffect, useState } from "react";
 import { useGame } from "@/components/context/GameContext";
+import { useAudio } from "@/components/context/AudiContext";
 import { ROLES } from "@/constants";
-import { Role, Alignment } from "@/types";
+import { Role, Alignment, Player } from "@/types";
 import Button from "@/components/ui/Button";
 import Spinner from "@/components/ui/Spinner";
-import Image from "next/image";
+import { Star, Zap, Eye } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import PlayerStatusList from "../ui/PlayerStatusList";
 
 const RoleRevealScreen: React.FC = () => {
-  const { gameState, playerId, playerReady } = useGame();
-  const [isFlipped, setIsFlipped] = useState(false);
+  const { gameState, playerId, playerReady, hasViewedRole, setHasViewedRole } = useGame();
+  const { playSound } = useAudio();
+  const [isInitialLoad, setIsInitialLoad] = useState(!hasViewedRole);
+
+  useEffect(() => {
+    if (isInitialLoad) {
+      playSound('role-reveal');
+      const timer = setTimeout(() => {
+        setIsInitialLoad(false); // After the first animation cycle, it's no longer an initial load
+        setHasViewedRole(true);
+      }, 4000); // Duration of the longest animation
+      return () => clearTimeout(timer);
+    }
+  }, [isInitialLoad, playSound, setHasViewedRole]);
+
 
   const player = gameState.players.find((p) => p.id === playerId);
   const roleInfo = player?.role ? ROLES[player.role] : null;
   const isPaused = !!gameState.reconnectingPlayer;
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsFlipped(true), 500);
-    return () => clearTimeout(timer);
-  }, []);
-
   if (!player || !player.role || !roleInfo) {
     return (
-      <div className="text-center">
+      <div className="flex justify-center items-center h-full">
         <Spinner />
       </div>
     );
@@ -62,147 +74,156 @@ const RoleRevealScreen: React.FC = () => {
   };
 
   const visiblePlayers = getVisiblePlayers();
-  const alignmentColor =
-    roleInfo.alignment === Alignment.GOOD ? "text-blue-400" : "text-red-500";
+  const isGood = roleInfo.alignment === Alignment.GOOD;
   const isReady = gameState.readyPlayers.includes(playerId!);
 
+  const getVisionSpan = (seenPlayer: Player) => {
+    const isPercival = player.role === Role.PERCIVAL;
+    const isSeenEvil = seenPlayer.alignment === Alignment.EVIL;
+
+    const text = isPercival
+      ? "Merlin/Morgana"
+      : seenPlayer.role ?? "Unknown";
+    const colorClass = isPercival
+      ? "text-yellow-400"
+      : isSeenEvil
+      ? "text-red-400"
+      : "text-blue-400";
+
+    return <span className={`text-sm font-bold ${colorClass}`}>{text}</span>;
+  };
+  
+  const animProps = (delay: number) => ({
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.8, ease: "easeOut" as const, delay: !hasViewedRole ? delay : 0 },
+  });
+
   return (
-    <div className="animate-fadeIn flex flex-col items-center justify-center p-2 sm:p4">
-      <h1 className="font-eaglelake text-2xl sm:text-3xl md:text-4xl mb-6 text-center text-white">
-        Your Identity is Revealed
-      </h1>
-      <div
-        className={`card w-full max-w-sm min-h-[28rem] perspective-1000 relative ${
-          isFlipped ? "is-flipped" : ""
-        }`}
+    <AnimatePresence>
+      <motion.div
+        key="role-reveal-content"
+        initial="hidden"
+        animate="visible"
+        className="flex flex-col items-center justify-start p-2 sm:p-4"
       >
-        {/* Card Back */}
-        <div className="card-face absolute w-full h-full bg-slate-800 border-4 border-yellow-700 rounded-2xl flex items-center justify-center shadow-2xl p-4 backface-hidden">
-          <div className="text-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-20 w-20 sm:h-24 sm:w-24 mx-auto text-yellow-600 animate-pulse"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+        <div className="w-full max-w-md mx-auto text-center">
+          <motion.h1 
+            {...animProps(0.2)}
+            className="font-eaglelake text-2xl sm:text-3xl md:text-4xl mb-4 text-center text-white"
+          >
+            Your Identity
+          </motion.h1>
+
+          <motion.div {...animProps(0.5)} className="relative w-58 h-58 mx-auto mb-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 3, ease: "easeOut", delay: !hasViewedRole ? 0.8 : 0 }}
+              className={`absolute inset-0 rounded-xl blur-2xl z-0 pointer-events-none ${
+                isGood
+                  ? "bg-gradient-to-tr from-blue-500 via-indigo-400 to-purple-500"
+                  : "bg-gradient-to-tr from-red-500 via-rose-400 to-yellow-500"
+              }`}
+            />
+            <div
+              className={`relative z-10 w-full h-full rounded-full overflow-hidden border-4 backdrop-blur-sm shadow-2xl ${
+                isGood
+                  ? "border-blue-400/50 bg-black/30"
+                  : "border-red-400/50 bg-black/30"
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              <motion.img
+                key={player.role}
+                src={roleInfo.img}
+                alt={`${player.role} portrait`}
+                initial={{ scale: 1, opacity: 0, rotate: -60 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0  }}
+                transition={{ duration: 2.5, ease: "easeOut", delay: !hasViewedRole ? 1 : 0 }}
+                className="w-full h-full object-cover"
               />
-            </svg>
-            <p className="font-eaglelake text-xl sm:text-2xl mt-4 text-yellow-500">
-              Awaiting Your Role
-            </p>
-          </div>
-        </div>
-
-        {/* Card Front */}
-        <div className="card-face card-face-back absolute w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 border-4 border-slate-600 rounded-2xl shadow-2xl p-4 sm:p-6 flex flex-col justify-around backface-hidden">
-            {/* Character Image */}
-            <div className="w-full flex justify-center">
-              <div
-                className={`relative w-40 h-40 rounded-full overflow-hidden border-4 shadow-lg ${
-                  alignmentColor === "text-red-500"
-                    ? "border-red-600 shadow-red-500/50"
-                    : "border-blue-500 shadow-blue-500/50"
-                } ${
-                  visiblePlayers.length > 0 ? "sm:w-50 sm:h-50" : "sm:w-60 sm:h-60"
-                }`}
-              >
-                <Image
-                  src={roleInfo.img}
-                  alt={`${player.role} portrait`}
-                  layout="fill"
-                  objectFit="cover"
-                  priority
-                />
-              </div>
             </div>
+          </motion.div>
 
-            {/* Role Title and Alignment */}
-            <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="font-eaglelake text-2xl sm:text-3xl font-bold text-white">
-                {player.role}
-              </h2>
-              <span className={`font-bold text-base sm:text-lg ${alignmentColor}`}>
-                {roleInfo.alignment}
-              </span>
-            </div>
+          <motion.h3 {...animProps(1.5)} className="text-3xl font-bold mb-3 text-amber-300 font-eaglelake">
+            {player.role}
+          </motion.h3>
 
-            {/* Role Description */}
-            <p className="text-slate-400 italic text-sx sm:text-sm">
+          <motion.div
+            {...animProps(1.8)}
+            className={`inline-block px-4 py-2 rounded-full text-sm font-bold mb-6 border-2 ${
+              isGood
+                ? "bg-blue-600/30 text-blue-300 border-blue-400/50"
+                : "bg-red-600/30 text-red-300 border-red-400/50"
+            }`}
+          >
+            {roleInfo.alignment}
+          </motion.div>
+
+          <motion.div {...animProps(2.2)} className="bg-gradient-to-br from-black/40 to-black/60 rounded-xl p-4 sm:p-6 mb-6 border border-amber-600/30 text-left">
+            <h4 className="font-bold mb-3 text-amber-300 flex items-center font-eaglelake">
+              <Star className="w-5 h-5 mr-2 flex-shrink-0" />
+              Your Sacred Duty
+            </h4>
+            <p className="text-sm text-amber-100/90 mb-4 leading-relaxed">
               {roleInfo.description}
             </p>
+            <div className="bg-gradient-to-r from-amber-600/20 to-yellow-600/20 rounded-lg p-4 border border-amber-400/30">
+              <h5 className="font-bold text-amber-400 mb-2 flex items-center font-eaglelake">
+                <Zap className="w-4 h-4 mr-2 flex-shrink-0" />
+                Strategic Tips
+              </h5>
+              <p className="text-xs text-amber-100/80 leading-relaxed">
+                {roleInfo.strategy}
+              </p>
+            </div>
+          </motion.div>
 
-            {/* Vision Section */}
-            {visiblePlayers.length > 0 && (
-              <div className="mt-2">
-                <h3 className="font-eaglelake text-yellow-500 border-b border-slate-700 pb-1 mb-2 text-sm">
-                  Your Vision:
-                </h3>
-                <p className="text-slate-300 text-xs italic">
-                  {roleInfo.vision}
-                </p>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {visiblePlayers.map((p) => (
-                    <span
-                      key={p.id}
-                      className="bg-slate-700 text-white px-3 py-1 rounded-full text-xs font-medium shadow-inner"
-                    >
+          {visiblePlayers.length > 0 && (
+            <motion.div {...animProps(2.5)} className="bg-gradient-to-br from-black/40 to-black/60 rounded-xl p-4 sm:p-6 mb-6 border border-amber-600/30 text-left">
+              <h4 className="font-bold mb-3 text-amber-300 flex items-center font-eaglelake">
+                <Eye className="w-5 h-5 mr-2 flex-shrink-0" />
+                Your Vision
+              </h4>
+              <div className="space-y-2">
+                {visiblePlayers.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="max-w-xs truncate inline-block text-slate-200">
                       {p.name}
                     </span>
-                  ))}
-                </div>
+                    {getVisionSpan(p)}
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+            </motion.div>
+          )}
         </div>
-      </div>
-      <div className="mt-8 text-center w-full max-w-lg">
-        <div className="bg-slate-900/50 p-4 rounded-lg">
-          <h4 className="font-eaglelake text-xl text-yellow-500 mb-3">
-            Player Status
-          </h4>
-          <ul className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-left">
-            {gameState.players.map((p) => (
-              <li
-                key={p.id}
-                className={`text-slate-300 truncate ${
-                  p.status === "DISCONNECTED" ? "text-slate-500" : ""
-                }`}
-              >
-                <span
-                  className={`mr-2 ${
-                    gameState.readyPlayers.includes(p.id)
-                      ? "text-green-400"
-                      : "text-slate-500"
-                  }`}
-                >
-                  {gameState.readyPlayers.includes(p.id) ? "●" : "○"}
-                </span>
-                {p.name}
-                {p.status === "DISCONNECTED" && " (DC)"}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <Button
-          onClick={handleReadyClick}
-          disabled={isReady || isPaused}
-          className="mt-6"
-        >
-          {isPaused
-            ? "Game Paused"
-            : isReady
-            ? "Waiting for others..."
-            : "I Am Ready"}
-        </Button>
-      </div>
-    </div>
+
+        <motion.div {...animProps(3.0)} className="mt-4 text-center w-full max-w-lg pb-6">
+          <PlayerStatusList
+            title="Player Status"
+            players={gameState.players}
+            readyPlayerIds={gameState.readyPlayers}
+          />
+          <motion.div {...animProps(3.5)}>
+            <Button
+              onClick={handleReadyClick}
+              disabled={isReady || isPaused}
+              className="mt-6"
+            >
+              {isPaused
+                ? "Game Paused"
+                : isReady
+                ? "Waiting for others..."
+                : "I Am Ready"}
+            </Button>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 

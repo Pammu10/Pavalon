@@ -1,4 +1,5 @@
 
+
 import { io, Socket } from "socket.io-client";
 import { ServerToClientEvents, ClientToServerEvents } from '@/types';
 
@@ -41,16 +42,16 @@ class SocketService {
         }
     }
 
-    emit<T extends keyof ClientToServerEvents>(event: T, ...args: Parameters<ClientToServerEvents[T]>) {
+    emit<T extends Extract<keyof ClientToServerEvents, string>>(event: T, ...args: Parameters<ClientToServerEvents[T]>) {
         console.log(`[CLIENT EMIT] ${event}:`, args);
         this.socket.emit(event, ...args);
     }
     
-    on<T extends keyof ServerToClientEvents>(event: T, callback: ServerToClientEvents[T]) {
+    on<T extends Extract<keyof ServerToClientEvents, string>>(event: T, callback: ServerToClientEvents[T]) {
         this.socket.on(event, callback as any);
     }
 
-    off<T extends keyof ServerToClientEvents>(event: T) {
+    off<T extends Extract<keyof ServerToClientEvents, string>>(event: T) {
         this.socket.off(event);
     }
 }

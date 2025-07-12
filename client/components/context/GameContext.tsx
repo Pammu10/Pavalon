@@ -1,7 +1,15 @@
+
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { GameState, GamePhase, Player, Message, Role, User, LoginCredentials, RegisterCredentials } from '@/types';
+import { GameState, GamePhase, Player, Message, Role, User, LoginCredentials, RegisterCredentials, Achievement } from '@/types';
 import { socketService } from '@/services/socketService';
 import api from '@/services/api';
+import { toast } from 'sonner';
+import { useAudio } from './AudiContext';
+
+interface Settings {
+    skipIntro: boolean;
+}
 
 interface GameContextType {
     gameState: GameState;
@@ -13,20 +21,31 @@ interface GameContextType {
     isAuthenticated: boolean;
     authError: string | null;
     isLoading: boolean;
-    hasUnreadMessages: boolean;
-    clearUnreadMessages: () => void;
+    hasViewedRole: boolean;
+    hasViewedEndGame: boolean;
+    settings: Settings;
+    achievementsVersion: number;
+    setHasViewedRole: React.Dispatch<React.SetStateAction<boolean>>;
+    setHasViewedEndGame: React.Dispatch<React.SetStateAction<boolean>>;
+    updateSettings: (newSettings: Partial<Settings>) => void;
+    updateUser: (data: Partial<User>) => void;
+    updateUsername: (newUsername: string) => Promise<void>;
     login: (credentials: LoginCredentials) => Promise<void>;
     register: (credentials: RegisterCredentials) => Promise<void>;
     logout: () => void;
     joinRoom: (roomCode?: string) => void;
+    leaveRoom: () => void;
     startGame: (data: { selectedRoles: Role[] }) => void;
     selectTeam: (teamPlayerIds: string[]) => void;
+    updatePendingTeam: (teamPlayerIds: string[]) => void;
     voteOnTeam: (vote: 'APPROVE' | 'REJECT') => void;
     voteOnQuest: (vote: 'SUCCESS' | 'FAIL') => void;
     assassinate: (targetId: string) => void;
     sendMessage: (messageText: string) => void;
-    restartGame: () => void;
     playerReady: () => void;
+    playerReadyForNextGame: () => void;
+    initiateRestart: () => void;
+    voteOnRestart: (vote: 'yes' | 'no') => void;
 }
 
 const initialGameState: GameState = {
@@ -41,7 +60,15 @@ const initialGameState: GameState = {
     endGameReason: '',
     chat: [],
     readyPlayers: [],
-    reconnectingPlayer: null
+    endGameReadyPlayers: [],
+    reconnectingPlayer: null,
+    restartVote: null,
+    lastRestartInitiatedAt: null,
+    pendingTeam: null,
+};
+
+const initialSettings: Settings = {
+    skipIntro: false,
 };
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -51,7 +78,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [playerId, setPlayerId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
-    const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+    const [hasViewedRole, setHasViewedRole] = useState(false);
+    const [hasViewedEndGame, setHasViewedEndGame] = useState(false);
+    const [settings, setSettings] = useState<Settings>(initialSettings);
+    const [achievementsVersion, setAchievementsVersion] = useState(0);
+
+    const { playSound } = useAudio();
 
     // Auth state
     const [user, setUser] = useState<User | null>(null);
@@ -60,18 +92,42 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [authError, setAuthError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
-    const clearError = (setter: React.Dispatch<React.SetStateAction<string | null>>) => {
-      setter(null);
-    }
     const autoClearError = (setter: React.Dispatch<React.SetStateAction<string | null>>, message: string) => {
       setter(message);
+      playSound('error', { manageBgm: false });
       setTimeout(() => setter(null), 5000);
     }
+    
+    // --- Settings Management ---
+    useEffect(() => {
+        try {
+            const storedSettings = localStorage.getItem('pavalonSettings');
+            if (storedSettings) {
+                setSettings(JSON.parse(storedSettings));
+            }
+        } catch (e) {
+            console.error("Failed to parse settings from localStorage", e);
+        }
+    }, []);
 
-    const clearUnreadMessages = () => {
-        setHasUnreadMessages(false);
-    }
+    const updateSettings = (newSettings: Partial<Settings>) => {
+        setSettings(prev => {
+            const updated = { ...prev, ...newSettings };
+            localStorage.setItem('pavalonSettings', JSON.stringify(updated));
+            return updated;
+        });
+    };
+    
+    const updateUser = (data: Partial<User>) => {
+        setUser(prev => {
+            if (!prev) return null;
+            const newUser = { ...prev, ...data };
+            localStorage.setItem('user', JSON.stringify(newUser));
+            return newUser;
+        });
+    };
 
+    // --- Auth Management ---
     useEffect(() => {
         const storedToken = localStorage.getItem('authToken');
         const storedUser = localStorage.getItem('user');
@@ -83,7 +139,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 setIsAuthenticated(true);
                 api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
             } catch (e) {
-                // Handle corrupted data in localStorage
                 localStorage.removeItem('authToken');
                 localStorage.removeItem('user');
             }
@@ -103,11 +158,19 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             socketService.disconnect();
         }
     }, [token, isAuthenticated]);
-
+    
+    // --- Socket Event Listeners ---
     useEffect(() => {
         const handleUpdate = (newState: GameState) => {
-            console.log("Game state updated:", newState);
-            setGameState(newState);
+            setGameState(prevState => {
+                const isNewGameStarting = (prevState.phase === GamePhase.END_GAME && newState.phase === GamePhase.LOBBY) || 
+                                          (prevState.phase === GamePhase.LOBBY && newState.phase === GamePhase.ROLE_REVEAL);
+                if (isNewGameStarting) {
+                    setHasViewedRole(false);
+                    setHasViewedEndGame(false);
+                }
+                return newState;
+            });
             setMessages(newState.chat || []);
         };
         
@@ -117,18 +180,31 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         const handleError = (message: string) => {
             autoClearError(setError, message);
+            toast.error(message);
+        };
+
+        const handleAchievementUnlocked = (achievement: Achievement) => {
+            playSound('success', { manageBgm: false });
+            toast.success(`Achievement Unlocked: ${achievement.name}`, {
+                description: `You've earned: ${achievement.rewards.map(r => r.name).join(', ')}`,
+                duration: 8000,
+            });
+            setAchievementsVersion(v => v + 1);
         };
 
         socketService.on('updateGameState', handleUpdate);
         socketService.on('chatMessage', handleChatMessage);
         socketService.on('error', handleError);
+        socketService.on('achievementUnlocked', handleAchievementUnlocked);
+
 
         return () => {
             socketService.off('updateGameState');
             socketService.off('chatMessage');
             socketService.off('error');
+            socketService.off('achievementUnlocked');
         };
-    }, []);
+    }, [playSound]);
 
      useEffect(() => {
         const onConnect = () => setPlayerId(socketService.socket.id!);
@@ -141,33 +217,37 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const login = async (credentials: LoginCredentials) => {
         try {
-            clearError(setAuthError);
+            setAuthError(null);
             const { data } = await api.post('/login', credentials);
-            const { token, user } = data;
-            localStorage.setItem('authToken', token);
-            localStorage.setItem('user', JSON.stringify(user));
-            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            setToken(token);
-            setUser(user);
+            const { token: new_token, user: new_user } = data;
+            localStorage.setItem('authToken', new_token);
+            localStorage.setItem('user', JSON.stringify(new_user));
+            api.defaults.headers.common['Authorization'] = `Bearer ${new_token}`;
+            setToken(new_token);
+            setUser(new_user);
             setIsAuthenticated(true);
         } catch (err: any) {
-            autoClearError(setAuthError, err.response?.data?.message || 'Login failed.');
+            const message = err.response?.data?.message || 'Login failed.';
+            autoClearError(setAuthError, message);
+            toast.error(message);
         }
     };
 
     const register = async (credentials: RegisterCredentials) => {
         try {
-            clearError(setAuthError);
+            setAuthError(null);
             const { data } = await api.post('/register', credentials);
-            const { token, user } = data;
-            localStorage.setItem('authToken', token);
-            localStorage.setItem('user', JSON.stringify(user));
-            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            setToken(token);
-            setUser(user);
+            const { token: new_token, user: new_user } = data;
+            localStorage.setItem('authToken', new_token);
+            localStorage.setItem('user', JSON.stringify(new_user));
+            api.defaults.headers.common['Authorization'] = `Bearer ${new_token}`;
+            setToken(new_token);
+            setUser(new_user);
             setIsAuthenticated(true);
         } catch (err: any) {
-            autoClearError(setAuthError, err.response?.data?.message || 'Registration failed.');
+            const message = err.response?.data?.message || 'Registration failed.';
+            autoClearError(setAuthError, message);
+            toast.error(message);
         }
     };
 
@@ -178,25 +258,69 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setToken(null);
         setUser(null);
         setIsAuthenticated(false);
-        setGameState(initialGameState); // Reset game state on logout
+        setGameState(initialGameState);
+        setHasViewedRole(false);
+    };
+
+    const updateUsername = async (newUsername: string) => {
+        try {
+            setAuthError(null);
+            const { data } = await api.post('/user/username', { username: newUsername });
+            const { token: newToken, user: newUser } = data;
+            
+            // Update local state and storage
+            localStorage.setItem('authToken', newToken);
+            localStorage.setItem('user', JSON.stringify(newUser));
+            api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+            setToken(newToken);
+            setUser(newUser);
+            
+            toast.success("Username updated successfully!");
+            
+            // Reconnect with new token to ensure server-side socket has updated user info
+            if (socketService.socket.connected) {
+                socketService.disconnect();
+                socketService.connect(newToken);
+            }
+    
+        } catch (err: any) {
+            const message = err.response?.data?.message || 'Username update failed.';
+            autoClearError(setAuthError, message);
+            toast.error(message);
+            // Throw to signal failure to the caller component
+            throw new Error(message);
+        }
     };
 
     const joinRoom = (roomCode?: string) => {
         if (!isAuthenticated || !token) {
-            autoClearError(setError, 'You must be logged in to join a room.');
+            const message = 'You must be logged in to join a room.';
+            autoClearError(setError, message);
+            toast.error(message);
             return
         };
         socketService.emit('joinRoom', { roomCode });
     };
+
+    const leaveRoom = useCallback(() => {
+        socketService.emit('leaveRoom');
+        setGameState(initialGameState); // Reset state immediately on client
+    }, []);
     
     const sendMessage = (messageText: string) => socketService.emit('sendMessage', messageText);
-    const restartGame = () => socketService.emit('restartGame');
-    const startGame = (data: { selectedRoles: Role[] }) => socketService.emit('startGame', data);
+    const startGame = (data: { selectedRoles: Role[] }) => {
+        setHasViewedRole(false);
+        socketService.emit('startGame', data);
+    }
     const selectTeam = (teamPlayerIds: string[]) => socketService.emit('selectTeam', teamPlayerIds);
+    const updatePendingTeam = (teamPlayerIds: string[]) => socketService.emit('updatePendingTeam', teamPlayerIds);
     const voteOnTeam = (vote: 'APPROVE' | 'REJECT') => socketService.emit('voteOnTeam', vote);
     const voteOnQuest = (vote: 'SUCCESS' | 'FAIL') => socketService.emit('voteOnQuest', vote);
     const assassinate = (targetId: string) => socketService.emit('assassinate', targetId);
     const playerReady = () => socketService.emit('playerReady');
+    const playerReadyForNextGame = () => socketService.emit('playerReadyForNextGame');
+    const initiateRestart = () => socketService.emit('initiateRestart');
+    const voteOnRestart = (vote: 'yes' | 'no') => socketService.emit('voteOnRestart', vote);
 
     const value = {
         gameState,
@@ -208,20 +332,31 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isAuthenticated,
         authError,
         isLoading,
-        hasUnreadMessages,
-        clearUnreadMessages,
+        hasViewedRole,
+        hasViewedEndGame,
+        settings,
+        achievementsVersion,
+        setHasViewedRole,
+        setHasViewedEndGame,
+        updateSettings,
+        updateUser,
+        updateUsername,
         login,
         register,
         logout,
         joinRoom,
+        leaveRoom,
         startGame,
         selectTeam,
+        updatePendingTeam,
         voteOnTeam,
         voteOnQuest,
         assassinate,
         sendMessage,
-        restartGame,
         playerReady,
+        playerReadyForNextGame,
+        initiateRestart,
+        voteOnRestart,
     };
 
     return (

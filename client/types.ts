@@ -23,6 +23,9 @@ export interface Player {
   isHost: boolean;
   hasVoted: boolean;
   status: "CONNECTED" | "DISCONNECTED";
+  selectedTitle?: string | null;
+  selectedBorder?: string | null;
+  selectedIcon?: string | null;
 }
 
 export enum GamePhase {
@@ -43,10 +46,11 @@ export interface Quest {
   status: "PENDING" | "ACTIVE" | "PASSED" | "FAILED";
   team: Player[];
   votes: { playerId: string; vote: "APPROVE" | "REJECT" }[];
-  results: ("SUCCESS" | "FAIL")[];
+  results: { playerId: string; vote: "SUCCESS" | "FAIL" }[];
   failsRequired: number;
   questLeader: Player | null;
   pastVotes: {
+    leader: Player | null;
     team: Player[];
     votes: { playerId: string; vote: "APPROVE" | "REJECT" }[];
   }[];
@@ -58,6 +62,7 @@ export interface Quest {
 
 export interface Message {
   senderId: string;
+  senderUserId: number;
   senderName: string;
   text: string;
 }
@@ -74,7 +79,16 @@ export interface GameState {
   endGameReason: string;
   chat: Message[];
   readyPlayers: string[];
+  endGameReadyPlayers: string[];
   reconnectingPlayer: { userId: number; name: string; endsAt: number } | null;
+  restartVote: {
+    initiatorId: string;
+    initiatorName: string;
+    votes: { [playerId: string]: 'yes' | 'no' };
+    endsAt: number;
+  } | null;
+  lastRestartInitiatedAt: number | null;
+  pendingTeam: string[] | null;
 }
 
 export interface RoleDescription {
@@ -84,10 +98,36 @@ export interface RoleDescription {
   vision: string;
 }
 
+export type CharacterName = Role;
+
+export interface CharacterInfo {
+    color: string;
+    bgColor: string;
+    alignment: Alignment;
+    description: string;
+    vision: string;
+    img: string;
+    strategy: string;
+}
+
+export interface QuestResult {
+  questNumber: number;
+  passed: boolean;
+  successVotes: number;
+  failVotes: number;
+  leader: Player;
+  questMembers: Player[];
+  votes: { player: Player; vote: 'success' | 'fail' }[];
+}
+
+
 // Auth & Stats Types
 export interface User {
   id: number;
   username: string;
+  selectedTitle?: string | null;
+  selectedBorder?: string | null;
+  selectedIcon?: string | null;
 }
 export type RegisterCredentials = {
   username: string;
@@ -104,15 +144,21 @@ export interface Match {
 }
 
 export interface MatchPlayerPerformance {
-  username: string;
+  username:string;
   role: Role;
   alignment: Alignment;
   won: boolean;
 }
 
+export interface UserAchievement {
+  achievement_id: string;
+  unlocked_at: string;
+}
+
 export interface PlayerStats {
   totalGames: number;
   totalWins: number;
+  goodGames: number;
   goodWins: number;
   evilGames: number;
   evilWins: number;
@@ -120,23 +166,59 @@ export interface PlayerStats {
   goodWinRate: number;
   evilWinRate: number;
   recentMatches: Match[];
+  achievements: UserAchievement[];
+}
+
+export interface AchievementReward {
+    type: 'TITLE' | 'BORDER' | 'ICON';
+    value: string;
+    name: string;
+}
+
+export interface Achievement {
+    id: string;
+    name: string;
+    description: string;
+    icon: string;
+    rewards: AchievementReward[];
+    unlocked: boolean;
+    unlocked_at?: string;
+}
+
+export interface LeaderboardEntry {
+    username: string;
+    value: number | string;
+}
+
+export interface LeaderboardData {
+    totalWins: LeaderboardEntry[];
+    winRate: LeaderboardEntry[];
+    topAssassins: LeaderboardEntry[];
+    winStreaks: LeaderboardEntry[];
+    bestGood: LeaderboardEntry[];
+    bestEvil: LeaderboardEntry[];
 }
 
 // Socket Event Types
 export interface ClientToServerEvents {
   joinRoom: (data: { roomCode?: string }) => void; // Auth token is handled by middleware
+  leaveRoom: () => void;
   startGame: (data: { selectedRoles: Role[] }) => void;
-  restartGame: () => void;
   selectTeam: (teamPlayerIds: string[]) => void;
+  updatePendingTeam: (teamPlayerIds: string[]) => void;
   voteOnTeam: (vote: "APPROVE" | "REJECT") => void;
   voteOnQuest: (vote: "SUCCESS" | "FAIL") => void;
   assassinate: (targetId: string) => void;
   sendMessage: (messageText: string) => void;
   playerReady: () => void;
+  playerReadyForNextGame: () => void;
+  initiateRestart: () => void;
+  voteOnRestart: (vote: 'yes' | 'no') => void;
 }
 
 export interface ServerToClientEvents {
   updateGameState: (gameState: GameState) => void;
   chatMessage: (message: Message) => void;
   error: (message: string) => void;
+  achievementUnlocked: (achievement: Achievement) => void;
 }

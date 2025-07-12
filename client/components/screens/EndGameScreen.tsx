@@ -1,81 +1,240 @@
-import React from "react";
+
+
+import React, { useEffect, useState, useRef } from "react";
 import { useGame } from "@/components/context/GameContext";
-import { Alignment, Player } from "@/types";
+import { useAudio } from "@/components/context/AudiContext";
+import { Alignment, Player, Quest } from "@/types";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import PlayerStatusList from "../ui/PlayerStatusList";
+import GameEndOverlay from "../ui/GameEndOverlay";
+import { Check, X, Vote, CheckCircle, XCircle } from "lucide-react";
 
-const RoleCard: React.FC<{ player: Player }> = ({ player }) => {
-  const isGood = player.alignment === Alignment.GOOD;
-  const isDisconnected = player.status === "DISCONNECTED";
+// --- Sub-components for After-Action Report ---
+
+const TimelineItem: React.FC<{ children: React.ReactNode; isLast?: boolean }> = ({ children, isLast }) => (
+  <div className="relative pl-8 sm:pl-12 pb-8">
+    {!isLast && <div className="absolute top-5 -left-1 sm:left-[-1px] w-0.5 h-full bg-slate-700"></div>}
+    <div className="absolute top-4 -left-1 sm:left-[-3px] w-5 h-5 bg-slate-800 rounded-full flex items-center justify-center ring-4 ring-slate-900">
+        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+    </div>
+    {children}
+  </div>
+);
+
+const VoteResultItem: React.FC<{ 
+    label: string, 
+    names: string[],
+    icon: React.ReactNode,
+    textColor: string
+}> = ({ label, names, icon, textColor }) => (
+    <div>
+        <h5 className={`font-bold ${textColor} mb-2 flex items-center gap-2 text-sm`}>
+            {icon}
+            {label} ({names.length})
+        </h5>
+        <ul className="list-none pl-1 space-y-1 text-slate-300 text-xs">
+            {names.map((name) => (
+              <li key={name}>{name}</li>
+            ))}
+            {names.length === 0 && (
+              <li className="italic text-slate-500">None</li>
+            )}
+        </ul>
+    </div>
+);
+
+const TeamVoteDetails: React.FC<{ vote: Quest['pastVotes'][0]; players: Player[]; isApproved: boolean; leader: Player | null }> = ({ vote, players, isApproved, leader }) => {
+  const playersById = new Map(players.map(p => [p.id, p]));
+  const approvals = vote.votes.filter(v => v.vote === 'APPROVE').map(v => playersById.get(v.playerId)?.name).filter(Boolean);
+  const rejections = vote.votes.filter(v => v.vote === 'REJECT').map(v => playersById.get(v.playerId)?.name).filter(Boolean);
+  const voteCount = `(${approvals.length}-${rejections.length})`;
+
   return (
-    <div
-      className={`p-4 rounded-lg border-2 transition-all duration-300 relative ${
-        isGood
-          ? "bg-blue-900/50 border-blue-700"
-          : "bg-red-900/50 border-red-700"
-      } ${isDisconnected ? "grayscale opacity-60" : ""}`}
-    >
-      <p className="font-bold text-lg text-white truncate">{player.name}</p>
-      <p
-        className={`text-sm font-eaglelake ${
-          isGood ? "text-blue-300" : "text-red-300"
-        }`}
-      >
-        {player.role || "???"}
+    <div className={`p-4 rounded-lg border-l-4 ${isApproved ? 'border-blue-600 bg-slate-800/40' : 'border-red-600 bg-slate-800/40'} mt-2`}>
+      <p className="font-bold text-sm mb-3 pb-2 border-b border-slate-700">
+        Team Vote {isApproved ? <span className="text-blue-400">Approved {voteCount}</span> : <span className="text-red-400">Rejected {voteCount}</span>}
       </p>
-      {isDisconnected && (
-        <div className="absolute top-1 right-1 text-xs bg-slate-600 px-2 py-0.5 rounded-full">
-          DC
-        </div>
-      )}
+      <div className="mb-3">
+          {leader && <p className="text-xs text-slate-400 mb-1">Proposed by: <span className="font-bold text-white">{leader.name}</span></p>}
+          <p className="text-xs text-slate-400">Team: <span className="font-bold text-white">{vote.team.map(p => p.name).join(', ')}</span></p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 sm:gap-x-6">
+        <VoteResultItem label="Approved By" names={approvals} icon={<Check size={16}/>} textColor="text-blue-400" />
+        <VoteResultItem label="Rejected By" names={rejections} icon={<X size={16}/>} textColor="text-red-400" />
+      </div>
     </div>
   );
 };
 
-const EndGameScreen: React.FC = () => {
-  const { gameState, playerId, restartGame } = useGame();
-  const { winner, endGameReason, players } = gameState;
+const QuestMissionDetails: React.FC<{ quest: Quest; players: Player[] }> = ({ quest, players }) => {
+  if (quest.status !== 'PASSED' && quest.status !== 'FAILED') return null;
+  const playersById = new Map(players.map(p => [p.id, p]));
+  const successVoters = quest.results.filter(r => r.vote === 'SUCCESS').map(r => playersById.get(r.playerId)!).filter(Boolean);
+  const failVoters = quest.results.filter(r => r.vote === 'FAIL').map(r => playersById.get(r.playerId)!).filter(Boolean);
 
-  const currentPlayer = players.find((p) => p.id === playerId);
+  return (
+    <div className="p-4 rounded-lg border-l-4 border-yellow-600 bg-slate-800/40 mt-4">
+      <h4 className="font-bold text-yellow-500 text-base mb-3 pb-2 border-b border-slate-700 flex items-center gap-2">
+          <Vote size={18} />
+          Mission Details
+      </h4>
+      <div className="grid grid-cols-2 gap-x-4 sm:gap-x-6">
+        <VoteResultItem label="Voted Success" names={successVoters.map(p => p.name)} icon={<CheckCircle size={16}/>} textColor="text-blue-400" />
+        <VoteResultItem label="Voted Fail" names={failVoters.map(p => p.name)} icon={<XCircle size={16}/>} textColor="text-red-400" />
+      </div>
+    </div>
+  );
+};
+
+
+// --- Main Components ---
+
+const FinalRolesDisplay: React.FC<{ players: Player[] }> = ({ players }) => {
+  return (
+    <div className="animate-fade-in-up">
+      <h3 className="font-eaglelake text-xl md:text-2xl text-yellow-500 mb-4 border-b-2 border-slate-700 pb-2">
+        Final Roles
+      </h3>
+      <div className="space-y-2">
+        {players.map((player) => {
+          if (!player.role) return null;
+          const isGood = player.alignment === Alignment.GOOD;
+          const bgColor = isGood ? "bg-blue-900/30" : "bg-red-900/30";
+          const borderColor = isGood
+            ? "border-blue-600/50"
+            : "border-red-600/50";
+          const textColor = isGood ? "text-blue-300" : "text-red-300";
+
+          return (
+            <div
+              key={player.id}
+              className={`relative flex justify-between items-center px-4 py-3 rounded-xl ${bgColor} text-white backdrop-blur-sm shadow-md border-2 ${borderColor} ${
+                player.status === "DISCONNECTED" ? "grayscale opacity-60" : ""
+              }`}
+            >
+              <span className="font-medium tracking-wide">{player.name}</span>
+              <span className={`text-sm italic ${textColor}`}>
+                {player.role}
+              </span>
+              {player.status === "DISCONNECTED" && (
+                <div className="absolute top-1 right-1 text-xs bg-slate-600 px-2 py-0.5 rounded-full">
+                  DC
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const ReadyForNextGame: React.FC<{
+    players: Player[];
+    readyPlayers: string[];
+    currentPlayerId: string | null;
+    onReady: () => void;
+}> = ({ players, readyPlayers, currentPlayerId, onReady}) => {
+    const isReady = currentPlayerId && readyPlayers.includes(currentPlayerId);
+    
+    return (
+        <div className="mt-8">
+            <div className="mb-4">
+               <PlayerStatusList
+                    title="Next Game Status"
+                    players={players}
+                    readyPlayerIds={readyPlayers}
+                />
+            </div>
+             <Button onClick={onReady} disabled={isReady} className="w-full">
+                {isReady ? "Waiting for other players..." : "Play Again"}
+            </Button>
+        </div>
+    )
+}
+
+
+const EndGameScreen: React.FC = () => {
+  const { gameState, playerId, playerReadyForNextGame, hasViewedEndGame, setHasViewedEndGame } = useGame();
+  const { playSound, stopBackgroundMusic, playLobbyMusic } = useAudio();
+  const { winner, endGameReason, players, questHistory, endGameReadyPlayers } = gameState;
+
+  useEffect(() => {
+    if (winner && !hasViewedEndGame) {
+      const endSound = winner === Alignment.GOOD ? 'victory' : 'defeat';
+      
+      const playEndGameSequence = async () => {
+        stopBackgroundMusic();
+        await playSound(endSound, { manageBgm: false });
+        playLobbyMusic();
+      };
+
+      playEndGameSequence();
+    }
+  }, [winner, hasViewedEndGame, playSound, stopBackgroundMusic, playLobbyMusic]);
+
 
   const handlePlayAgain = () => {
-    if (currentPlayer?.isHost) {
-      restartGame();
-    }
+    playerReadyForNextGame();
   };
+  
+  if (winner && !hasViewedEndGame) {
+    return (
+        <GameEndOverlay 
+            show={true}
+            winner={winner}
+            onClose={() => setHasViewedEndGame(true)}
+        />
+    )
+  }
+  
+  const gameReport = (
+    <>
+      <div className="my-8">
+          <h2 className="font-eaglelake text-3xl text-yellow-500 mb-6 border-b-2 border-slate-700 pb-3 text-center">After-Action Report</h2>
+          <div className="text-left">
+              {questHistory.filter(q => q.status === "PASSED" || q.status === "FAILED").map((quest, index, arr) => (
+                  <TimelineItem key={quest.questNumber} isLast={index === arr.length - 1}>
+                      <h3 className="font-eaglelake text-xl sm:text-2xl mb-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                          Quest {quest.questNumber}
+                          <span className={`text-sm px-3 py-1 rounded-full font-bold tracking-wider ${quest.status === 'PASSED' ? 'bg-blue-600/40 text-blue-300' : 'bg-red-600/40 text-red-300'}`}>{quest.status}</span>
+                      </h3>
+                      <p className="text-slate-400 mb-4 ml-1">Team of {quest.teamSize} | {quest.failsRequired} Fail vote{quest.failsRequired > 1 ? 's' : ''} needed</p>
+
+                      <div className="space-y-4">
+                          {quest.pastVotes.map((vote, vIndex) => (
+                              <TeamVoteDetails key={`past-${vIndex}`} vote={vote} players={players} isApproved={false} leader={vote.leader} />
+                          ))}
+                          {quest.approvedVote && (
+                              <TeamVoteDetails vote={quest.approvedVote} players={players} isApproved={true} leader={quest.questLeader} />
+                          )}
+                      </div>
+                      
+                      {quest.approvedVote && <QuestMissionDetails quest={quest} players={players} />}
+                  </TimelineItem>
+              ))}
+          </div>
+      </div>
+      <div className="my-8">
+          <FinalRolesDisplay players={players} />
+      </div>
+      <ReadyForNextGame players={players} readyPlayers={endGameReadyPlayers} currentPlayerId={playerId} onReady={handlePlayAgain} />
+    </>
+  );
 
   if (!winner) {
-    // Handle aborted game
     return (
       <div className="animate-fadeIn text-center">
         <Card className="max-w-4xl mx-auto">
-          <h1
-            className={`font-eaglelake text-4xl md:text-6xl font-bold text-slate-400`}
-          >
+          <h1 className="font-eaglelake text-4xl md:text-6xl font-bold text-slate-400">
             Game Over
           </h1>
           <p className="text-slate-300 mt-2 text-base md:text-lg">
             {endGameReason}
           </p>
-          <div className="my-8">
-            <h2 className="font-eaglelake text-2xl md:text-3xl text-yellow-500 mb-4 border-b-2 border-slate-700 pb-2">
-              Final Status
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-4">
-              {players.map((p) => (
-                <RoleCard key={p.userId} player={p} />
-              ))}
-            </div>
-          </div>
-          <div className="mt-8">
-            {currentPlayer?.isHost ? (
-              <Button onClick={handlePlayAgain}>Return to Lobby</Button>
-            ) : (
-              <p className="text-slate-400 mt-8 font-eaglelake text-lg">
-                Waiting for host...
-              </p>
-            )}
-          </div>
+          {gameReport}
         </Card>
       </div>
     );
@@ -98,26 +257,9 @@ const EndGameScreen: React.FC = () => {
         <p className="text-slate-300 mt-2 text-base md:text-lg font-eaglelake">
           {endGameReason}
         </p>
+        
+        {gameReport}
 
-        <div className="my-8">
-          <h2 className="font-eaglelake text-2xl md:text-3xl text-yellow-500 mb-4 border-b-2 border-slate-700 pb-2">
-            Final Roles
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-4">
-            {players.map((p) => (
-              <RoleCard key={p.userId} player={p} />
-            ))}
-          </div>
-        </div>
-        <div className="mt-8">
-          {currentPlayer?.isHost ? (
-            <Button onClick={handlePlayAgain}>Play Again</Button>
-          ) : (
-            <p className="text-slate-400 mt-8 font-eaglelake text-lg">
-              Waiting for host to start a new game...
-            </p>
-          )}
-        </div>
       </Card>
     </div>
   );
