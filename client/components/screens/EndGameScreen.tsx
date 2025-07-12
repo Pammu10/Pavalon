@@ -46,8 +46,8 @@ const VoteResultItem: React.FC<{
 
 const TeamVoteDetails: React.FC<{ vote: Quest['pastVotes'][0]; players: Player[]; isApproved: boolean; leader: Player | null }> = ({ vote, players, isApproved, leader }) => {
   const playersById = new Map(players.map(p => [p.id, p]));
-  const approvals = vote.votes.filter(v => v.vote === 'APPROVE').map(v => playersById.get(v.playerId)?.name).filter(Boolean);
-  const rejections = vote.votes.filter(v => v.vote === 'REJECT').map(v => playersById.get(v.playerId)?.name).filter(Boolean);
+  const approvals = vote.votes.filter(v => v.vote === 'APPROVE').map(v => playersById.get(v.playerId)?.name).filter((name): name is string => typeof name === "string");
+  const rejections = vote.votes.filter(v => v.vote === 'REJECT').map(v => playersById.get(v.playerId)?.name).filter((name): name is string => typeof name === "string");
   const voteCount = `(${approvals.length}-${rejections.length})`;
 
   return (
@@ -137,7 +137,7 @@ const ReadyForNextGame: React.FC<{
     currentPlayerId: string | null;
     onReady: () => void;
 }> = ({ players, readyPlayers, currentPlayerId, onReady}) => {
-    const isReady = currentPlayerId && readyPlayers.includes(currentPlayerId);
+    const isReady = !!currentPlayerId && readyPlayers.includes(currentPlayerId);
     
     return (
         <div className="mt-8">
@@ -207,7 +207,9 @@ const EndGameScreen: React.FC = () => {
                           {quest.pastVotes.map((vote, vIndex) => (
                               <TeamVoteDetails key={`past-${vIndex}`} vote={vote} players={players} isApproved={false} leader={vote.leader} />
                           ))}
+                          
                           {quest.approvedVote && (
+                            // @ts-expect-error adding leader manually
                               <TeamVoteDetails vote={quest.approvedVote} players={players} isApproved={true} leader={quest.questLeader} />
                           )}
                       </div>

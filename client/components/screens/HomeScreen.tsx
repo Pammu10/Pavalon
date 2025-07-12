@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { Crown, Sword, Shield, Castle, Scroll, Gem } from "lucide-react"
-import { useHapticFeedback } from "@/hooks/useHapticFeedback"
+// import { useHapticFeedback } from "@/hooks/useHapticFeedback"
 import { StorybookScene } from "@/components/ui/StorybookScene"
 import { AvalonLoadingOverlay } from "@/components/ui/LoadingOverlay";
 // import { App as CapacitorApp } from "@capacitor/app";
 // import { PluginListenerHandle } from "@capacitor/core"
 // import { Dialog } from "@capacitor/dialog"
 // import { storageManager } from "@/lib/storage"
-
+// @ts-ignore
 export default function HomeScreen({onEnter}) {
   const [mounted, setMounted] = useState(false)
   const [showStory, setShowStory] = useState(false);
