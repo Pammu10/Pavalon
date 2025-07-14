@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useGame } from '@/components/context/GameContext';
 import { ROLES } from '@/constants';
@@ -37,7 +38,7 @@ const PlayerInfoBar: React.FC = () => {
     const visiblePlayers = getVisiblePlayers();
 
     return (
-        <div className="bg-slate-900/80 backdrop-blur-md text-white px-2 sm:px-4 py-1.5 border-b border-slate-700/50 shadow-md">
+        <div id="player-info-bar" className="bg-slate-900/80 backdrop-blur-md text-white px-2 sm:px-4 py-1.5 border-b border-slate-700/50 shadow-md">
             <div className="w-full max-w-7xl mx-auto flex flex-wrap justify-center sm:justify-between items-center gap-x-4 gap-y-1">
                 
                 {/* Player Name & Role */}

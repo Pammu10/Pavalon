@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { useAudio } from "@/components/context/AudiContext";
@@ -103,6 +104,7 @@ const RoleRevealScreen: React.FC = () => {
     <AnimatePresence>
       <motion.div
         key="role-reveal-content"
+        id="role-reveal-card"
         initial="hidden"
         animate="visible"
         className="flex flex-col items-center justify-start p-2 sm:p-4"
@@ -180,7 +182,7 @@ const RoleRevealScreen: React.FC = () => {
           </motion.div>
 
           {visiblePlayers.length > 0 && (
-            <motion.div {...animProps(2.5)} className="bg-gradient-to-br from-black/40 to-black/60 rounded-xl p-4 sm:p-6 mb-6 border border-amber-600/30 text-left">
+            <motion.div id="role-vision" {...animProps(2.5)} className="bg-gradient-to-br from-black/40 to-black/60 rounded-xl p-4 sm:p-6 mb-6 border border-amber-600/30 text-left">
               <h4 className="font-bold mb-3 text-amber-300 flex items-center font-eaglelake">
                 <Eye className="w-5 h-5 mr-2 flex-shrink-0" />
                 Your Vision

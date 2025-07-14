@@ -67,6 +67,13 @@ export interface Message {
     text: string;
 }
 
+export interface LogEntry {
+    id: string;
+    timestamp: number;
+    text: string;
+    type: 'leader' | 'team' | 'vote' | 'quest' | 'system' | 'assassination';
+}
+
 export interface GameState {
     roomCode: string | null;
     players: Player[];
@@ -78,6 +85,7 @@ export interface GameState {
     winner: Alignment | null;
     endGameReason: string;
     chat: Message[];
+    gameLog: LogEntry[];
     readyPlayers: string[];
     endGameReadyPlayers: string[];
     reconnectingPlayer: { userId: number; name: string; endsAt: number } | null;

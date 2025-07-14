@@ -1,4 +1,5 @@
 
+
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { CheckCircle, XCircle, Swords, HelpCircle } from "lucide-react";
 
@@ -20,7 +21,7 @@ const QuestProgressWithPopover: React.FC<QuestProgressProps> = ({
   const isGameOver = goodWins >= 3 || evilWins >= 3;
 
   return (
-    <div className="bg-gradient-to-br from-slate-800/40 to-black/40 border border-slate-600/30 shadow-slate-700/20 shadow-inner rounded-2xl p-4 sm:p-6 mb-6 backdrop-blur-sm">
+    <div id="quest-progress-bar" className="bg-gradient-to-br from-slate-800/40 to-black/40 border border-slate-600/30 shadow-slate-700/20 shadow-inner rounded-2xl p-4 sm:p-6 mb-6 backdrop-blur-sm">
       <h3 className="text-white text-lg sm:text-xl font-bold mt-4 flex items-center justify-center gap-2">
         <Swords className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400" />
         Quest Progress {isGameOver ? '' : `${currentQuest} of 5`}

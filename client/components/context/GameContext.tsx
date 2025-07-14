@@ -9,6 +9,7 @@ import { useAudio } from './AudiContext';
 
 interface Settings {
     skipIntro: boolean;
+    showTutorial: boolean;
 }
 
 interface GameContextType {
@@ -59,6 +60,7 @@ const initialGameState: GameState = {
     winner: null,
     endGameReason: '',
     chat: [],
+    gameLog: [],
     readyPlayers: [],
     endGameReadyPlayers: [],
     reconnectingPlayer: null,
@@ -69,6 +71,7 @@ const initialGameState: GameState = {
 
 const initialSettings: Settings = {
     skipIntro: false,
+    showTutorial: true,
 };
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -103,7 +106,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         try {
             const storedSettings = localStorage.getItem('pavalonSettings');
             if (storedSettings) {
-                setSettings(JSON.parse(storedSettings));
+                const parsedSettings = JSON.parse(storedSettings);
+                // Ensure all keys from initialSettings are present
+                setSettings({ ...initialSettings, ...parsedSettings });
             }
         } catch (e) {
             console.error("Failed to parse settings from localStorage", e);

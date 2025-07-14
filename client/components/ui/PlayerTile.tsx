@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Player } from '@/types';
-import { Crown, Ghost, Shield, Swords } from 'lucide-react';
+import { Crown, Gem, Ghost, Shield, Swords } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROLES } from '@/constants';
 import { ICON_MAP } from './AvailableIcons';
@@ -27,7 +27,7 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
   
   const IconComponent = player.selectedIcon && ICON_MAP[player.selectedIcon] 
     ? ICON_MAP[player.selectedIcon] 
-    : Shield; // Default to Shield
+    : Gem;
 
   return (
     <div
@@ -79,12 +79,13 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
 
       {/* Selection Indicator */}
       {isSelected && (
-          <div className="absolute inset-0 rounded-xl pointer-events-none">
-              <div className="absolute inset-0 rounded-xl bg-yellow-500/30"></div>
-              <div className="absolute top-1.5 right-1.5 w-7 h-7 bg-yellow-500 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg">
-                  <Swords size={16} className="text-white" />
-              </div>
-          </div>
+          <>
+            {/* This overlay uses a ring to create a border effect that doesn't cover the custom animated borders. */}
+            <div className="absolute inset-0 rounded-xl pointer-events-none ring-4 ring-yellow-500/80"></div>
+            <div className="absolute top-1.5 right-1.5 w-7 h-7 bg-yellow-500 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg">
+                <Swords size={16} className="text-white" />
+            </div>
+          </>
       )}
     </div>
   );

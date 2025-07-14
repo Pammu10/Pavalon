@@ -1,6 +1,6 @@
 
 
-import express, { Request, Response } from "express";
+import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
 import cors from "cors";
@@ -21,7 +21,8 @@ import {
   LeaderboardEntry,
   UserAchievement,
   PlayerStats,
-  Achievement as ClientAchievement
+  Achievement as ClientAchievement,
+  LogEntry
 } from "./types";
 import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES } from "./constants";
 import db from "./db";
@@ -45,7 +46,7 @@ const RESTART_COOLDOWN = 120000; // 2 minutes
 const RESTART_VOTE_DURATION = 30000; // 30 seconds
 
 // --- API ROUTES ---
-app.post("/api/register", async (req: Request, res: Response) => {
+app.post("/api/register", async (req: express.Request, res: express.Response) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res
@@ -69,7 +70,7 @@ app.post("/api/register", async (req: Request, res: Response) => {
   }
 });
 
-app.post("/api/login", async (req: Request, res: Response) => {
+app.post("/api/login", async (req: express.Request, res: express.Response) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res
@@ -112,7 +113,7 @@ app.post("/api/login", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/stats", authMiddleware, async (req: Request, res: Response) => {
+app.get("/api/stats", authMiddleware, async (req: express.Request, res: express.Response) => {
   const userId = (req as any).user.id;
   try {
     const stats = await gameService.getPlayerStats(userId);
@@ -122,7 +123,7 @@ app.get("/api/stats", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/leaderboard", authMiddleware, async (req: Request, res: Response) => {
+app.get("/api/leaderboard", authMiddleware, async (req: express.Request, res: express.Response) => {
   try {
     const leaderboardData = await gameService.getLeaderboard();
     res.json(leaderboardData);
@@ -132,7 +133,7 @@ app.get("/api/leaderboard", authMiddleware, async (req: Request, res: Response) 
   }
 });
 
-app.get("/api/match/:id", authMiddleware, async (req: Request, res: Response) => {
+app.get("/api/match/:id", authMiddleware, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;
   try {
     const performances = await db.all<MatchPlayerPerformance[]>(
@@ -149,7 +150,7 @@ app.get("/api/match/:id", authMiddleware, async (req: Request, res: Response) =>
   }
 });
 
-app.get("/api/achievements", authMiddleware, async (req: Request, res: Response) => {
+app.get("/api/achievements", authMiddleware, async (req: express.Request, res: express.Response) => {
     const userId = (req as any).user.id;
     try {
         const userAchievements = await db.all<UserAchievement[]>(
@@ -173,7 +174,7 @@ app.get("/api/achievements", authMiddleware, async (req: Request, res: Response)
     }
 });
 
-app.post("/api/user/customize", authMiddleware, async (req: Request, res: Response) => {
+app.post("/api/user/customize", authMiddleware, async (req: express.Request, res: express.Response) => {
     const userId = (req as any).user.id;
     const { title, border, icon } = req.body;
     try {
@@ -191,7 +192,7 @@ app.post("/api/user/customize", authMiddleware, async (req: Request, res: Respon
     }
 });
 
-app.post("/api/user/username", authMiddleware, async (req: Request, res: Response) => {
+app.post("/api/user/username", authMiddleware, async (req: express.Request, res: express.Response) => {
     const userId = (req as any).user.id;
     const oldUsername = (req as any).user.username;
     const { username } = req.body;
@@ -297,6 +298,19 @@ class GameService {
     this.io = io;
   }
 
+  private addLog(gameState: GameState, text: string, type: LogEntry['type']) {
+      const entry: LogEntry = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: Date.now(),
+          text,
+          type,
+      };
+      gameState.gameLog.push(entry);
+      if (gameState.gameLog.length > 150) {
+          gameState.gameLog.shift();
+      }
+  }
+
   private createInitialGameState(roomCode: string): GameState {
     return {
       roomCode,
@@ -309,6 +323,7 @@ class GameService {
       winner: null,
       endGameReason: "",
       chat: [],
+      gameLog: [],
       readyPlayers: [],
       endGameReadyPlayers: [],
       reconnectingPlayer: null,
@@ -430,6 +445,7 @@ class GameService {
             clearTimeout(timer);
             this.reconnectionTimers.delete(roomCode);
         }
+        this.addLog(gameState, `${player.name} has reconnected.`, 'system');
         gameState.reconnectingPlayer = null;
     }
 
@@ -509,6 +525,8 @@ class GameService {
     gameState.leader =
       gameState.players[Math.floor(Math.random() * playerCount)];
 
+    this.addLog(gameState, `The game has begun with ${playerCount} players.`, 'system');
+    this.addLog(gameState, `${gameState.leader.name} is the first Quest Leader.`, 'leader');
     this.io.to(roomCode).emit("updateGameState", gameState);
   }
 
@@ -641,6 +659,8 @@ class GameService {
     const roomCode = gameState.roomCode;
     if (!roomCode) return;
 
+    this.addLog(gameState, `Game Over: ${reason}`, 'system');
+
     const timer = this.reconnectionTimers.get(roomCode);
     if (timer) {
       clearTimeout(timer);
@@ -714,6 +734,7 @@ class GameService {
     }
 
     if (gameState.readyPlayers.length === gameState.players.length) {
+      this.addLog(gameState, `All players are ready. Starting Quest ${gameState.currentQuest}.`, 'system');
       gameState.phase = GamePhase.TEAM_SELECTION;
       gameState.readyPlayers = [];
     }
@@ -727,6 +748,7 @@ class GameService {
 
     // Preserve chat and players
     const preservedChat = gameState.chat;
+    const preservedLog = gameState.gameLog;
     const originalPlayerInfos = await Promise.all(gameState.players.map(async (p) => {
         const customizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string }>(
             "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = ?", [p.userId]
@@ -750,6 +772,7 @@ class GameService {
     const newGameState = this.createInitialGameState(roomCode);
     newGameState.players = originalPlayerInfos;
     newGameState.chat = preservedChat;
+    newGameState.gameLog = preservedLog;
     newGameState.pendingTeam = null;
 
     // Re-assign host if the original host disconnected
@@ -796,6 +819,7 @@ class GameService {
       gameState.players = gameState.players.filter(p => p.userId !== userId);
       
       this.io.to(roomCode).emit("chatMessage", { senderId: 'system', senderUserId: 0, senderName: 'System', text: `${name} left the lobby.`});
+      this.addLog(gameState, `${name} left the lobby.`, 'system');
 
       if (gameState.players.length === 0) {
           this.games.delete(roomCode);
@@ -833,6 +857,8 @@ class GameService {
     if (!disconnectedPlayer) return;
 
     disconnectedPlayer.status = "DISCONNECTED";
+    this.addLog(gameState, `${disconnectedPlayer.name} has disconnected.`, 'system');
+
 
      if (gameState.phase === GamePhase.END_GAME) {
        gameState.endGameReadyPlayers = gameState.endGameReadyPlayers.filter(id => id !== playerId);
@@ -962,6 +988,7 @@ class GameService {
     gameState.players.forEach((p) => (p.hasVoted = false));
     gameState.pendingTeam = null;
 
+    this.addLog(gameState, `${gameState.leader!.name} has proposed a team: ${currentQuest.team.map(p => p.name).join(', ')}.`, 'team');
     this.io.to(roomCode).emit("updateGameState", gameState);
   }
 
@@ -998,8 +1025,10 @@ class GameService {
     const approvals = currentQuest.votes.filter(
       (v) => v.vote === "APPROVE"
     ).length;
+    const rejections = connectedPlayers.length - approvals;
 
     if (approvals > connectedPlayers.length / 2) {
+      this.addLog(gameState, `Team Approved. Votes: ${approvals} Approve, ${rejections} Reject.`, 'vote');
       gameState.phase = GamePhase.QUEST_VOTE;
       gameState.voteTrack = 0;
       currentQuest.questLeader = gameState.leader;
@@ -1009,6 +1038,7 @@ class GameService {
       };
     } else {
       gameState.voteTrack++;
+      this.addLog(gameState, `Team Rejected. Votes: ${approvals} Approve, ${rejections} Reject. Vote Track is now ${gameState.voteTrack}/5.`, 'vote');
       currentQuest.pastVotes.push({
         leader: gameState.leader,
         team: currentQuest.team,
@@ -1024,6 +1054,7 @@ class GameService {
         return;
       }
       this.advanceLeader(gameState);
+      this.addLog(gameState, `${gameState.leader!.name} is the new Quest Leader.`, 'leader');
       gameState.phase = GamePhase.TEAM_SELECTION;
       gameState.pendingTeam = null;
     }
@@ -1074,8 +1105,10 @@ class GameService {
 
     if (failVotes >= currentQuest.failsRequired) {
       currentQuest.status = "FAILED";
+      this.addLog(gameState, `Quest ${gameState.currentQuest} has Failed with ${failVotes} fail vote(s).`, 'quest');
     } else {
       currentQuest.status = "PASSED";
+      this.addLog(gameState, `Quest ${gameState.currentQuest} has Succeeded.`, 'quest');
     }
 
     gameState.phase = GamePhase.QUEST_RESULT;
@@ -1102,6 +1135,7 @@ class GameService {
     }
 
     if (passedQuests >= 3) {
+      this.addLog(gameState, 'Three quests have passed! The Assassin prepares to strike...', 'assassination');
       gameState.phase = GamePhase.ASSASSINATION;
       this.io.to(gameState.roomCode).emit("updateGameState", gameState);
       return;
@@ -1110,6 +1144,7 @@ class GameService {
     gameState.currentQuest++;
     gameState.questHistory[gameState.currentQuest - 1].status = "ACTIVE";
     this.advanceLeader(gameState);
+    this.addLog(gameState, `Starting Quest ${gameState.currentQuest}. ${gameState.leader!.name} is the Quest Leader.`, 'leader');
     gameState.phase = GamePhase.TEAM_SELECTION;
     gameState.players.forEach((p) => (p.hasVoted = false));
     this.io.to(gameState.roomCode).emit("updateGameState", gameState);
@@ -1125,6 +1160,7 @@ class GameService {
     if (!assassin || assassin.role !== Role.ASSASSIN || gameState.phase !== GamePhase.ASSASSINATION) return;
 
     const target = this.getPlayer(gameState, targetId);
+    this.addLog(gameState, `The Assassin has targeted ${target!.name}.`, 'assassination');
     if (target?.role === Role.MERLIN) {
       await db.run("UPDATE users SET assassin_kills = assassin_kills + 1 WHERE id = ?", [assassin.userId]);
       this.endGame(gameState, Alignment.EVIL, `The Assassin has slain Merlin! Evil wins!`);
@@ -1198,6 +1234,7 @@ class GameService {
       endsAt: now + RESTART_VOTE_DURATION
     };
 
+    this.addLog(gameState, `${player.name} has initiated a vote to restart the game.`, 'system');
     const timer = setTimeout(() => this.processRestartVote(gameState), RESTART_VOTE_DURATION);
     this.restartVoteTimers.set(roomCode, timer);
 
@@ -1234,9 +1271,11 @@ class GameService {
     const yesVotes = Object.values(votes).filter(v => v === 'yes').length;
 
     if (yesVotes > connectedPlayersCount / 2) {
+      this.addLog(gameState, 'Restart vote passed. The game will return to the lobby.', 'system');
       this.io.to(roomCode).emit("chatMessage", { senderId: 'system', senderUserId: 0, senderName: 'System', text: 'Vote passed! The game will now restart.' });
       this.restartGameByRoomCode(roomCode);
     } else {
+      this.addLog(gameState, 'Restart vote failed. The game will continue.', 'system');
       this.io.to(roomCode).emit("chatMessage", { senderId: 'system', senderUserId: 0, senderName: 'System', text: 'Vote failed. The game will continue.' });
       gameState.restartVote = null;
       this.io.to(roomCode).emit("updateGameState", gameState);

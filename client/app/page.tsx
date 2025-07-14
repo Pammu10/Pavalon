@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -16,14 +17,15 @@ import { Chat } from "@/components/ui/Chat";
 import PlayerInfoBar from "@/components/ui/PlayerInfoBar";
 import { GamePhase } from "@/types";
 import Spinner from "@/components/ui/Spinner";
-import { Swords, MessageSquare, Settings, Trophy, Star, ChevronUp, X } from "lucide-react";
+import { Swords, MessageSquare, Settings, Trophy, Star, ScrollText } from "lucide-react";
 import HomeScreen from "@/components/screens/HomeScreen";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementsTab from "../components/ui/AchievementsTab";
 import { Toaster } from "@/components/ui/sonner";
+import GameLog from "@/components/ui/GameLog";
 
-type Tab = "game" | "chat" | "leaderboard" | "achievements" | "settings";
+type Tab = "game" | "chat" | "leaderboard" | "achievements" | "settings" | "gamelog";
 
 const TABS_CONFIG: { id: Tab; label: string; icon: React.ReactNode; desktop: boolean; mobile: boolean; }[] = [
   { id: 'game', label: 'Game', icon: <Swords size={24} />, desktop: true, mobile: true },
@@ -154,7 +156,7 @@ const MainContent: React.FC = () => {
         setUnreadMessages((prev) => prev + 1);
       }
     }
-  }, [messages, user?.id, activeTab, isChatOpen]);
+  }, [messages, user?.id]);
 
   const handleTabChange = (value: string) => {
     const tab = value as Tab;
@@ -230,7 +232,7 @@ const MainContent: React.FC = () => {
             <TabsTrigger
               key={id}
               value={id}
-              className="relative flex-1 py-4 font-eagleLake text-lg capitalize transition-colors duration-200 rounded-none 
+              className="relative flex-1 py-6 font-eagleLake text-lg capitalize transition-colors duration-200 rounded-none 
                         text-slate-400 data-[state=active]:text-yellow-500 
                         data-[state=active]:border-b-2 data-[state=active]:border-yellow-500
                         hover:text-white focus-visible:ring-0 focus-visible:ring-offset-0 
@@ -251,6 +253,7 @@ const MainContent: React.FC = () => {
               {renderGameScreen()}
             </TabsContent>
             <TabsContent value="chat" className="mt-0 outline-none"><Chat /></TabsContent>
+            <TabsContent value="gamelog" className="mt-0 outline-none"><GameLog /></TabsContent>
             <TabsContent value="settings" className="mt-0 outline-none"><SettingsScreen /></TabsContent>
             <TabsContent value="leaderboard" className="mt-0 outline-none"><LeaderboardScreen /></TabsContent>
             <TabsContent value="achievements" className="mt-0 outline-none"><AchievementsTab /></TabsContent>

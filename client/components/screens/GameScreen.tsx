@@ -129,7 +129,7 @@ const TeamSelection: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 my-6">
+      <div id="player-grid" className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 my-6">
         {gameState.players.map((p) => (
           <PlayerTile
             key={p.id}
@@ -185,7 +185,7 @@ const TeamVote: React.FC = () => {
       </div>
 
       {player && !player.hasVoted ? (
-        <div className="flex justify-center gap-4 sm:gap-8 mt-6">
+        <div id="team-vote-buttons" className="flex justify-center gap-4 sm:gap-8 mt-6">
           <Button
             variant="success"
             onClick={() => voteOnTeam("APPROVE")}
@@ -264,7 +264,7 @@ const QuestVote: React.FC = () => {
             />
           </div>
           {player && !player.hasVoted ? (
-            <div className="flex justify-center gap-4 sm:gap-8 mt-6">
+            <div id="quest-vote-buttons" className="flex justify-center gap-4 sm:gap-8 mt-6">
               <Button
                 variant="success"
                 onClick={() => voteOnQuest("SUCCESS")}

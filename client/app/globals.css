@@ -176,7 +176,7 @@
   initial-value: 0deg;
 }
 
-@keyframes spin {
+@keyframes spin-angle {
   to {
     --gradient-angle: 360deg;
   }
@@ -194,7 +194,7 @@
     theme(colors.yellow.300)
   );
   
-  animation: spin 4s linear infinite;
+  animation: spin-angle 4s linear infinite;
 }
 .unlocked-achievement-glow:hover {
   transform: scale(1.03) translateY(-4px);
@@ -227,7 +227,7 @@
     /* This is the gradient for the border itself. */
     conic-gradient(from var(--gradient-angle), theme(colors.orange.500), theme(colors.red.500), theme(colors.rose.600), theme(colors.red.500), theme(colors.orange.500));
   box-shadow: 0 0 12px 2px var(--glow-color);
-  animation: spin 4s linear infinite, border-glow-pulse 3s ease-in-out infinite;
+  animation: spin-angle 4s linear infinite, border-glow-pulse 3s ease-in-out infinite;
 }
 
 .border-style-azure {
@@ -237,7 +237,7 @@
     linear-gradient(theme(colors.slate.900 / 0.5), theme(colors.slate.900 / 0.5)),
     conic-gradient(from var(--gradient-angle), theme(colors.cyan.400), theme(colors.blue.500), theme(colors.indigo.500), theme(colors.blue.500), theme(colors.cyan.400));
   box-shadow: 0 0 12px 2px var(--glow-color);
-  animation: spin 5s linear infinite, border-glow-pulse 4s ease-in-out infinite;
+  animation: spin-angle 5s linear infinite, border-glow-pulse 4s ease-in-out infinite;
 }
 
 .border-style-amethyst {
@@ -247,7 +247,7 @@
     linear-gradient(theme(colors.slate.900 / 0.5), theme(colors.slate.900 / 0.5)),
     conic-gradient(from var(--gradient-angle), theme(colors.fuchsia.500), theme(colors.purple.600), theme(colors.violet.500), theme(colors.purple.600), theme(colors.fuchsia.500));
   box-shadow: 0 0 12px 2px var(--glow-color);
-  animation: spin 3s linear infinite, border-glow-pulse 2.5s ease-in-out infinite;
+  animation: spin-angle 3s linear infinite, border-glow-pulse 2.5s ease-in-out infinite;
 }
 
 .border-style-golden {
@@ -257,7 +257,7 @@
     linear-gradient(theme(colors.slate.900 / 0.5), theme(colors.slate.900 / 0.5)),
     conic-gradient(from var(--gradient-angle), theme(colors.yellow.300), theme(colors.amber.400), theme(colors.yellow.500), theme(colors.amber.400), theme(colors.yellow.300));
   box-shadow: 0 0 12px 2px var(--glow-color);
-  animation: spin 6s linear infinite, border-glow-pulse 3s ease-in-out infinite;
+  animation: spin-angle 6s linear infinite, border-glow-pulse 3s ease-in-out infinite;
 }
 
 
