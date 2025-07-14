@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { GamePhase, Player, Alignment, Role, Quest } from "@/types";
@@ -9,6 +7,8 @@ import QuestProgressWithPopover from "@/components/ui/QuestProgressWithPopover";
 import PlayerStatusList from "../ui/PlayerStatusList";
 import QuestResultOverlay from "@/components/ui/QuestResultOverlay";
 import PlayerTile from "../ui/PlayerTile";
+import { GamePhaseHeader } from "../ui/GamePhaseHeader";
+import { usePlayerVisionMap } from "@/hooks/usePlayerVision";
 
 // --- Reusable UI Components ---
 
@@ -18,6 +18,7 @@ const VoteResultDisplay: React.FC<{
   isApproved: boolean;
 }> = ({ vote, players, isApproved }) => {
   if (!vote) return null;
+  const visiblePlayerMap = usePlayerVisionMap();
 
   const approvals = vote.votes.filter((v) => v.vote === "APPROVE");
   const rejections = vote.votes.filter((v) => v.vote === "REJECT");
@@ -38,8 +39,8 @@ const VoteResultDisplay: React.FC<{
       </h4>
       <div className="flex justify-center flex-wrap gap-2 mb-5">
         {vote.team.map((p) => (
-           <div key={p.id} className="w-32">
-            <PlayerTile player={p} />
+           <div key={p.id} className="w-28 md:w-36">
+            <PlayerTile player={p} isKnownAs={visiblePlayerMap.get(p.id)} />
           </div>
         ))}
       </div>
@@ -83,6 +84,7 @@ const TeamSelection: React.FC = () => {
   const currentQuest = gameState.questHistory[gameState.currentQuest - 1];
   const isPaused = !!gameState.reconnectingPlayer;
   const pendingTeam = gameState.pendingTeam || [];
+  const visiblePlayerMap = usePlayerVisionMap();
 
   const handlePlayerClick = (id: string) => {
     if (isPaused || !isLeader) return;
@@ -105,12 +107,6 @@ const TeamSelection: React.FC = () => {
 
   return (
     <Card className="w-full">
-      <h2 className="font-eaglelake text-xl sm:text-2xl text-yellow-500 mb-1 text-center">
-        {isLeader
-          ? "Choose Your Team"
-          : `Waiting for ${gameState.leader?.name} to choose`}
-      </h2>
-
       {currentQuest.pastVotes.length > 0 && (
         <div className="my-6 space-y-4">
           <h3 className="font-eaglelake text-lg text-center mb-2">
@@ -129,7 +125,7 @@ const TeamSelection: React.FC = () => {
         </div>
       )}
 
-      <div id="player-grid" className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 my-6">
+      <div id="player-grid" className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] md:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2 sm:gap-4 my-6">
         {gameState.players.map((p) => (
           <PlayerTile
             key={p.id}
@@ -137,6 +133,7 @@ const TeamSelection: React.FC = () => {
             isLeader={p.id === gameState.leader?.id}
             isSelected={pendingTeam.includes(p.id)}
             onClick={() => handlePlayerClick(p.id)}
+            isKnownAs={visiblePlayerMap.get(p.id)}
           />
         ))}
       </div>
@@ -161,17 +158,14 @@ const TeamVote: React.FC = () => {
   const teamOnMission = gameState.questHistory[gameState.currentQuest - 1].team;
   const isPaused = !!gameState.reconnectingPlayer;
   const votedPlayerIds = gameState.players.filter(p => p.hasVoted).map(p => p.id);
+  const visiblePlayerMap = usePlayerVisionMap();
 
   return (
     <Card className="w-full">
-      <h2 className="font-eaglelake text-xl sm:text-2xl text-yellow-500 mb-4 text-center">
-        Vote on the Proposed Team
-      </h2>
-
       <div className="flex justify-center flex-wrap gap-4 bg-slate-900/50 p-4 rounded-lg mb-4">
         {teamOnMission.map((p) => (
-          <div key={p.id} className="w-36">
-            <PlayerTile player={p} />
+          <div key={p.id} className="w-28 md:w-36">
+            <PlayerTile player={p} isKnownAs={visiblePlayerMap.get(p.id)}/>
           </div>
         ))}
       </div>
@@ -222,9 +216,6 @@ const QuestVote: React.FC = () => {
 
   return (
     <Card className="w-full">
-      <h2 className="font-eaglelake text-xl sm:text-2xl text-yellow-500 mb-4 text-center">
-        {isOnTeam ? "Your Mission" : "Awaiting Mission Result"}
-      </h2>
       <div className="mb-4">
         <h3 className="font-eaglelake text-lg text-center mb-2">
           Approved Team
@@ -332,9 +323,6 @@ const Assassination: React.FC = () => {
 
   return (
     <Card>
-      <h2 className="font-eaglelake text-2xl md:text-3xl text-center text-red-500">
-        The Assassination
-      </h2>
       {isAssassin ? (
         <>
           <p className="text-center mt-2 mb-4">
@@ -431,7 +419,8 @@ const GameScreen: React.FC = () => {
           />
         </div>
       )}
-
+      
+      <GamePhaseHeader />
       <div className="w-full animate-slideInUp">{renderPhaseComponent()}</div>
     </div>
   );

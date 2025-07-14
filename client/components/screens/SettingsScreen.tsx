@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { useAudio } from "@/components/context/AudiContext";
@@ -73,6 +74,7 @@ const SettingsScreen: React.FC = () => {
         <h2 className="font-eagleLake text-3xl mb-6 text-center text-yellow-500">Settings</h2>
         <div className="space-y-3">
             <Toggle label="Skip Intro Story" enabled={settings.skipIntro} onToggle={() => updateSettings({ skipIntro: !settings.skipIntro })} />
+      
             <Toggle label="Mute Background Music" enabled={isBgmMuted} onToggle={toggleBgm} />
         </div>
 
@@ -86,10 +88,11 @@ const SettingsScreen: React.FC = () => {
                     placeholder="New Username"
                     className="flex-grow bg-slate-800 border-2 border-slate-700 rounded-lg p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isGameInProgress || isSavingName}
+                    maxLength={10}
                 />
                 <Button 
                     onClick={handleSaveName} 
-                    disabled={isGameInProgress || isSavingName || !newUsername.trim() || newUsername.trim() === user?.username || newUsername.trim().length < 3}
+                    disabled={isGameInProgress || isSavingName || !newUsername.trim() || newUsername.trim() === user?.username || newUsername.trim().length < 3 || newUsername.trim().length > 10}
                     className="w-full sm:w-auto"
                 >
                     {isSavingName ? <Spinner size="sm" /> : 'Save'}
@@ -98,7 +101,10 @@ const SettingsScreen: React.FC = () => {
              {isGameInProgress ? (
                 <p className="text-amber-500 text-xs mt-2 text-center">Cannot change username while a game is in progress.</p>
             ) : (
-                newUsername.trim().length > 0 && newUsername.trim().length < 3 && <p className="text-red-500 text-xs mt-2 text-center">Username must be at least 3 characters.</p>
+                <>
+                  {newUsername.trim().length > 0 && newUsername.trim().length < 3 && <p className="text-red-500 text-xs mt-2 text-center">Username must be at least 3 characters.</p>}
+                  {newUsername.trim().length > 10 && <p className="text-red-500 text-xs mt-2 text-center">Username cannot exceed 10 characters.</p>}
+                </>
             )}
         </div>
         

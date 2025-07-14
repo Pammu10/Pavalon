@@ -1,5 +1,3 @@
-
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -317,4 +315,10 @@
     color: var(--icon-color);
     filter: drop-shadow(0 0 15px var(--glow-color));
     transform: scale(1.1);
+}
+
+/* --- Tutorial Highlight --- */
+.tutorial-highlight-hole {
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7);
+    border-radius: 12px;
 }

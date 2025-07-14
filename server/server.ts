@@ -1,5 +1,6 @@
 
 
+
 import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
@@ -48,10 +49,10 @@ const RESTART_VOTE_DURATION = 30000; // 30 seconds
 // --- API ROUTES ---
 app.post("/api/register", async (req: express.Request, res: express.Response) => {
   const { username, password } = req.body;
-  if (!username || !password) {
+  if (!username || !password || username.length < 3 || username.length > 10) {
     return res
       .status(400)
-      .json({ message: "Username and password are required." });
+      .json({ message: "Username must be between 3 and 10 characters." });
   }
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -197,8 +198,8 @@ app.post("/api/user/username", authMiddleware, async (req: express.Request, res:
     const oldUsername = (req as any).user.username;
     const { username } = req.body;
 
-    if (!username || typeof username !== 'string' || username.length < 3 || username.length > 15) {
-        return res.status(400).json({ message: "Username must be between 3 and 15 characters." });
+    if (!username || typeof username !== 'string' || username.length < 3 || username.length > 10) {
+        return res.status(400).json({ message: "Username must be between 3 and 10 characters." });
     }
 
     if (username === oldUsername) {
@@ -1297,6 +1298,12 @@ class GameService {
     const leavingPlayer = this.getPlayer(gameState, playerId);
     if (!leavingPlayer) return;
 
+    // Make the leaving player's socket leave the room first to prevent race conditions
+    const socket = this.io.sockets.sockets.get(playerId);
+    if (socket) {
+        socket.leave(roomCode);
+    }
+
     // Remove player from the game state
     gameState.players = gameState.players.filter(p => p.id !== playerId);
 
@@ -1320,12 +1327,6 @@ class GameService {
         senderName: 'System',
         text: `${leavingPlayer.name} has left the lobby.`
     });
-
-    // Make the leaving player's socket leave the room
-    const socket = this.io.sockets.sockets.get(playerId);
-    if (socket) {
-        socket.leave(roomCode);
-    }
   }
 
   updatePlayerCustomization(userId: number, customizations: { title: string | null; border: string | null; icon: string | null; }) {

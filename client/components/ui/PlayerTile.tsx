@@ -1,8 +1,6 @@
-
-
 import React from 'react';
 import { Player } from '@/types';
-import { Crown, Gem, Ghost, Shield, Swords } from 'lucide-react';
+import { Crown, Ghost, Shield, Swords, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROLES } from '@/constants';
 import { ICON_MAP } from './AvailableIcons';
@@ -13,6 +11,7 @@ interface PlayerTileProps {
   isSelected?: boolean;
   onClick?: () => void;
   className?: string;
+  isKnownAs?: 'Evil' | 'Mystic' | null;
 }
 
 const PlayerTile: React.FC<PlayerTileProps> = ({
@@ -21,13 +20,14 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
   isSelected = false,
   onClick,
   className = '',
+  isKnownAs = null,
 }) => {
   const isDisconnected = player.status === 'DISCONNECTED';
   const borderClass = player.selectedBorder ? `border-style-${player.selectedBorder}` : 'border-slate-600';
-  
+
   const IconComponent = player.selectedIcon && ICON_MAP[player.selectedIcon] 
     ? ICON_MAP[player.selectedIcon] 
-    : Gem;
+    : Shield; // Default to Shield
 
   return (
     <div
@@ -73,6 +73,16 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
         {isLeader && (
            <div className="w-6 h-6 bg-blue-800/80 text-blue-300 rounded-full flex items-center justify-center" title="Leader">
             <Crown size={14} />
+          </div>
+        )}
+        {isKnownAs === 'Evil' && (
+          <div className="w-6 h-6 bg-red-900/80 text-red-300 rounded-full flex items-center justify-center" title="Known Evil">
+            <Eye size={14} />
+          </div>
+        )}
+        {isKnownAs === 'Mystic' && (
+          <div className="w-6 h-6 bg-purple-900/80 text-purple-300 rounded-full flex items-center justify-center" title="Known Mystic (Merlin/Morgana)">
+            <Eye size={14} />
           </div>
         )}
       </div>

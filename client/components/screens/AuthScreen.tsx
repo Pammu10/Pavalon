@@ -51,6 +51,7 @@ const AuthScreen: React.FC = () => {
             onChange={(e) => setUsername(e.target.value)}
             className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
             required
+            maxLength={10}
           />
           <input
             type="password"

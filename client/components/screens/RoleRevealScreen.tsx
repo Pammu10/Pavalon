@@ -1,5 +1,3 @@
-
-
 import React, { useEffect, useState } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { useAudio } from "@/components/context/AudiContext";
@@ -10,6 +8,7 @@ import Spinner from "@/components/ui/Spinner";
 import { Star, Zap, Eye } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import PlayerStatusList from "../ui/PlayerStatusList";
+import { getVisiblePlayers } from "@/hooks/usePlayerVision";
 
 const RoleRevealScreen: React.FC = () => {
   const { gameState, playerId, playerReady, hasViewedRole, setHasViewedRole } = useGame();
@@ -40,57 +39,18 @@ const RoleRevealScreen: React.FC = () => {
     );
   }
 
-  const getVisiblePlayers = () => {
-    const { players } = gameState;
-    const self = player;
-
-    if (!self.role || !self.alignment) return [];
-
-    switch (self.role) {
-      case Role.MERLIN:
-        return players.filter(
-          (p) => p.alignment === Alignment.EVIL && p.role !== Role.MORDRED
-        );
-      case Role.PERCIVAL:
-        return players.filter(
-          (p) => p.role === Role.MERLIN || p.role === Role.MORGANA
-        );
-      case Role.MORGANA:
-      case Role.ASSASSIN:
-      case Role.MORDRED:
-      case Role.MINION:
-        return players.filter(
-          (p) =>
-            p.id !== self.id &&
-            p.alignment === Alignment.EVIL &&
-            p.role !== Role.OBERON
-        );
-      default:
-        return [];
-    }
-  };
+  const visiblePlayerInfo = getVisiblePlayers(player, gameState.players);
 
   const handleReadyClick = () => {
     playerReady();
   };
-
-  const visiblePlayers = getVisiblePlayers();
+  
   const isGood = roleInfo.alignment === Alignment.GOOD;
   const isReady = gameState.readyPlayers.includes(playerId!);
 
-  const getVisionSpan = (seenPlayer: Player) => {
-    const isPercival = player.role === Role.PERCIVAL;
-    const isSeenEvil = seenPlayer.alignment === Alignment.EVIL;
-
-    const text = isPercival
-      ? "Merlin/Morgana"
-      : seenPlayer.role ?? "Unknown";
-    const colorClass = isPercival
-      ? "text-yellow-400"
-      : isSeenEvil
-      ? "text-red-400"
-      : "text-blue-400";
-
+  const getVisionSpan = (seenPlayer: Player, knownAs: 'Evil' | 'Mystic') => {
+    const text = knownAs === 'Mystic' ? "Merlin/Morgana" : seenPlayer.role ?? "Unknown";
+    const colorClass = knownAs === 'Mystic' ? "text-purple-400" : "text-red-400";
     return <span className={`text-sm font-bold ${colorClass}`}>{text}</span>;
   };
   
@@ -181,14 +141,14 @@ const RoleRevealScreen: React.FC = () => {
             </div>
           </motion.div>
 
-          {visiblePlayers.length > 0 && (
+          {visiblePlayerInfo.length > 0 && (
             <motion.div id="role-vision" {...animProps(2.5)} className="bg-gradient-to-br from-black/40 to-black/60 rounded-xl p-4 sm:p-6 mb-6 border border-amber-600/30 text-left">
               <h4 className="font-bold mb-3 text-amber-300 flex items-center font-eaglelake">
                 <Eye className="w-5 h-5 mr-2 flex-shrink-0" />
                 Your Vision
               </h4>
               <div className="space-y-2">
-                {visiblePlayers.map((p) => (
+                {visiblePlayerInfo.map(({player: p, knownAs}) => (
                   <div
                     key={p.id}
                     className="flex items-center justify-between"
@@ -196,7 +156,7 @@ const RoleRevealScreen: React.FC = () => {
                     <span className="max-w-xs truncate inline-block text-slate-200">
                       {p.name}
                     </span>
-                    {getVisionSpan(p)}
+                    {getVisionSpan(p, knownAs)}
                   </div>
                 ))}
               </div>
