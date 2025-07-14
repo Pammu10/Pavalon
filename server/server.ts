@@ -1,6 +1,4 @@
 
-
-
 import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
@@ -47,7 +45,7 @@ const RESTART_COOLDOWN = 120000; // 2 minutes
 const RESTART_VOTE_DURATION = 30000; // 30 seconds
 
 // --- API ROUTES ---
-app.post("/api/register", async (req: express.Request, res: express.Response) => {
+app.post("/api/register", async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password || username.length < 3 || username.length > 10) {
     return res
@@ -71,7 +69,7 @@ app.post("/api/register", async (req: express.Request, res: express.Response) =>
   }
 });
 
-app.post("/api/login", async (req: express.Request, res: express.Response) => {
+app.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res
@@ -114,7 +112,7 @@ app.post("/api/login", async (req: express.Request, res: express.Response) => {
   }
 });
 
-app.get("/api/stats", authMiddleware, async (req: express.Request, res: express.Response) => {
+app.get("/api/stats", authMiddleware, async (req, res) => {
   const userId = (req as any).user.id;
   try {
     const stats = await gameService.getPlayerStats(userId);
@@ -124,7 +122,7 @@ app.get("/api/stats", authMiddleware, async (req: express.Request, res: express.
   }
 });
 
-app.get("/api/leaderboard", authMiddleware, async (req: express.Request, res: express.Response) => {
+app.get("/api/leaderboard", authMiddleware, async (req, res) => {
   try {
     const leaderboardData = await gameService.getLeaderboard();
     res.json(leaderboardData);
@@ -134,7 +132,7 @@ app.get("/api/leaderboard", authMiddleware, async (req: express.Request, res: ex
   }
 });
 
-app.get("/api/match/:id", authMiddleware, async (req: express.Request, res: express.Response) => {
+app.get("/api/match/:id", authMiddleware, async (req, res) => {
   const { id } = req.params;
   try {
     const performances = await db.all<MatchPlayerPerformance[]>(
@@ -151,7 +149,7 @@ app.get("/api/match/:id", authMiddleware, async (req: express.Request, res: expr
   }
 });
 
-app.get("/api/achievements", authMiddleware, async (req: express.Request, res: express.Response) => {
+app.get("/api/achievements", authMiddleware, async (req, res) => {
     const userId = (req as any).user.id;
     try {
         const userAchievements = await db.all<UserAchievement[]>(
@@ -159,7 +157,9 @@ app.get("/api/achievements", authMiddleware, async (req: express.Request, res: e
             [userId]
         );
         const unlockedIds = new Set(userAchievements.map(ua => ua.achievement_id));
-        const fullAchievementData = ALL_ACHIEVEMENTS.map(ach => {
+        const fullAchievementData = ALL_ACHIEVEMENTS
+          .filter(ach => !ach.hidden || unlockedIds.has(ach.id))
+          .map(ach => {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { check, ...rest } = ach;
             return {
@@ -175,7 +175,7 @@ app.get("/api/achievements", authMiddleware, async (req: express.Request, res: e
     }
 });
 
-app.post("/api/user/customize", authMiddleware, async (req: express.Request, res: express.Response) => {
+app.post("/api/user/customize", authMiddleware, async (req, res) => {
     const userId = (req as any).user.id;
     const { title, border, icon } = req.body;
     try {
@@ -193,7 +193,7 @@ app.post("/api/user/customize", authMiddleware, async (req: express.Request, res
     }
 });
 
-app.post("/api/user/username", authMiddleware, async (req: express.Request, res: express.Response) => {
+app.post("/api/user/username", authMiddleware, async (req, res) => {
     const userId = (req as any).user.id;
     const oldUsername = (req as any).user.username;
     const { username } = req.body;
@@ -1289,44 +1289,86 @@ class GameService {
     const roomCode = this.findRoomByPlayerId(playerId);
     if (!roomCode) return;
     const gameState = this.games.get(roomCode)!;
-
-    // Can only leave from the lobby
+    
+    // If game is in progress, treat as a disconnect which will start a timer
     if (gameState.phase !== GamePhase.LOBBY) {
+        this.handleDisconnect(playerId);
         return;
     }
 
+    // Original logic for leaving from the lobby
     const leavingPlayer = this.getPlayer(gameState, playerId);
     if (!leavingPlayer) return;
 
-    // Make the leaving player's socket leave the room first to prevent race conditions
     const socket = this.io.sockets.sockets.get(playerId);
     if (socket) {
         socket.leave(roomCode);
     }
 
-    // Remove player from the game state
     gameState.players = gameState.players.filter(p => p.id !== playerId);
 
-    // If the lobby is now empty, delete it
     if (gameState.players.length === 0) {
         this.games.delete(roomCode);
         console.log(`Lobby ${roomCode} is empty, deleting.`);
         return;
     }
 
-    // If the host left, assign a new host from the remaining players
     if (leavingPlayer.isHost) {
         gameState.players[0].isHost = true;
     }
 
-    // Notify remaining players of the change
     this.io.to(roomCode).emit("updateGameState", gameState);
     this.io.to(roomCode).emit("chatMessage", {
         senderId: 'system',
-        senderUserId: 0, // System messages have no user
+        senderUserId: 0,
         senderName: 'System',
         text: `${leavingPlayer.name} has left the lobby.`
     });
+  }
+
+  handleKickPlayer(hostId: string, playerIdToKick: string) {
+    const roomCode = this.findRoomByPlayerId(hostId);
+    if (!roomCode) return;
+    const gameState = this.games.get(roomCode)!;
+
+    const host = this.getPlayer(gameState, hostId);
+    const playerToKick = this.getPlayer(gameState, playerIdToKick);
+
+    if (!host || !host.isHost) {
+      this.io.sockets.sockets.get(hostId)?.emit("error", "Only the host can kick players.");
+      return;
+    }
+    if (!playerToKick) {
+      this.io.sockets.sockets.get(hostId)?.emit("error", "Player to kick not found.");
+      return;
+    }
+     if (hostId === playerIdToKick) {
+      this.io.sockets.sockets.get(hostId)?.emit("error", "You cannot kick yourself.");
+      return;
+    }
+
+    const kickedPlayerName = playerToKick.name;
+    const kickedSocket = this.io.sockets.sockets.get(playerIdToKick);
+
+    if (kickedSocket) {
+        // Let the kicked player know they were kicked and should reset state
+        kickedSocket.emit("kicked", "You have been kicked from the game by the host.");
+        kickedSocket.leave(roomCode);
+    }
+    
+    if (gameState.phase === GamePhase.LOBBY) {
+        gameState.players = gameState.players.filter(p => p.id !== playerIdToKick);
+        this.addLog(gameState, `${kickedPlayerName} was kicked by the host.`, 'system');
+        this.io.to(roomCode).emit("chatMessage", { senderId: 'system', senderUserId: 0, senderName: 'System', text: `${kickedPlayerName} was kicked by the host.` });
+        this.io.to(roomCode).emit("updateGameState", gameState);
+    } else {
+        // In game, kicking aborts the game
+        this.endGame(
+            gameState,
+            null,
+            `${kickedPlayerName} was kicked by the host. The game has been aborted.`
+        );
+    }
   }
 
   updatePlayerCustomization(userId: number, customizations: { title: string | null; border: string | null; icon: string | null; }) {
@@ -1396,6 +1438,7 @@ io.on("connection", (socket: any) => {
   socket.on("sendMessage", (message) => gameService.handleSendMessage(socket.id, message));
   socket.on("initiateRestart", () => gameService.handleInitiateRestart(socket.id));
   socket.on("voteOnRestart", (vote) => gameService.handleVoteOnRestart(socket.id, vote));
+  socket.on("kickPlayer", (playerIdToKick) => gameService.handleKickPlayer(socket.id, playerIdToKick));
 
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);

@@ -210,7 +210,8 @@
 .border-style-crimson,
 .border-style-azure,
 .border-style-amethyst,
-.border-style-golden {
+.border-style-golden,
+.border-style-sakura {
   border-color: transparent;
   background-clip: padding-box, border-box;
   background-origin: border-box;
@@ -258,6 +259,16 @@
   animation: spin-angle 6s linear infinite, border-glow-pulse 3s ease-in-out infinite;
 }
 
+.border-style-sakura {
+  --glow-color: theme(colors.pink.400 / 0.5);
+  --icon-color: theme(colors.pink.300);
+  background-image:
+    linear-gradient(theme(colors.slate.900 / 0.5), theme(colors.slate.900 / 0.5)),
+    conic-gradient(from var(--gradient-angle), theme(colors.fuchsia.300), theme(colors.pink.400), theme(colors.rose.400), theme(colors.pink.400), theme(colors.fuchsia.300));
+  box-shadow: 0 0 14px 3px var(--glow-color);
+  animation: spin-angle 4s linear infinite, border-glow-pulse 3s ease-in-out infinite;
+}
+
 
 /* --- Player Tile Avatar --- */
 .player-tile-avatar-glow {
@@ -288,14 +299,16 @@
 .border-style-crimson .player-tile-avatar-glow,
 .border-style-azure .player-tile-avatar-glow,
 .border-style-amethyst .player-tile-avatar-glow,
-.border-style-golden .player-tile-avatar-glow {
+.border-style-golden .player-tile-avatar-glow,
+.border-style-sakura .player-tile-avatar-glow {
     background: radial-gradient(circle at 50% 50%, var(--glow-color, transparent) 0%, transparent 70%);
     opacity: 0.3;
 }
 .border-style-crimson .player-tile-avatar-area svg,
 .border-style-azure .player-tile-avatar-area svg,
 .border-style-amethyst .player-tile-avatar-area svg,
-.border-style-golden .player-tile-avatar-area svg {
+.border-style-golden .player-tile-avatar-area svg,
+.border-style-sakura .player-tile-avatar-area svg {
     color: var(--icon-color);
     filter: drop-shadow(0 0 10px var(--glow-color));
 }
@@ -304,14 +317,16 @@
 .border-style-crimson.group:hover .player-tile-avatar-glow,
 .border-style-azure.group:hover .player-tile-avatar-glow,
 .border-style-amethyst.group:hover .player-tile-avatar-glow,
-.border-style-golden.group:hover .player-tile-avatar-glow {
+.border-style-golden.group:hover .player-tile-avatar-glow,
+.border-style-sakura.group:hover .player-tile-avatar-glow {
     opacity: 0.4;
     transform: scale(1.6);
 }
 .border-style-crimson.group:hover .player-tile-avatar-area svg,
 .border-style-azure.group:hover .player-tile-avatar-area svg,
 .border-style-amethyst.group:hover .player-tile-avatar-area svg,
-.border-style-golden.group:hover .player-tile-avatar-area svg {
+.border-style-golden.group:hover .player-tile-avatar-area svg,
+.border-style-sakura.group:hover .player-tile-avatar-area svg {
     color: var(--icon-color);
     filter: drop-shadow(0 0 15px var(--glow-color));
     transform: scale(1.1);

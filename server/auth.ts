@@ -1,10 +1,5 @@
 
-
-
-
-
-
-import express, { NextFunction } from 'express';
+import express from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from './types';
 import { Socket } from 'socket.io';
@@ -16,7 +11,7 @@ export const generateToken = (user: User): string => {
 };
 
 // Middleware for Express to protect routes
-export const authMiddleware = (req: express.Request, res: express.Response, next: NextFunction) => {
+export const authMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const authHeader = req.headers.authorization;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {

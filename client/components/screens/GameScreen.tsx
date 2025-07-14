@@ -125,7 +125,7 @@ const TeamSelection: React.FC = () => {
         </div>
       )}
 
-      <div id="player-grid" className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] md:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2 sm:gap-4 my-6">
+      <div id="player-grid" className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] md:grid-cols-[repeat(auto-fit,minmax(9rem,10rem))] gap-2 sm:gap-4 my-6">
         {gameState.players.map((p) => (
           <PlayerTile
             key={p.id}

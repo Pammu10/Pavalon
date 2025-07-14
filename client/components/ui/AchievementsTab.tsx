@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useGame } from '@/components/context/GameContext';
 import { useAudio } from '@/components/context/AudiContext';
@@ -8,7 +7,7 @@ import Card from './Card';
 import Spinner from './Spinner';
 import Button from './Button';
 import { ICON_MAP, DEFAULT_ICONS, ACHIEVEMENT_ICONS } from './AvailableIcons';
-import { CheckCircle, Lock, Trophy, Star, Shield, Eye, Skull, Crown, Swords, Palette, VenetianMask, ShieldCheck, UserRound, Feather, HeartCrack, Castle } from 'lucide-react';
+import { CheckCircle, Lock, Trophy, Star, Shield, Eye, Skull, Crown, Swords, Palette, VenetianMask, ShieldCheck, UserRound, Feather, HeartCrack, Castle, Spade, Cherry } from 'lucide-react';
 import PlayerTile from './PlayerTile';
 import { toast } from 'sonner';
 
@@ -24,6 +23,8 @@ const icons: { [key: string]: React.ReactNode } = {
     Feather: <Feather className="w-8 h-8" />,
     HeartCrack: <HeartCrack className="w-8 h-8" />,
     Castle: <Castle className="w-8 h-8" />,
+    Spade: <Spade className="w-8 h-8" />,
+    Cherry: <Cherry className="w-8 h-8" />,
 };
 
 type RewardOption = AchievementReward & { unlocked: boolean, achievementName: string };

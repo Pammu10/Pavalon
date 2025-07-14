@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { useAudio } from "@/components/context/AudiContext";
@@ -21,7 +22,7 @@ const Toggle: React.FC<{ label: string; enabled: boolean; onToggle: () => void }
 );
 
 const SettingsScreen: React.FC = () => {
-  const { settings, updateSettings, logout, gameState, playerId, initiateRestart, user, updateUsername } = useGame();
+  const { settings, updateSettings, logout, gameState, playerId, initiateRestart, kickPlayer, user, updateUsername } = useGame();
   const { isBgmMuted, toggleBgm } = useAudio();
   const [cooldownTime, setCooldownTime] = useState(0);
   
@@ -108,17 +109,37 @@ const SettingsScreen: React.FC = () => {
             )}
         </div>
         
+        {isHost && isGameInProgress && (
+            <div className="mt-6 border-t-2 border-slate-700 pt-4 space-y-4">
+                <div>
+                    <Button onClick={initiateRestart} disabled={onCooldown || !!gameState.restartVote} className="w-full">
+                        {onCooldown ? `Restart on Cooldown (${Math.ceil(cooldownTime / 1000)}s)` : (!!gameState.restartVote ? 'Vote in Progress' : 'Initiate Game Restart')}
+                    </Button>
+                </div>
+                <div className="border-t-2 border-slate-700 pt-4">
+                    <h3 className="font-eagleLake text-xl mb-2 text-center text-red-500">Danger Zone</h3>
+                    <p className="text-slate-400 text-center text-xs mb-4">Kicking a player will immediately end the current game for everyone.</p>
+                    <div className="space-y-2">
+                        {gameState.players.map(p => {
+                            if (p.id === playerId) return null; // Can't kick self
+                            return (
+                                <div key={p.id} className="flex justify-between items-center bg-slate-800/50 p-2 rounded-lg">
+                                    <span className="text-slate-200">{p.name}</span>
+                                    <Button variant="danger" onClick={() => kickPlayer(p.id)} className="text-sm py-1 px-3">
+                                        Kick
+                                    </Button>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            </div>
+        )}
+
         <div className="mt-6 border-t-2 border-slate-700 pt-4">
             <Button onClick={logout} variant="danger" className="w-full">Log Out</Button>
         </div>
-
-        {isHost && isGameInProgress && (
-            <div className="mt-6 border-t-2 border-slate-700 pt-4">
-                  <Button onClick={initiateRestart} disabled={onCooldown || !!gameState.restartVote} className="w-full">
-                    {onCooldown ? `Restart on Cooldown (${Math.ceil(cooldownTime / 1000)}s)` : (!!gameState.restartVote ? 'Vote in Progress' : 'Initiate Game Restart')}
-                  </Button>
-            </div>
-        )}
+        
       </Card>
       
       {/* Achievements for Mobile View */}

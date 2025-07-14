@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
     Shield, 
@@ -21,7 +20,8 @@ import {
     Eye,
     Star,
     ShieldCheck,
-    Trophy
+    Trophy,
+    Cherry
 } from 'lucide-react';
 
 // Default icons available to everyone
@@ -52,6 +52,7 @@ export const ACHIEVEMENT_ICONS_MAP: { [key: string]: React.FC<any> } = {
   skull: Skull,
   star: Star,
   feather: Feather,
+  cherry: Cherry,
 };
 export const ACHIEVEMENT_ICONS = Object.keys(ACHIEVEMENT_ICONS_MAP);
 

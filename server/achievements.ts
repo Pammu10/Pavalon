@@ -2,8 +2,8 @@ import { Role } from "./types";
 
 export interface AchievementReward {
     type: 'TITLE' | 'BORDER' | 'ICON';
-    value: string; 
-    name: string; 
+    value: string; // e.g., "The Seer" or "azure" or "zap"
+    name: string; // e.g. "Azure Border" or "Zap Icon"
 }
 
 export interface Achievement {
@@ -21,8 +21,8 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         id: 'first_game',
         name: 'First Quest',
         description: 'Complete your first game of Pavalon.',
-        icon: 'Shield',
-        rewards: [{ type: 'ICON', value: 'shield', name: 'Shield Icon'}],
+        icon: 'Swords',
+        rewards: [{ type: 'ICON', value: 'swords', name: 'Crossed Swords Icon'}],
         check: (stats) => stats.totalGames >= 1,
     },
     {
@@ -40,10 +40,10 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         id: 'ten_games',
         name: 'Seasoned Knight',
         description: 'Play 10 games.',
-        icon: 'Swords',
+        icon: 'Shield',
         rewards: [
             { type: 'BORDER', value: 'crimson', name: 'Crimson Border' },
-            { type: 'ICON', value: 'swords', name: 'Crossed Swords Icon' }
+            { type: 'ICON', value: 'shield', name: 'Shield Icon' }
         ],
         check: (stats) => stats.totalGames >= 10,
     },
@@ -138,5 +138,16 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
             { type: 'ICON', value: 'castle', name: 'Castle Icon' },
         ],
         check: (stats) => stats.totalWins >= 25,
+    },
+    {
+        id: 'sakura_blessing',
+        name: 'Sakura Blessing',
+        description: 'A special blessing bestowed upon the most dedicated knights of the realm.',
+        icon: 'Cherry',
+        rewards: [
+            {type: 'TITLE', value: 'Pookie', name: 'Pookie Title'},
+            { type: 'BORDER', value: 'sakura', name: 'Sakura Border' }
+        ],
+        check: () => false, // Cannot be earned automatically
     },
 ];

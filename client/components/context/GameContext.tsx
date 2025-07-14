@@ -1,5 +1,3 @@
-
-
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { GameState, GamePhase, Player, Message, Role, User, LoginCredentials, RegisterCredentials, Achievement } from '@/types';
 import { socketService } from '@/services/socketService';
@@ -36,6 +34,7 @@ interface GameContextType {
     logout: () => void;
     joinRoom: (roomCode?: string) => void;
     leaveRoom: () => void;
+    kickPlayer: (playerIdToKick: string) => void;
     startGame: (data: { selectedRoles: Role[] }) => void;
     selectTeam: (teamPlayerIds: string[]) => void;
     updatePendingTeam: (teamPlayerIds: string[]) => void;
@@ -197,10 +196,21 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setAchievementsVersion(v => v + 1);
         };
 
+        const handleKicked = (reason: string) => {
+            toast.error(reason, {
+                description: "You have been removed from the game."
+            });
+            setGameState(initialGameState);
+            setMessages([]);
+            setHasViewedRole(false);
+            setHasViewedEndGame(false);
+        };
+
         socketService.on('updateGameState', handleUpdate);
         socketService.on('chatMessage', handleChatMessage);
         socketService.on('error', handleError);
         socketService.on('achievementUnlocked', handleAchievementUnlocked);
+        socketService.on('kicked', handleKicked);
 
 
         return () => {
@@ -208,6 +218,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             socketService.off('chatMessage');
             socketService.off('error');
             socketService.off('achievementUnlocked');
+            socketService.off('kicked');
         };
     }, [playSound]);
 
@@ -257,6 +268,15 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const logout = () => {
+        // If connected to a room, tell server we're leaving gracefully
+        if (gameState.roomCode && socketService.socket.connected) {
+            socketService.emit('leaveRoom');
+        }
+        
+        // Disconnect the socket connection entirely
+        socketService.disconnect();
+
+        // Then clear all local data
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
         delete api.defaults.headers.common['Authorization'];
@@ -265,6 +285,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsAuthenticated(false);
         setGameState(initialGameState);
         setHasViewedRole(false);
+        setHasViewedEndGame(false);
     };
 
     const updateUsername = async (newUsername: string) => {
@@ -312,6 +333,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setGameState(initialGameState); // Reset state immediately on client
     }, []);
     
+    const kickPlayer = (playerIdToKick: string) => socketService.emit('kickPlayer', playerIdToKick);
     const sendMessage = (messageText: string) => socketService.emit('sendMessage', messageText);
     const startGame = (data: { selectedRoles: Role[] }) => {
         setHasViewedRole(false);
@@ -351,6 +373,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         logout,
         joinRoom,
         leaveRoom,
+        kickPlayer,
         startGame,
         selectTeam,
         updatePendingTeam,

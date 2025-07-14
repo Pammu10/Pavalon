@@ -177,6 +177,7 @@ export interface Achievement {
     rewards: AchievementReward[];
     unlocked: boolean;
     unlocked_at?: string;
+    hidden?: boolean;
 }
 
 
@@ -185,7 +186,7 @@ export interface ClientToServerEvents {
     joinRoom: (data: { roomCode?: string }) => void; // Auth token is handled by middleware
     leaveRoom: () => void;
     startGame: (data: { selectedRoles: Role[] }) => void;
-    restartGame: () => void;
+    kickPlayer: (playerIdToKick: string) => void;
     selectTeam: (teamPlayerIds: string[]) => void;
     updatePendingTeam: (teamPlayerIds: string[]) => void;
     voteOnTeam: (vote: 'APPROVE' | 'REJECT') => void;
@@ -203,4 +204,5 @@ export interface ServerToClientEvents {
     chatMessage: (message: Message) => void;
     error: (message: string) => void;
     achievementUnlocked: (achievement: Achievement) => void;
+    kicked: (reason: string) => void;
 }
