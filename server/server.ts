@@ -29,15 +29,37 @@ import { authMiddleware, generateToken, authMiddlewareSocket, adminMiddleware } 
 import { ALL_ACHIEVEMENTS, Achievement } from "./achievements";
 
 const app = express();
-app.use(cors());
+
+// --- CORS Configuration ---
+const allowedOrigins = [
+    'http://localhost:3000', // For local development
+    'https://wtwmw7ps-3000.inc1.devtunnels.ms', // From your error log
+    // Add your Vercel production URL here, e.g., 'https://your-app-name.vercel.app'
+];
+
+const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+        // Allow Vercel preview deployments
+        if (origin && origin.endsWith('.vercel.app')) {
+            return callback(null, true);
+        }
+
+        // Allow whitelisted origins + no origin (server-to-server, mobile apps)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true, // This is crucial for sending auth headers.
+};
+
+app.use(cors(corsOptions));
 app.use(express.json()); // Middleware to parse JSON bodies
 
 const server = http.createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-  },
+  cors: corsOptions, // Use the same, more robust CORS options for Socket.IO
 });
 
 const RECONNECT_TIMEOUT = 60000; // 60 seconds
@@ -509,6 +531,16 @@ class GameService {
         "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
         [user.id]
     );
+    
+    // --- Voice Chat Integration Start ---
+    const otherPlayers = gameState.players.filter(p => p.status === 'CONNECTED');
+    for (const player of otherPlayers) {
+      // Tell new user about existing players
+      socket.emit('voice:user-joined', { socketId: player.id, user: { userId: player.userId, name: player.name }});
+      // Tell existing players about new user
+      this.io.to(player.id).emit('voice:user-joined', { socketId: socket.id, user: { userId: user.id, name: user.username }});
+    }
+    // --- Voice Chat Integration End ---
 
     socket.join(code);
     const isHost = gameState.players.length === 0;
@@ -552,6 +584,16 @@ class GameService {
         this.addLog(gameState, `${player.name} has reconnected.`, 'system');
         gameState.reconnectingPlayer = null;
     }
+    
+    // --- Voice Chat Integration Reconnect Start ---
+    const otherPlayers = gameState.players.filter(p => p.status === 'CONNECTED' && p.userId !== user.id);
+    for (const otherPlayer of otherPlayers) {
+        // Tell reconnected user about existing players
+        socket.emit('voice:user-joined', { socketId: otherPlayer.id, user: { userId: otherPlayer.userId, name: otherPlayer.name }});
+        // Tell existing players about reconnected user
+        this.io.to(otherPlayer.id).emit('voice:user-joined', { socketId: socket.id, user: { userId: user.id, name: user.username }});
+    }
+    // --- Voice Chat Integration Reconnect End ---
 
     const userCustomizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string; }>(
         "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
@@ -965,6 +1007,9 @@ class GameService {
 
     disconnectedPlayer.status = "DISCONNECTED";
     this.addLog(gameState, `${disconnectedPlayer.name} has disconnected.`, 'system');
+    
+    // Voice Chat: Notify others the user left
+    this.io.to(roomCode).emit('voice:user-left', { socketId: playerId });
 
 
      if (gameState.phase === GamePhase.END_GAME) {
@@ -1396,21 +1441,24 @@ class GameService {
     if (!roomCode) return;
     const gameState = this.games.get(roomCode)!;
     
-    // If game is in progress, treat as a disconnect which will start a timer
     if (gameState.phase !== GamePhase.LOBBY) {
         this.handleDisconnect(playerId);
         return;
     }
 
-    // Original logic for leaving from the lobby
     const leavingPlayer = this.getPlayer(gameState, playerId);
     if (!leavingPlayer) return;
 
     const socket = this.io.sockets.sockets.get(playerId);
     if (socket) {
+        // Explicitly tell the leaving client to reset its state.
+        socket.emit("kicked", "You have left the lobby.");
         socket.leave(roomCode);
     }
 
+    // Voice Chat: Notify others
+    this.io.to(roomCode).emit('voice:user-left', { socketId: playerId });
+    
     gameState.players = gameState.players.filter(p => p.id !== playerId);
 
     if (gameState.players.length === 0) {
@@ -1462,6 +1510,9 @@ class GameService {
         kickedSocket.leave(roomCode);
     }
     
+    // Voice Chat: Notify others
+    this.io.to(roomCode).emit('voice:user-left', { socketId: playerIdToKick });
+
     if (gameState.phase === GamePhase.LOBBY) {
         gameState.players = gameState.players.filter(p => p.id !== playerIdToKick);
         this.addLog(gameState, `${kickedPlayerName} was kicked by the host.`, 'system');
@@ -1588,6 +1639,19 @@ io.on("connection", (socket: any) => {
   socket.on("initiateRestart", () => gameService.handleInitiateRestart(socket.id));
   socket.on("voteOnRestart", (vote) => gameService.handleVoteOnRestart(socket.id, vote));
   socket.on("kickPlayer", (playerIdToKick) => gameService.handleKickPlayer(socket.id, playerIdToKick));
+
+  // --- Voice Chat Signaling ---
+  socket.on('voice:offer', ({ targetId, sdp }) => {
+    io.to(targetId).emit('voice:offer', { fromId: socket.id, sdp });
+  });
+
+  socket.on('voice:answer', ({ targetId, sdp }) => {
+    io.to(targetId).emit('voice:answer', { fromId: socket.id, sdp });
+  });
+
+  socket.on('voice:ice-candidate', ({ targetId, candidate }) => {
+    io.to(targetId).emit('voice:ice-candidate', { fromId: socket.id, candidate });
+  });
 
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);

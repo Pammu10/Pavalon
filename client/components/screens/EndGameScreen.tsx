@@ -44,10 +44,15 @@ const VoteResultItem: React.FC<{
     </div>
 );
 
-const TeamVoteDetails: React.FC<{ vote: Quest['pastVotes'][0]; players: Player[]; isApproved: boolean; leader: Player | null }> = ({ vote, players, isApproved, leader }) => {
+const TeamVoteDetails: React.FC<{ 
+    vote: { team: Player[]; votes: { playerId: string; vote: 'APPROVE' | 'REJECT' }[] }; 
+    players: Player[]; 
+    isApproved: boolean; 
+    leader: Player | null 
+}> = ({ vote, players, isApproved, leader }) => {
   const playersById = new Map(players.map(p => [p.id, p]));
-  const approvals = vote.votes.filter(v => v.vote === 'APPROVE').map(v => playersById.get(v.playerId)?.name).filter((name): name is string => typeof name === "string");
-  const rejections = vote.votes.filter(v => v.vote === 'REJECT').map(v => playersById.get(v.playerId)?.name).filter((name): name is string => typeof name === "string");
+  const approvals = vote.votes.filter(v => v.vote === 'APPROVE').map(v => playersById.get(v.playerId)?.name).filter((name): name is string => !!name);
+  const rejections = vote.votes.filter(v => v.vote === 'REJECT').map(v => playersById.get(v.playerId)?.name).filter((name): name is string => !!name);
   const voteCount = `(${approvals.length}-${rejections.length})`;
 
   return (
@@ -137,7 +142,7 @@ const ReadyForNextGame: React.FC<{
     currentPlayerId: string | null;
     onReady: () => void;
 }> = ({ players, readyPlayers, currentPlayerId, onReady}) => {
-    const isReady = !!currentPlayerId && readyPlayers.includes(currentPlayerId);
+    const isReady = !!(currentPlayerId && readyPlayers.includes(currentPlayerId));
     
     return (
         <div className="mt-8">
@@ -157,12 +162,12 @@ const ReadyForNextGame: React.FC<{
 
 
 const EndGameScreen: React.FC = () => {
-  const { gameState, playerId, playerReadyForNextGame, hasViewedEndGame, setHasViewedEndGame } = useGame();
+  const { gameState, playerId, playerReadyForNextGame, hasViewedEndGameResult, markEndGameAsViewed } = useGame();
   const { playSound, stopBackgroundMusic, playLobbyMusic } = useAudio();
   const { winner, endGameReason, players, questHistory, endGameReadyPlayers } = gameState;
 
   useEffect(() => {
-    if (winner && !hasViewedEndGame) {
+    if (winner && !hasViewedEndGameResult) {
       const endSound = winner === Alignment.GOOD ? 'victory' : 'defeat';
       
       const playEndGameSequence = async () => {
@@ -173,19 +178,19 @@ const EndGameScreen: React.FC = () => {
 
       playEndGameSequence();
     }
-  }, [winner, hasViewedEndGame, playSound, stopBackgroundMusic, playLobbyMusic]);
+  }, [winner, hasViewedEndGameResult, playSound, stopBackgroundMusic, playLobbyMusic]);
 
 
   const handlePlayAgain = () => {
     playerReadyForNextGame();
   };
   
-  if (winner && !hasViewedEndGame) {
+  if (winner && !hasViewedEndGameResult) {
     return (
         <GameEndOverlay 
             show={true}
             winner={winner}
-            onClose={() => setHasViewedEndGame(true)}
+            onClose={markEndGameAsViewed}
         />
     )
   }
@@ -207,9 +212,7 @@ const EndGameScreen: React.FC = () => {
                           {quest.pastVotes.map((vote, vIndex) => (
                               <TeamVoteDetails key={`past-${vIndex}`} vote={vote} players={players} isApproved={false} leader={vote.leader} />
                           ))}
-                          
                           {quest.approvedVote && (
-                            // @ts-expect-error adding leader manually
                               <TeamVoteDetails vote={quest.approvedVote} players={players} isApproved={true} leader={quest.questLeader} />
                           )}
                       </div>

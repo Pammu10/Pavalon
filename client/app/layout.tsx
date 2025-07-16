@@ -24,7 +24,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${eagleLake.variable} font-eaglelake`}>
         <ClientProviders>
-          <div className="min-h-[100dvh] overflow-hidden bg-cover bg-center relative" style={{ backgroundImage: `url(/background/5-players.jpg)` }}>
+          <div className="min-h-[100dvh] text-slate-300 overflow-hidden bg-cover bg-center relative" style={{ backgroundImage: `url(/background/5-players.jpg)` }}>
           {children}
           </div>
         </ClientProviders>

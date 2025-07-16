@@ -4,6 +4,7 @@
 import React from "react";
 import { AudioProvider } from "./AudiContext";
 import { GameProvider } from "./GameContext";
+import { VoiceProvider } from "./VoiceContext";
 import { Toaster } from "@/components/ui/sonner";
 
 const InteractionContext = React.createContext({
@@ -34,10 +35,12 @@ export default function ClientProviders({ children }: { children: React.ReactNod
     return (
         <AudioProvider>
             <GameProvider>
-                <InteractionProvider>
-                    {children}
-                    <Toaster richColors position="top-right" />
-                </InteractionProvider>
+                <VoiceProvider>
+                    <InteractionProvider>
+                        {children}
+                        <Toaster richColors position="top-right" />
+                    </InteractionProvider>
+                </VoiceProvider>
             </GameProvider>
         </AudioProvider>
     );

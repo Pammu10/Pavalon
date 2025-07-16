@@ -22,11 +22,13 @@ interface GameContextType {
     authError: string | null;
     isLoading: boolean;
     hasViewedRole: boolean;
-    hasViewedEndGame: boolean;
     settings: Settings;
     achievementsVersion: number;
+    hasViewedCurrentQuestResult: boolean;
+    hasViewedEndGameResult: boolean;
     setHasViewedRole: React.Dispatch<React.SetStateAction<boolean>>;
-    setHasViewedEndGame: React.Dispatch<React.SetStateAction<boolean>>;
+    markQuestResultAsViewed: () => void;
+    markEndGameAsViewed: () => void;
     updateSettings: (newSettings: Partial<Settings>) => void;
     updateUser: (data: Partial<User>) => void;
     updateUsername: (newUsername: string) => Promise<void>;
@@ -82,7 +84,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [error, setError] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [hasViewedRole, setHasViewedRole] = useState(false);
-    const [hasViewedEndGame, setHasViewedEndGame] = useState(false);
+    const [viewedSessionKeys, setViewedSessionKeys] = useState<Set<string>>(new Set());
     const [settings, setSettings] = useState<Settings>(initialSettings);
     const [achievementsVersion, setAchievementsVersion] = useState(0);
 
@@ -95,11 +97,41 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [authError, setAuthError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
-    const autoClearError = (setter: React.Dispatch<React.SetStateAction<string | null>>, message: string) => {
+    const autoClearError = useCallback((setter: React.Dispatch<React.SetStateAction<string | null>>, message: string) => {
       setter(message);
       playSound('error', { manageBgm: false });
       setTimeout(() => setter(null), 5000);
-    }
+    }, [playSound]);
+    
+    // --- Session Storage Management for Overlays ---
+    const markQuestResultAsViewed = useCallback(() => {
+        if (gameState.roomCode && gameState.phase === GamePhase.QUEST_RESULT) {
+            const key = `viewedQuest-${gameState.roomCode}-${gameState.currentQuest}`;
+            sessionStorage.setItem(key, 'true');
+            setViewedSessionKeys(prev => new Set(prev).add(key));
+        }
+    }, [gameState.roomCode, gameState.currentQuest, gameState.phase]);
+
+    const markEndGameAsViewed = useCallback(() => {
+        if (gameState.roomCode && gameState.phase === GamePhase.END_GAME) {
+            const key = `viewedEndGame-${gameState.roomCode}`;
+            sessionStorage.setItem(key, 'true');
+            setViewedSessionKeys(prev => new Set(prev).add(key));
+        }
+    }, [gameState.roomCode, gameState.phase]);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const keys = new Set<string>();
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                if (key && (key.startsWith('viewedQuest-') || key.startsWith('viewedEndGame-'))) {
+                    keys.add(key);
+                }
+            }
+            setViewedSessionKeys(keys);
+        }
+    }, []);
     
     // --- Settings Management ---
     useEffect(() => {
@@ -164,64 +196,74 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     }, [token, isAuthenticated]);
     
-    // --- Socket Event Listeners ---
-    useEffect(() => {
-        const handleUpdate = (newState: GameState) => {
-            setGameState(prevState => {
-                const isNewGameStarting = (prevState.phase === GamePhase.END_GAME && newState.phase === GamePhase.LOBBY) || 
-                                          (prevState.phase === GamePhase.LOBBY && newState.phase === GamePhase.ROLE_REVEAL);
-                if (isNewGameStarting) {
-                    setHasViewedRole(false);
-                    setHasViewedEndGame(false);
+    // --- Socket Event Handlers (wrapped in useCallback) ---
+    const handleUpdate = useCallback((newState: GameState) => {
+        setGameState(prevState => {
+            const isNewGameStarting = (prevState.phase === GamePhase.END_GAME && newState.phase === GamePhase.LOBBY) || 
+                                      (prevState.phase === GamePhase.LOBBY && newState.phase === GamePhase.ROLE_REVEAL);
+            if (isNewGameStarting) {
+                setHasViewedRole(false);
+                // Clean up session state for the new game
+                if (prevState.roomCode) {
+                    const keysToRemove: string[] = [];
+                    for (let i = 0; i < sessionStorage.length; i++) {
+                        const key = sessionStorage.key(i);
+                        if (key && key.startsWith('viewed') && key.includes(prevState.roomCode)) {
+                            keysToRemove.push(key);
+                        }
+                    }
+                    keysToRemove.forEach(key => sessionStorage.removeItem(key));
                 }
-                return newState;
-            });
-            setMessages(newState.chat || []);
-        };
-        
-        const handleChatMessage = (message: Message) => {
-            setMessages(prev => [...prev, message]);
-        };
+                setViewedSessionKeys(new Set());
+            }
+            return newState;
+        });
+        setMessages(newState.chat || []);
+    }, []); // Setters are stable, no deps needed.
 
-        const handleError = (message: string) => {
-            autoClearError(setError, message);
-            toast.error(message);
-        };
+    const handleChatMessage = useCallback((message: Message) => {
+        setMessages(prev => [...prev, message]);
+    }, []);
 
-        const handleAchievementUnlocked = (achievement: Achievement) => {
-            playSound('success', { manageBgm: false });
-            toast.success(`Achievement Unlocked: ${achievement.name}`, {
-                description: `You've earned: ${achievement.rewards.map(r => r.name).join(', ')}`,
-                duration: 8000,
-            });
-            setAchievementsVersion(v => v + 1);
-        };
+    const handleError = useCallback((message: string) => {
+        autoClearError(setError, message);
+        toast.error(message);
+    }, [autoClearError]);
 
-        const handleKicked = (reason: string) => {
-            toast.error(reason, {
-                description: "You have been removed from the game."
-            });
-            setGameState(initialGameState);
-            setMessages([]);
-            setHasViewedRole(false);
-            setHasViewedEndGame(false);
-        };
+    const handleAchievementUnlocked = useCallback((achievement: Achievement) => {
+        playSound('success', { manageBgm: false });
+        toast.success(`Achievement Unlocked: ${achievement.name}`, {
+            description: `You've earned: ${achievement.rewards.map(r => r.name).join(', ')}`,
+            duration: 8000,
+        });
+        setAchievementsVersion(v => v + 1);
+    }, [playSound]);
 
+    const handleKicked = useCallback((reason: string) => {
+        toast.error(reason, {
+            description: "You have been removed from the game."
+        });
+        setGameState(initialGameState);
+        setMessages([]);
+        setHasViewedRole(false);
+    }, []); // Setters are stable, no deps needed.
+
+    // --- Main Socket Listener `useEffect` ---
+    useEffect(() => {
         socketService.on('updateGameState', handleUpdate);
         socketService.on('chatMessage', handleChatMessage);
         socketService.on('error', handleError);
         socketService.on('achievementUnlocked', handleAchievementUnlocked);
         socketService.on('kicked', handleKicked);
 
-
         return () => {
-            socketService.off('updateGameState');
-            socketService.off('chatMessage');
-            socketService.off('error');
-            socketService.off('achievementUnlocked');
-            socketService.off('kicked');
+            socketService.off('updateGameState', handleUpdate);
+            socketService.off('chatMessage', handleChatMessage);
+            socketService.off('error', handleError);
+            socketService.off('achievementUnlocked', handleAchievementUnlocked);
+            socketService.off('kicked', handleKicked);
         };
-    }, [playSound]);
+    }, [handleUpdate, handleChatMessage, handleError, handleAchievementUnlocked, handleKicked]);
 
      useEffect(() => {
         const onConnect = () => setPlayerId(socketService.socket.id!);
@@ -269,15 +311,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const logout = () => {
-        // If connected to a room, tell server we're leaving gracefully
         if (gameState.roomCode && socketService.socket.connected) {
             socketService.emit('leaveRoom');
         }
-        
-        // Disconnect the socket connection entirely
         socketService.disconnect();
-
-        // Then clear all local data
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
         delete api.defaults.headers.common['Authorization'];
@@ -286,7 +323,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsAuthenticated(false);
         setGameState(initialGameState);
         setHasViewedRole(false);
-        setHasViewedEndGame(false);
+        setViewedSessionKeys(new Set());
     };
 
     const updateUsername = async (newUsername: string) => {
@@ -294,27 +331,20 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setAuthError(null);
             const { data } = await api.post('/user/username', { username: newUsername });
             const { token: newToken, user: newUser } = data;
-            
-            // Update local state and storage
             localStorage.setItem('authToken', newToken);
             localStorage.setItem('user', JSON.stringify(newUser));
             api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
             setToken(newToken);
             setUser(newUser);
-            
             toast.success("Username updated successfully!");
-            
-            // Reconnect with new token to ensure server-side socket has updated user info
             if (socketService.socket.connected) {
                 socketService.disconnect();
                 socketService.connect(newToken);
             }
-    
         } catch (err: any) {
             const message = err.response?.data?.message || 'Username update failed.';
             autoClearError(setAuthError, message);
             toast.error(message);
-            // Throw to signal failure to the caller component
             throw new Error(message);
         }
     };
@@ -331,7 +361,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const leaveRoom = useCallback(() => {
         socketService.emit('leaveRoom');
-        setGameState(initialGameState); // Reset state immediately on client
+        // The server will handle the state change and push an update.
+        // We DO NOT reset state here, as it causes desynchronization. The server is the source of truth.
     }, []);
     
     const kickPlayer = (playerIdToKick: string) => socketService.emit('kickPlayer', playerIdToKick);
@@ -350,7 +381,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const initiateRestart = () => socketService.emit('initiateRestart');
     const voteOnRestart = (vote: 'yes' | 'no') => socketService.emit('voteOnRestart', vote);
 
-    const value = {
+    const hasViewedCurrentQuestResult = viewedSessionKeys.has(`viewedQuest-${gameState.roomCode}-${gameState.currentQuest}`);
+    const hasViewedEndGameResult = viewedSessionKeys.has(`viewedEndGame-${gameState.roomCode}`);
+
+    const value: GameContextType = {
         gameState,
         playerId,
         error,
@@ -361,11 +395,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         authError,
         isLoading,
         hasViewedRole,
-        hasViewedEndGame,
         settings,
         achievementsVersion,
+        hasViewedCurrentQuestResult,
+        hasViewedEndGameResult,
         setHasViewedRole,
-        setHasViewedEndGame,
+        markQuestResultAsViewed,
+        markEndGameAsViewed,
         updateSettings,
         updateUser,
         updateUsername,

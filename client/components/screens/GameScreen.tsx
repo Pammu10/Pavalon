@@ -291,10 +291,10 @@ const QuestVote: React.FC = () => {
 };
 
 const QuestResult: React.FC = () => {
-  const { gameState } = useGame();
+  const { gameState, hasViewedCurrentQuestResult, markQuestResultAsViewed } = useGame();
   
   const quest = gameState.questHistory[gameState.currentQuest - 1];
-  if (!quest) return null;
+  if (!quest || hasViewedCurrentQuestResult) return null;
 
   const failVotes = quest.results.filter((r) => r.vote === "FAIL").length;
   const successVotes = quest.results.filter((r) => r.vote === "SUCCESS").length;
@@ -306,7 +306,7 @@ const QuestResult: React.FC = () => {
       failVotes={failVotes}
       successVotes={successVotes}
       failsRequired={quest.failsRequired}
-      onClose={() => {}} // This is handled by phase changes
+      onClose={markQuestResultAsViewed}
     />
   );
 };

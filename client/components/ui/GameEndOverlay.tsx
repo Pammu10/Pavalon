@@ -12,7 +12,7 @@ interface GameEndOverlayProps {
 const GameEndOverlay: React.FC<GameEndOverlayProps> = ({ show, winner, onClose }) => {
   useEffect(() => {
     if (show) {
-      const timer = setTimeout(() => onClose(), 6000); // Overlay stays for 6 seconds
+      const timer = setTimeout(onClose, 6000); // Overlay stays for 6 seconds
       return () => clearTimeout(timer);
     }
   }, [show, onClose]);
@@ -32,7 +32,7 @@ const GameEndOverlay: React.FC<GameEndOverlayProps> = ({ show, winner, onClose }
   const Icon = isGoodWin ? ShieldCheck : Skull;
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/90 animate-fadeIn px-4 text-center">
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black animate-fadeIn px-4 text-center">
       {/* Glowing and spinning icon */}
       <div className="relative w-28 h-28 sm:w-40 sm:h-40 mx-auto mb-6">
         <div className={`absolute inset-0 rounded-full animate-pulse-slow blur-xl ${bgPulse}`} />

@@ -51,8 +51,8 @@ class SocketService {
         this.socket.on(event, callback as any);
     }
 
-    off<T extends Extract<keyof ServerToClientEvents, string>>(event: T) {
-        this.socket.off(event);
+    off<T extends Extract<keyof ServerToClientEvents, string>>(event: T, callback: ServerToClientEvents[T]) {
+        this.socket.off(event, callback as any);
     }
 }
 
