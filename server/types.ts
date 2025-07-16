@@ -117,11 +117,11 @@ export interface User {
     selectedIcon?: string | null;
 }
 export interface Match {
-    id: number;
-    winner: Alignment;
-    role: Role;
-    won: boolean;
-    playedAt: string;
+  id: number;
+  winner: Alignment;
+  role: Role;
+  won: boolean;
+  playedAt: string;
 }
 
 export interface MatchPlayerPerformance {

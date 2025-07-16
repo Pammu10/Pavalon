@@ -1,4 +1,5 @@
 
+
 import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
@@ -21,7 +22,8 @@ import {
   UserAchievement,
   PlayerStats,
   Achievement as ClientAchievement,
-  LogEntry
+  LogEntry,
+  Match
 } from "./types";
 import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES } from "./constants";
 import db from "./db";
@@ -159,7 +161,7 @@ app.get("/api/leaderboard", authMiddleware, async (req, res) => {
 app.get("/api/match/:id", authMiddleware, async (req, res) => {
   const { id } = req.params;
   try {
-    const performances = await db.all<MatchPlayerPerformance[]>(
+    const performances = await db.all<MatchPlayerPerformance>(
       "SELECT u.username, pp.role, pp.alignment, pp.won FROM player_performance pp JOIN users u ON pp.user_id = u.id WHERE pp.match_id = $1 ORDER BY u.username",
       [id]
     );
@@ -176,7 +178,7 @@ app.get("/api/match/:id", authMiddleware, async (req, res) => {
 app.get("/api/achievements", authMiddleware, async (req, res) => {
     const userId = (req as any).user.id;
     try {
-        const userAchievements = await db.all<UserAchievement[]>(
+        const userAchievements = await db.all<UserAchievement>(
             "SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = $1",
             [userId]
         );
@@ -288,7 +290,15 @@ adminRouter.delete('/users/:id', async (req, res) => {
     const userId = parseInt(req.params.id, 10);
     try {
         await gameService.forceRemoveUserByUserId(userId);
+
+        // Manually delete records from tables with foreign keys to users.id
+        // This is necessary to prevent foreign key constraint violations if ON DELETE CASCADE is not set.
+        await db.run("DELETE FROM player_performance WHERE user_id = $1", [userId]);
+        await db.run("DELETE FROM user_achievements WHERE user_id = $1", [userId]);
+
+        // Now it is safe to delete the user.
         await db.run("DELETE FROM users WHERE id = $1", [userId]);
+        
         res.json({ success: true, message: 'User deleted successfully.' });
     } catch (error) {
         console.error(`Admin failed to delete user ${userId}:`, error);
@@ -371,7 +381,7 @@ class AchievementService {
     gameState: GameState,
   ) {
       const stats = await gameService.getPlayerStats(userId);
-      const userAchievements = await db.all<UserAchievement[]>("SELECT achievement_id FROM user_achievements WHERE user_id = $1", [userId]);
+      const userAchievements = await db.all<UserAchievement>("SELECT achievement_id FROM user_achievements WHERE user_id = $1", [userId]);
       const unlockedIds = new Set(userAchievements.map(ua => ua.achievement_id));
 
       for (const achievement of ALL_ACHIEVEMENTS) {
@@ -675,11 +685,11 @@ class GameService {
         };
     }
 
-    const recentMatches = await db.all<any[]>(
+    const recentMatches = await db.all<Match>(
       "SELECT m.id, m.winner, pp.role, pp.won, m.played_at FROM matches m JOIN player_performance pp ON m.id = pp.match_id WHERE pp.user_id = $1 ORDER BY m.played_at DESC LIMIT 10",
       [userId]
     );
-    const achievements = await db.all<UserAchievement[]>(
+    const achievements = await db.all<UserAchievement>(
       "SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = $1",
       [userId]
     );
@@ -707,7 +717,7 @@ class GameService {
         winner: m.winner,
         role: m.role,
         won: !!m.won,
-        playedAt: m.played_at,
+        playedAt: m.playedAt,
       })),
       achievements: achievements,
     };

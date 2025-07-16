@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import api from "@/services/api";
@@ -9,6 +10,7 @@ import { Crown, Trophy, Target, TrendingUp, ShieldCheck, Skull, User, Download, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Button from "../ui/Button";
 import MatchDetailsModal from "../ui/MatchDetailsModal";
+import AchievementsTab from "../ui/AchievementsTab";
 
 // --- Stats Components ---
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({ title, value, icon }) => (
