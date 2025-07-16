@@ -1,4 +1,5 @@
 
+import 'dotenv/config';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from './types';
@@ -7,7 +8,7 @@ import { Socket } from 'socket.io';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-for-avalon';
 
 export const generateToken = (user: User): string => {
-    return jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
+    return jwt.sign({ id: user.id, username: user.username, isAdmin: user.is_admin }, JWT_SECRET, { expiresIn: '7d' });
 };
 
 // Middleware for Express to protect routes
@@ -28,6 +29,17 @@ export const authMiddleware = (req: express.Request, res: express.Response, next
         return res.status(401).json({ message: 'Authorization header is required' });
     }
 };
+
+// Middleware for admin-only Express routes
+export const adminMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const user = (req as any).user;
+    if (user && user.isAdmin) {
+        next();
+    } else {
+        res.status(403).json({ message: 'Forbidden: Administrator access required.' });
+    }
+}
+
 
 // Middleware for Socket.IO to authenticate connections
 export const authMiddlewareSocket = (socket: Socket, next: (err?: Error) => void) => {

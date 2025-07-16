@@ -146,7 +146,8 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         icon: 'Cherry',
         rewards: [
             {type: 'TITLE', value: 'Pookie', name: 'Pookie Title'},
-            { type: 'BORDER', value: 'sakura', name: 'Sakura Border' }
+            { type: 'BORDER', value: 'sakura', name: 'Sakura Border' },
+            { type: 'ICON', value: 'cherry', name: 'Cherry Icon' },
         ],
         check: () => false, // Cannot be earned automatically
     },

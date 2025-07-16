@@ -320,29 +320,32 @@ const Assassination: React.FC = () => {
     (p) => p.alignment === Alignment.GOOD
   );
   const isPaused = !!gameState.reconnectingPlayer;
+  const visiblePlayerMap = usePlayerVisionMap();
 
   return (
     <Card>
       {isAssassin ? (
         <>
-          <p className="text-center mt-2 mb-4">
+          <p className="text-center mt-2 mb-4 text-slate-300">
             You have one chance. Find and eliminate Merlin.
           </p>
-          <div className="flex flex-wrap justify-center gap-2 md:gap-4">
+          <div
+            id="assassination-grid"
+            className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] md:grid-cols-[repeat(auto-fit,minmax(9rem,10rem))] gap-2 sm:gap-4 my-6 justify-center"
+          >
             {potentialTargets.map((p) => (
-              <Button
+              <PlayerTile
                 key={p.id}
-                variant="secondary"
-                onClick={() => assassinate(p.id)}
-                disabled={isPaused}
-              >
-                Assassinate {p.name}
-              </Button>
+                player={p}
+                onClick={() => !isPaused && assassinate(p.id)}
+                isKnownAs={visiblePlayerMap.get(p.id)}
+                className="hover:ring-4 hover:ring-red-500/70"
+              />
             ))}
           </div>
         </>
       ) : (
-        <p className="text-center mt-4">
+        <p className="text-center mt-4 text-xl text-slate-300">
           The Assassin is making their choice...
         </p>
       )}

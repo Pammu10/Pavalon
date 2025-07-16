@@ -25,7 +25,7 @@ import {
 } from "./types";
 import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES } from "./constants";
 import db from "./db";
-import { authMiddleware, generateToken, authMiddlewareSocket } from "./auth";
+import { authMiddleware, generateToken, authMiddlewareSocket, adminMiddleware } from "./auth";
 import { ALL_ACHIEVEMENTS, Achievement } from "./achievements";
 
 const app = express();
@@ -55,14 +55,15 @@ app.post("/api/register", async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.run(
-      "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+      "INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, is_admin",
       [username, hashedPassword]
     );
-    const user: User = { id: result.lastID!, username };
+    const { id, is_admin } = result.rows[0];
+    const user: User = { id, username, is_admin };
     const token = generateToken(user);
     res.status(201).json({ token, user: { ...user, selectedTitle: null, selectedBorder: null, selectedIcon: null } });
   } catch (error: any) {
-    if (error.code === "SQLITE_CONSTRAINT") {
+    if (error.code === "23505") { // Unique constraint violation
       return res.status(409).json({ message: "Username already exists." });
     }
     res.status(500).json({ message: "Server error during registration." });
@@ -81,11 +82,12 @@ app.post("/api/login", async (req, res) => {
         id: number;
         username: string;
         password_hash: string;
+        is_admin: boolean;
         selected_title: string | null;
         selected_border: string | null;
         selected_icon: string | null;
     }>(
-      "SELECT id, username, password_hash, selected_title, selected_border, selected_icon FROM users WHERE username = ?",
+      "SELECT id, username, password_hash, is_admin, selected_title, selected_border, selected_icon FROM users WHERE username = $1",
       [username]
     );
     if (!userRow) {
@@ -101,11 +103,12 @@ app.post("/api/login", async (req, res) => {
     const user: User = { 
         id: userRow.id, 
         username: userRow.username,
+        is_admin: userRow.is_admin,
         selectedTitle: userRow.selected_title,
         selectedBorder: userRow.selected_border,
         selectedIcon: userRow.selected_icon,
     };
-    const token = generateToken({ id: user.id, username: user.username });
+    const token = generateToken({ id: user.id, username: user.username, is_admin: user.is_admin });
     res.json({ token, user });
   } catch (error) {
     res.status(500).json({ message: "Server error during login." });
@@ -136,7 +139,7 @@ app.get("/api/match/:id", authMiddleware, async (req, res) => {
   const { id } = req.params;
   try {
     const performances = await db.all<MatchPlayerPerformance[]>(
-      "SELECT u.username, pp.role, pp.alignment, pp.won FROM player_performance pp JOIN users u ON pp.user_id = u.id WHERE pp.match_id = ? ORDER BY u.username",
+      "SELECT u.username, pp.role, pp.alignment, pp.won FROM player_performance pp JOIN users u ON pp.user_id = u.id WHERE pp.match_id = $1 ORDER BY u.username",
       [id]
     );
     if (!performances || performances.length === 0) {
@@ -153,7 +156,7 @@ app.get("/api/achievements", authMiddleware, async (req, res) => {
     const userId = (req as any).user.id;
     try {
         const userAchievements = await db.all<UserAchievement[]>(
-            "SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = ?",
+            "SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = $1",
             [userId]
         );
         const unlockedIds = new Set(userAchievements.map(ua => ua.achievement_id));
@@ -181,7 +184,7 @@ app.post("/api/user/customize", authMiddleware, async (req, res) => {
     try {
         // Here you would also validate that the user has unlocked this title/border/icon
         // For simplicity, we'll trust the client for now.
-        await db.run("UPDATE users SET selected_title = ?, selected_border = ?, selected_icon = ? WHERE id = ?", [title, border, icon, userId]);
+        await db.run("UPDATE users SET selected_title = $1, selected_border = $2, selected_icon = $3 WHERE id = $4", [title, border, icon, userId]);
         
         // Update player in any active game session for real-time changes
         gameService.updatePlayerCustomization(userId, { title, border, icon });
@@ -207,27 +210,30 @@ app.post("/api/user/username", authMiddleware, async (req, res) => {
     }
 
     try {
-        const existingUser = await db.get("SELECT id FROM users WHERE username = ? AND id != ?", [username, userId]);
+        const existingUser = await db.get("SELECT id FROM users WHERE username = $1 AND id != $2", [username, userId]);
         if (existingUser) {
             return res.status(409).json({ message: "Username is already taken." });
         }
 
-        await db.run("UPDATE users SET username = ? WHERE id = ?", [username, userId]);
+        await db.run("UPDATE users SET username = $1 WHERE id = $2", [username, userId]);
         
         gameService.updatePlayerUsername(userId, username);
         
-        const updatedUserPayload = { id: userId, username };
-        const userWithCustomizations = await db.get<User>(
-             "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = ?",
+        const userRow = await db.get<{ is_admin: boolean; selected_title: string | null; selected_border: string | null; selected_icon: string | null; }>(
+             "SELECT is_admin, selected_title, selected_border, selected_icon FROM users WHERE id = $1",
              [userId]
         );
 
         const fullUserObject: User = {
-            ...updatedUserPayload,
-            ...userWithCustomizations,
+            id: userId,
+            username,
+            is_admin: userRow?.is_admin,
+            selectedTitle: userRow?.selected_title,
+            selectedBorder: userRow?.selected_border,
+            selectedIcon: userRow?.selected_icon
         };
         
-        const token = generateToken(updatedUserPayload);
+        const token = generateToken(fullUserObject);
 
         res.json({ success: true, message: "Username updated successfully.", user: fullUserObject, token });
 
@@ -236,6 +242,103 @@ app.post("/api/user/username", authMiddleware, async (req, res) => {
         res.status(500).json({ message: "Server error during username update." });
     }
 });
+
+// --- ADMIN ROUTES ---
+const adminRouter = express.Router();
+adminRouter.use(authMiddleware, adminMiddleware);
+
+adminRouter.get('/dashboard', async (req, res) => {
+    const userCount = await db.get<{count: string}>("SELECT COUNT(*) FROM users");
+    const matchCount = await db.get<{count: string}>("SELECT COUNT(*) FROM matches");
+    const roomCount = gameService.getRoomCount();
+    res.json({
+        userCount: parseInt(userCount?.count || '0', 10),
+        matchCount: parseInt(matchCount?.count || '0', 10),
+        roomCount
+    });
+});
+
+adminRouter.get('/users', async (req, res) => {
+    const users = await db.all("SELECT id, username, created_at, is_admin FROM users ORDER BY created_at DESC");
+    res.json(users);
+});
+
+adminRouter.delete('/users/:id', async (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    try {
+        await gameService.forceRemoveUserByUserId(userId);
+        await db.run("DELETE FROM users WHERE id = $1", [userId]);
+        res.json({ success: true, message: 'User deleted successfully.' });
+    } catch (error) {
+        console.error(`Admin failed to delete user ${userId}:`, error);
+        res.status(500).json({ message: 'Failed to delete user.' });
+    }
+});
+
+adminRouter.get('/users/:id/stats', async (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    try {
+        const stats = await db.get(`
+            SELECT 
+                win_streak, assassin_kills, total_games, total_wins, 
+                good_games, good_wins, evil_games, evil_wins 
+            FROM users WHERE id = $1`, [userId]);
+        if (!stats) return res.status(404).json({ message: 'User not found.' });
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch user stats.' });
+    }
+});
+
+adminRouter.put('/users/:id/stats', async (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    const { win_streak, assassin_kills, total_games, total_wins, good_games, good_wins, evil_games, evil_wins } = req.body;
+    try {
+        await db.run(`
+            UPDATE users SET 
+                win_streak = $1, assassin_kills = $2, total_games = $3, total_wins = $4,
+                good_games = $5, good_wins = $6, evil_games = $7, evil_wins = $8
+            WHERE id = $9`, 
+            [win_streak, assassin_kills, total_games, total_wins, good_games, good_wins, evil_games, evil_wins, userId]
+        );
+        res.json({ success: true, message: 'Stats updated.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to update stats.' });
+    }
+});
+
+
+adminRouter.get('/rooms', (req, res) => {
+    const rooms = gameService.getAllRooms();
+    res.json(rooms);
+});
+
+adminRouter.delete('/rooms/:roomCode', (req, res) => {
+    const { roomCode } = req.params;
+    gameService.forceCloseRoom(roomCode);
+    res.json({ success: true, message: `Room ${roomCode} has been closed.` });
+});
+
+adminRouter.post('/achievements/grant', async (req, res) => {
+    const { userId, achievementId } = req.body;
+    try {
+        const achievement = ALL_ACHIEVEMENTS.find(a => a.id === achievementId);
+        if (!achievement) return res.status(404).json({ message: 'Achievement not found.'});
+        
+        await db.run("INSERT INTO user_achievements (user_id, achievement_id) VALUES ($1, $2) ON CONFLICT(user_id, achievement_id) DO NOTHING", [userId, achievementId]);
+        res.json({ success: true, message: `Achievement '${achievement.name}' granted.` });
+    } catch (error) {
+        console.error(`Admin failed to grant achievement:`, error);
+        res.status(500).json({ message: 'Failed to grant achievement.' });
+    }
+});
+
+adminRouter.get('/achievements', (req, res) => {
+    res.json(ALL_ACHIEVEMENTS.map(({ check, ...rest }) => rest));
+});
+
+
+app.use('/api/admin', adminRouter);
 
 
 // --- Achievement Service ---
@@ -247,7 +350,7 @@ class AchievementService {
     gameState: GameState,
   ) {
       const stats = await gameService.getPlayerStats(userId);
-      const userAchievements = await db.all<UserAchievement[]>("SELECT achievement_id FROM user_achievements WHERE user_id = ?", [userId]);
+      const userAchievements = await db.all<UserAchievement[]>("SELECT achievement_id FROM user_achievements WHERE user_id = $1", [userId]);
       const unlockedIds = new Set(userAchievements.map(ua => ua.achievement_id));
 
       for (const achievement of ALL_ACHIEVEMENTS) {
@@ -261,7 +364,7 @@ class AchievementService {
 
   private async grantAchievement(userId: number, achievementId: string, io: Server, gameState: GameState) {
       try {
-          await db.run("INSERT INTO user_achievements (user_id, achievement_id) VALUES (?, ?)", [userId, achievementId]);
+          await db.run("INSERT INTO user_achievements (user_id, achievement_id) VALUES ($1, $2)", [userId, achievementId]);
           console.log(`Achievement unlocked for user ${userId}: ${achievementId}`);
           
           const playerInGame = gameState.players.find(p => p.userId === userId);
@@ -280,7 +383,7 @@ class AchievementService {
           }
       } catch (error) {
           // It might fail if granted in another async process, which is fine
-          if (!(error as any).message.includes('UNIQUE constraint failed')) {
+          if ((error as any).code !== '23505') { // 23505 is unique_violation in postgres
             console.error(`Failed to grant achievement ${achievementId} to user ${userId}:`, error);
           }
       }
@@ -403,7 +506,7 @@ class GameService {
     }
     
     const userCustomizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string; }>(
-        "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = ?",
+        "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
         [user.id]
     );
 
@@ -451,7 +554,7 @@ class GameService {
     }
 
     const userCustomizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string; }>(
-        "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = ?",
+        "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
         [user.id]
     );
     player.selectedTitle = userCustomizations?.selected_title;
@@ -532,54 +635,51 @@ class GameService {
   }
 
   async getPlayerStats(userId: number): Promise<PlayerStats> {
-    const totalGames = await db.get<{ count: number }>(
-      "SELECT COUNT(*) as count FROM player_performance WHERE user_id = ?",
-      [userId]
-    );
-    const wins = await db.get<{ count: number }>(
-      "SELECT COUNT(*) as count FROM player_performance WHERE user_id = ? AND won = 1",
-      [userId]
-    );
-    const goodGames = await db.get<{ count: number }>(
-      "SELECT COUNT(*) as count FROM player_performance WHERE user_id = ? AND alignment = ?",
-      [userId, Alignment.GOOD]
-    );
-    const goodWins = await db.get<{ count: number }>(
-      "SELECT COUNT(*) as count FROM player_performance WHERE user_id = ? AND alignment = ? AND won = 1",
-      [userId, Alignment.GOOD]
-    );
-    const evilGames = await db.get<{ count: number }>(
-      "SELECT COUNT(*) as count FROM player_performance WHERE user_id = ? AND alignment = ?",
-      [userId, Alignment.EVIL]
-    );
-    const evilWins = await db.get<{ count: number }>(
-      "SELECT COUNT(*) as count FROM player_performance WHERE user_id = ? AND alignment = ? AND won = 1",
-      [userId, Alignment.EVIL]
-    );
-    const recentMatches = await db.all<any[]>(
-      "SELECT m.id, m.winner, pp.role, pp.won, m.played_at FROM matches m JOIN player_performance pp ON m.id = pp.match_id WHERE pp.user_id = ? ORDER BY m.played_at DESC LIMIT 10",
-      [userId]
-    );
-    const achievements = await db.all<UserAchievement[]>(
-      "SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = ?",
+    const userStats = await db.get<{
+        total_games: number;
+        total_wins: number;
+        good_games: number;
+        good_wins: number;
+        evil_games: number;
+        evil_wins: number;
+    }>(
+      "SELECT total_games, total_wins, good_games, good_wins, evil_games, evil_wins FROM users WHERE id = $1",
       [userId]
     );
 
+    if (!userStats) {
+        return {
+            totalGames: 0, totalWins: 0, goodGames: 0, goodWins: 0, evilGames: 0, evilWins: 0,
+            winRate: 0, goodWinRate: 0, evilWinRate: 0, recentMatches: [], achievements: []
+        };
+    }
+
+    const recentMatches = await db.all<any[]>(
+      "SELECT m.id, m.winner, pp.role, pp.won, m.played_at FROM matches m JOIN player_performance pp ON m.id = pp.match_id WHERE pp.user_id = $1 ORDER BY m.played_at DESC LIMIT 10",
+      [userId]
+    );
+    const achievements = await db.all<UserAchievement[]>(
+      "SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = $1",
+      [userId]
+    );
+
+    const { total_games, total_wins, good_games, good_wins, evil_games, evil_wins } = userStats;
+
     return {
-      totalGames: totalGames?.count || 0,
-      totalWins: wins?.count || 0,
-      goodGames: goodGames?.count || 0,
-      goodWins: goodWins?.count || 0,
-      evilGames: evilGames?.count || 0,
-      evilWins: evilWins?.count || 0,
-      winRate: totalGames?.count
-        ? Math.round((wins!.count / totalGames.count) * 100)
+      totalGames: total_games,
+      totalWins: total_wins,
+      goodGames: good_games,
+      goodWins: good_wins,
+      evilGames: evil_games,
+      evilWins: evil_wins,
+      winRate: total_games
+        ? Math.round((total_wins / total_games) * 100)
         : 0,
-      goodWinRate: goodGames?.count
-        ? Math.round((goodWins!.count / goodGames.count) * 100)
+      goodWinRate: good_games
+        ? Math.round((good_wins / good_games) * 100)
         : 0,
-      evilWinRate: evilGames?.count
-        ? Math.round((evilWins!.count / evilGames.count) * 100)
+      evilWinRate: evil_games
+        ? Math.round((evil_wins / evil_games) * 100)
         : 0,
       recentMatches: recentMatches.map((m) => ({
         id: m.id,
@@ -593,27 +693,20 @@ class GameService {
   }
 
   async getLeaderboard(): Promise<LeaderboardData> {
-    const allUsers: { id: number; username: string; win_streak: number; assassin_kills: number; }[] = await db.all("SELECT id, username, win_streak, assassin_kills FROM users");
-    
-    interface PerformanceRow { user_id: number; won: boolean | number; alignment: Alignment; }
-    const allPerformances: PerformanceRow[] = await db.all("SELECT user_id, won, alignment FROM player_performance");
-
-    const userStats: { [userId: number]: { total: number, wins: number, goodTotal: number, goodWins: number, evilTotal: number, evilWins: number } } = {};
-
-    for (const p of allPerformances) {
-        if (!userStats[p.user_id]) {
-            userStats[p.user_id] = { total: 0, wins: 0, goodTotal: 0, goodWins: 0, evilTotal: 0, evilWins: 0 };
-        }
-        userStats[p.user_id].total++;
-        if (p.won) userStats[p.user_id].wins++;
-        if (p.alignment === Alignment.GOOD) {
-            userStats[p.user_id].goodTotal++;
-            if (p.won) userStats[p.user_id].goodWins++;
-        } else {
-            userStats[p.user_id].evilTotal++;
-            if (p.won) userStats[p.user_id].evilWins++;
-        }
-    }
+     const allUsers: { 
+        id: number;
+        username: string; 
+        win_streak: number; 
+        assassin_kills: number;
+        total_games: number;
+        total_wins: number;
+        good_wins: number;
+        evil_wins: number;
+    }[] = await db.all(`
+        SELECT id, username, win_streak, assassin_kills, 
+               total_games, total_wins, good_wins, evil_wins 
+        FROM users WHERE total_games > 0
+    `);
     
     const leaderboard: LeaderboardData = {
         totalWins: [],
@@ -625,15 +718,14 @@ class GameService {
     };
 
     for (const user of allUsers) {
-        const stats = userStats[user.id] || { total: 0, wins: 0, goodTotal: 0, goodWins: 0, evilTotal: 0, evilWins: 0 };
-        const winRateValue = stats.total > 0 ? Math.round((stats.wins / stats.total) * 100) : 0;
+        const winRateValue = user.total_games > 0 ? Math.round((user.total_wins / user.total_games) * 100) : 0;
 
-        leaderboard.totalWins.push({ username: user.username, value: stats.wins });
+        leaderboard.totalWins.push({ username: user.username, value: user.total_wins });
         leaderboard.winRate.push({ username: user.username, value: winRateValue });
         leaderboard.topAssassins.push({ username: user.username, value: user.assassin_kills });
         leaderboard.winStreaks.push({ username: user.username, value: user.win_streak });
-        leaderboard.bestGood.push({ username: user.username, value: stats.goodWins });
-        leaderboard.bestEvil.push({ username: user.username, value: stats.evilWins });
+        leaderboard.bestGood.push({ username: user.username, value: user.good_wins });
+        leaderboard.bestEvil.push({ username: user.username, value: user.evil_wins });
     }
 
     // Sort all categories with a secondary sort by username for stability
@@ -683,10 +775,10 @@ class GameService {
     if (winner) {
       try {
         const matchResult = await db.run(
-          "INSERT INTO matches (winner) VALUES (?)",
+          "INSERT INTO matches (winner) VALUES ($1) RETURNING id",
           [winner]
         );
-        const matchId = matchResult.lastID;
+        const matchId = matchResult.rows[0].id;
 
         for (const player of gameState.players) {
           if (player.role && player.alignment && player.userId) {
@@ -699,16 +791,30 @@ class GameService {
               won,
             };
             await db.run(
-              "INSERT INTO player_performance (user_id, match_id, role, alignment, won) VALUES (?, ?, ?, ?, ?)",
+              "INSERT INTO player_performance (user_id, match_id, role, alignment, won) VALUES ($1, $2, $3, $4, $5)",
               [ performance.user_id, performance.match_id, performance.role, performance.alignment, performance.won ]
             );
             
-            // Update win streak
-            if (won) {
-              await db.run("UPDATE users SET win_streak = win_streak + 1 WHERE id = ?", [player.userId]);
-            } else {
-              await db.run("UPDATE users SET win_streak = 0 WHERE id = ?", [player.userId]);
-            }
+            // Update denormalized stats
+            const goodGameIncrement = player.alignment === Alignment.GOOD ? 1 : 0;
+            const evilGameIncrement = player.alignment === Alignment.EVIL ? 1 : 0;
+            const goodWinIncrement = (player.alignment === Alignment.GOOD && won) ? 1 : 0;
+            const evilWinIncrement = (player.alignment === Alignment.EVIL && won) ? 1 : 0;
+            const winIncrement = won ? 1 : 0;
+            
+            await db.run(`
+              UPDATE users 
+              SET 
+                total_games = total_games + 1,
+                total_wins = total_wins + $1,
+                good_games = good_games + $2,
+                good_wins = good_wins + $3,
+                evil_games = evil_games + $4,
+                evil_wins = evil_wins + $5,
+                win_streak = CASE WHEN $1 = 1 THEN win_streak + 1 ELSE 0 END
+              WHERE id = $6
+            `, [winIncrement, goodGameIncrement, goodWinIncrement, evilGameIncrement, evilWinIncrement, player.userId]);
+
 
             // Check for achievements
             await achievementService.checkAndGrantAchievements(player.userId, performance, this.io, gameState);
@@ -752,7 +858,7 @@ class GameService {
     const preservedLog = gameState.gameLog;
     const originalPlayerInfos = await Promise.all(gameState.players.map(async (p) => {
         const customizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string }>(
-            "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = ?", [p.userId]
+            "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1", [p.userId]
         );
         return {
             id: p.id,
@@ -1163,7 +1269,7 @@ class GameService {
     const target = this.getPlayer(gameState, targetId);
     this.addLog(gameState, `The Assassin has targeted ${target!.name}.`, 'assassination');
     if (target?.role === Role.MERLIN) {
-      await db.run("UPDATE users SET assassin_kills = assassin_kills + 1 WHERE id = ?", [assassin.userId]);
+      await db.run("UPDATE users SET assassin_kills = assassin_kills + 1 WHERE id = $1", [assassin.userId]);
       this.endGame(gameState, Alignment.EVIL, `The Assassin has slain Merlin! Evil wins!`);
     } else {
       this.endGame(gameState, Alignment.GOOD, `The Assassin chose poorly. Merlin survives! The kingdom is safe.`);
@@ -1408,6 +1514,49 @@ class GameService {
             text: `${oldUsername} is now known as ${newUsername}.`
         });
         console.log(`Pushed real-time username update for ${userId} to ${newUsername} in room ${roomCode}.`);
+      }
+    }
+  }
+  
+  // --- Admin Methods ---
+  getRoomCount() {
+    return this.games.size;
+  }
+  
+  getAllRooms() {
+    return Array.from(this.games.values()).map(state => ({
+        roomCode: state.roomCode,
+        playerCount: state.players.length,
+        phase: state.phase,
+        players: state.players.map(p => ({ name: p.name, status: p.status }))
+    }));
+  }
+  
+  forceCloseRoom(roomCode: string) {
+    const gameState = this.games.get(roomCode.toUpperCase());
+    if (gameState) {
+      this.io.to(roomCode).emit("kicked", "This room has been closed by an administrator.");
+      this.io.in(roomCode).disconnectSockets(true);
+      this.games.delete(roomCode.toUpperCase());
+      console.log(`Admin forced closed room: ${roomCode}`);
+    }
+  }
+  
+  forceRemoveUserByUserId(userId: number) {
+    const gameInfo = this.findGameByPlayerUserId(userId);
+    if (gameInfo) {
+      const [roomCode, gameState] = gameInfo;
+      const player = gameState.players.find(p => p.userId === userId);
+      if (player) {
+        const socket = this.io.sockets.sockets.get(player.id);
+        if (socket) {
+          socket.emit("kicked", "You have been removed from the game by an administrator.");
+          socket.leave(roomCode);
+          socket.disconnect(true);
+        }
+        // Proceed to disconnect, which will handle player removal from state
+        this.handleDisconnect(player.id);
+        console.log(`Admin forced removal of user ${userId} from room ${roomCode}`);
       }
     }
   }

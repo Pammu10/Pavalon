@@ -283,18 +283,6 @@
     filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.7));
 }
 
-/* --- Default Tile: Hover State --- */
-.group:hover .player-tile-avatar-glow {
-    background: radial-gradient(circle at 50% 50%, theme(colors.yellow.500 / 0.3) 0%, transparent 70%);
-    opacity: 1;
-    transform: scale(1.6);
-}
-.group:hover .player-tile-avatar-area svg {
-    color: theme(colors.yellow.400);
-    filter: drop-shadow(0 0 12px theme(colors.yellow.500 / 0.6));
-    transform: scale(1.05);
-}
-
 /* --- Special Border Tile: Normal State --- */
 .border-style-crimson .player-tile-avatar-glow,
 .border-style-azure .player-tile-avatar-glow,
@@ -313,24 +301,40 @@
     filter: drop-shadow(0 0 10px var(--glow-color));
 }
 
-/* --- Special Border Tile: Hover State (Overrides default hover) --- */
-.border-style-crimson.group:hover .player-tile-avatar-glow,
-.border-style-azure.group:hover .player-tile-avatar-glow,
-.border-style-amethyst.group:hover .player-tile-avatar-glow,
-.border-style-golden.group:hover .player-tile-avatar-glow,
-.border-style-sakura.group:hover .player-tile-avatar-glow {
-    opacity: 0.4;
-    transform: scale(1.6);
+/* --- Desktop-only hover effects to prevent sticky hover on mobile --- */
+@media (hover: hover) and (pointer: fine) {
+    /* --- Default Tile: Hover State --- */
+    .group:hover .player-tile-avatar-glow {
+        background: radial-gradient(circle at 50% 50%, theme(colors.yellow.500 / 0.3) 0%, transparent 70%);
+        opacity: 1;
+        transform: scale(1.6);
+    }
+    .group:hover .player-tile-avatar-area svg {
+        color: theme(colors.yellow.400);
+        filter: drop-shadow(0 0 12px theme(colors.yellow.500 / 0.6));
+        transform: scale(1.05);
+    }
+    
+    /* --- Special Border Tile: Hover State (Overrides default hover) --- */
+    .border-style-crimson.group:hover .player-tile-avatar-glow,
+    .border-style-azure.group:hover .player-tile-avatar-glow,
+    .border-style-amethyst.group:hover .player-tile-avatar-glow,
+    .border-style-golden.group:hover .player-tile-avatar-glow,
+    .border-style-sakura.group:hover .player-tile-avatar-glow {
+        opacity: 0.4;
+        transform: scale(1.6);
+    }
+    .border-style-crimson.group:hover .player-tile-avatar-area svg,
+    .border-style-azure.group:hover .player-tile-avatar-area svg,
+    .border-style-amethyst.group:hover .player-tile-avatar-area svg,
+    .border-style-golden.group:hover .player-tile-avatar-area svg,
+    .border-style-sakura.group:hover .player-tile-avatar-area svg {
+        color: var(--icon-color);
+        filter: drop-shadow(0 0 15px var(--glow-color));
+        transform: scale(1.1);
+    }
 }
-.border-style-crimson.group:hover .player-tile-avatar-area svg,
-.border-style-azure.group:hover .player-tile-avatar-area svg,
-.border-style-amethyst.group:hover .player-tile-avatar-area svg,
-.border-style-golden.group:hover .player-tile-avatar-area svg,
-.border-style-sakura.group:hover .player-tile-avatar-area svg {
-    color: var(--icon-color);
-    filter: drop-shadow(0 0 15px var(--glow-color));
-    transform: scale(1.1);
-}
+
 
 /* --- Tutorial Highlight --- */
 .tutorial-highlight-hole {

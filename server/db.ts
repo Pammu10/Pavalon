@@ -1,106 +1,120 @@
 
-import sqlite3 from 'sqlite3';
-import { open, Database } from 'sqlite';
+import 'dotenv/config';
+import { Pool, QueryResult } from 'pg';
 
 // The promise that resolves with the database instance.
-let dbPromise: Promise<Database>;
+let dbPromise: Promise<Pool>;
+
+// Supabase requires SSL, and this configuration is common for cloud providers
+const isProduction = process.env.NODE_ENV === 'production';
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+    throw new Error('DATABASE_URL environment variable is not set!');
+}
 
 async function initializeDb() {
-    // Note: 'db' is a local const here, not a module-level variable
-    const db = await open({
-        filename: './avalon.db',
-        driver: sqlite3.Database
+    console.log('Initializing PostgreSQL connection pool...');
+    const pool = new Pool({
+        connectionString: connectionString,
+        ssl: isProduction ? { rejectUnauthorized: false } : false,
     });
 
-    console.log('Connected to the SQLite database.');
-
-    await db.exec(`
+    await pool.query('SELECT NOW()'); // Test the connection
+    console.log('Connected to the PostgreSQL database.');
+    
+    // Use SERIAL for auto-incrementing primary keys in PostgreSQL
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            is_admin BOOLEAN NOT NULL DEFAULT FALSE
         );
         
         CREATE TABLE IF NOT EXISTS matches (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             winner TEXT NOT NULL,
-            played_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            played_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         );
         
         CREATE TABLE IF NOT EXISTS player_performance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            match_id INTEGER NOT NULL,
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
             role TEXT NOT NULL,
             alignment TEXT NOT NULL,
-            won BOOLEAN NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id),
-            FOREIGN KEY (match_id) REFERENCES matches (id)
+            won BOOLEAN NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS user_achievements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             achievement_id TEXT NOT NULL,
-            unlocked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id),
+            unlocked_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id, achievement_id)
         );
     `);
-    
+
     // Add columns if they don't exist for graceful migration
     const columnsToAdd = [
-        { name: 'win_streak', type: 'INTEGER DEFAULT 0' },
-        { name: 'assassin_kills', type: 'INTEGER DEFAULT 0' },
+        { name: 'win_streak', type: 'INTEGER NOT NULL DEFAULT 0' },
+        { name: 'assassin_kills', type: 'INTEGER NOT NULL DEFAULT 0' },
         { name: 'selected_title', type: 'TEXT' },
         { name: 'selected_border', type: 'TEXT' },
         { name: 'selected_icon', type: 'TEXT' },
+        { name: 'is_admin', type: 'BOOLEAN NOT NULL DEFAULT FALSE' },
+        { name: 'total_games', type: 'INTEGER NOT NULL DEFAULT 0' },
+        { name: 'total_wins', type: 'INTEGER NOT NULL DEFAULT 0' },
+        { name: 'good_games', type: 'INTEGER NOT NULL DEFAULT 0' },
+        { name: 'good_wins', type: 'INTEGER NOT NULL DEFAULT 0' },
+        { name: 'evil_games', type: 'INTEGER NOT NULL DEFAULT 0' },
+        { name: 'evil_wins', type: 'INTEGER NOT NULL DEFAULT 0' },
     ];
-    
+
     for (const column of columnsToAdd) {
         try {
-            await db.exec(`ALTER TABLE users ADD COLUMN ${column.name} ${column.type}`);
+            await pool.query(`ALTER TABLE users ADD COLUMN ${column.name} ${column.type}`);
             console.log(`Verified column '${column.name}' on users table.`);
         } catch (e: any) {
-            // Ignore error if column already exists
-            if (!e.message.includes('duplicate column name')) {
+            // Error code for "duplicate column" in PostgreSQL is 42701
+            if (e.code !== '42701') {
                 console.error(`Error adding column ${column.name}:`, e.message);
             }
         }
     }
 
-
     console.log("Database tables are set up.");
-    return db;
+    return pool;
 }
 
-
-// Initialize the promise. It will be awaited by the db methods.
 dbPromise = initializeDb();
 
 dbPromise.catch(err => {
-    console.error('Failed to initialize database:', err);
+    console.error('Failed to initialize database pool:', err);
+    process.exit(1); // Exit if DB connection fails
 });
 
-// Export an object of async functions that await the dbPromise before executing.
-// This solves the race condition.
+// Export an object of async functions that use the connection pool.
 const dbInstance = {
-    get: async <T>(sql: string, ...params: any[]) => {
-        const db = await dbPromise;
-        return db.get<T>(sql, ...params);
+    get: async <T>(sql: string, params: any[] = []): Promise<T | undefined> => {
+        const pool = await dbPromise;
+        const result = await pool.query(sql, params);
+        return result.rows[0];
     },
-    all: async <T>(sql: string, ...params: any[]) => {
-        const db = await dbPromise;
-        return db.all<T>(sql, ...params);
+    all: async <T>(sql: string, params: any[] = []): Promise<T[]> => {
+        const pool = await dbPromise;
+        const result = await pool.query(sql, params);
+        return result.rows;
     },
-    run: async (sql: string, ...params: any[]) => {
-        const db = await dbPromise;
-        return db.run(sql, ...params);
+    run: async (sql: string, params: any[] = []): Promise<QueryResult> => {
+        const pool = await dbPromise;
+        return pool.query(sql, params);
     },
-    exec: async (sql: string) => {
-        const db = await dbPromise;
-        return db.exec(sql);
+    exec: async (sql: string): Promise<QueryResult> => {
+        const pool = await dbPromise;
+        return pool.query(sql);
     },
 };
 

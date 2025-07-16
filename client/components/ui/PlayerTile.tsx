@@ -33,11 +33,11 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
     <div
       onClick={onClick}
       className={cn(
-        'relative group aspect-[3/4] flex flex-col items-center justify-end p-2 rounded-xl transition-all duration-300 shadow-lg',
+        'relative group aspect-[3/4] flex flex-col items-center justify-end p-2 rounded-xl transition-all duration-300 shadow-lg [-webkit-tap-highlight-color:transparent]',
         'bg-slate-900/50 backdrop-blur-sm border-4',
         borderClass,
         isDisconnected ? 'grayscale opacity-50' : '',
-        onClick && !isDisconnected ? 'cursor-pointer hover:border-yellow-500/80 hover:-translate-y-1' : '',
+        onClick && !isDisconnected ? 'cursor-pointer hover:border-yellow-500/80 hover:-translate-y-1 active:scale-95 active:border-yellow-500 active:brightness-90' : '',
         isSelected ? 'scale-105' : '',
         className
       )}

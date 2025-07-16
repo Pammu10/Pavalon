@@ -1,3 +1,4 @@
+
 export enum Role {
     MERLIN = 'Merlin',
     PERCIVAL = 'Percival',
@@ -110,6 +111,7 @@ export interface RoleDescription {
 export interface User {
     id: number;
     username: string;
+    is_admin?: boolean;
     selectedTitle?: string | null;
     selectedBorder?: string | null;
     selectedIcon?: string | null;

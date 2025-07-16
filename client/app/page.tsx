@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { GameProvider, useGame } from "@/components/context/GameContext";
 import { AudioProvider, useAudio } from "@/components/context/AudiContext";
 import AuthScreen from "@/components/screens/AuthScreen";
@@ -17,27 +16,24 @@ import { Chat } from "@/components/ui/Chat";
 import PlayerInfoBar from "@/components/ui/PlayerInfoBar";
 import { GamePhase } from "@/types";
 import Spinner from "@/components/ui/Spinner";
-import { Swords, MessageSquare, Settings, Trophy, Star, ScrollText } from "lucide-react";
+import { Swords, MessageSquare, Settings, Trophy, Star, ShieldAlert } from "lucide-react";
 import HomeScreen from "@/components/screens/HomeScreen";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementsTab from "../components/ui/AchievementsTab";
 import { Toaster } from "@/components/ui/sonner";
 import GameLog from "@/components/ui/GameLog";
+import AdminPage from "./admin/page";
 
-type Tab = "game" | "chat" | "leaderboard" | "achievements" | "settings" | "gamelog";
+type Tab = "game" | "chat" | "leaderboard" | "achievements" | "settings" | "gamelog" | "admin";
 
-const TABS_CONFIG: { id: Tab; label: string; icon: React.ReactNode; desktop: boolean; mobile: boolean; }[] = [
+const BASE_TABS_CONFIG: { id: Tab; label: string; icon: React.ReactNode; desktop: boolean; mobile: boolean; }[] = [
   { id: 'game', label: 'Game', icon: <Swords size={24} />, desktop: true, mobile: true },
-  { id: 'chat', label: 'Chat', icon: <MessageSquare size={24} />, desktop: true, mobile: false },
+  { id: 'chat', label: 'Chat & Log', icon: <MessageSquare size={24} />, desktop: true, mobile: false },
   { id: 'leaderboard', label: 'Hall of Heroes', icon: <Trophy size={24} />, desktop: true, mobile: true },
   { id: 'achievements', label: 'Achievements', icon: <Star size={24} />, desktop: true, mobile: false },
   { id: 'settings', label: 'Settings', icon: <Settings size={24} />, desktop: true, mobile: true },
 ];
-
-const desktopTabs = TABS_CONFIG.filter(t => t.desktop);
-const mobileTabs = TABS_CONFIG.filter(t => t.mobile);
-
 
 const InteractionContext = React.createContext({
   hasInteracted: false,
@@ -102,6 +98,18 @@ const MainContent: React.FC = () => {
   const prevPhase = useRef(gameState.phase);
   const prevTab = useRef(activeTab);
 
+  const TABS_CONFIG = useMemo(() => {
+    const config = [...BASE_TABS_CONFIG];
+    if (user?.is_admin) {
+      config.push({ id: 'admin', label: 'Admin Panel', icon: <ShieldAlert size={24} />, desktop: true, mobile: false });
+    }
+    return config;
+  }, [user?.is_admin]);
+
+  const desktopTabs = TABS_CONFIG.filter(t => t.desktop);
+  const mobileTabs = TABS_CONFIG.filter(t => t.mobile);
+
+
   useEffect(() => {
     if (settings.skipIntro) {
       setShowIntro(false);
@@ -156,7 +164,7 @@ const MainContent: React.FC = () => {
         setUnreadMessages((prev) => prev + 1);
       }
     }
-  }, [messages, user?.id]);
+  }, [messages, user?.id, activeTab, isChatOpen]);
 
   const handleTabChange = (value: string) => {
     const tab = value as Tab;
@@ -216,6 +224,7 @@ const MainContent: React.FC = () => {
 
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-[100dvh] w-screen">
+
       {gameState.reconnectingPlayer && (
         <ReconnectionBanner player={gameState.reconnectingPlayer} />
       )}
@@ -253,10 +262,10 @@ const MainContent: React.FC = () => {
               {renderGameScreen()}
             </TabsContent>
             <TabsContent value="chat" className="mt-0 outline-none"><Chat /></TabsContent>
-            <TabsContent value="gamelog" className="mt-0 outline-none"><GameLog /></TabsContent>
             <TabsContent value="settings" className="mt-0 outline-none"><SettingsScreen /></TabsContent>
             <TabsContent value="leaderboard" className="mt-0 outline-none"><LeaderboardScreen /></TabsContent>
             <TabsContent value="achievements" className="mt-0 outline-none"><AchievementsTab /></TabsContent>
+            <TabsContent value="admin" className="mt-0 outline-none"><AdminPage /></TabsContent>
         </div>
       </main>
       
