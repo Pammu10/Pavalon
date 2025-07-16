@@ -686,7 +686,7 @@ class GameService {
     }
 
     const recentMatches = await db.all<Match>(
-      "SELECT m.id, m.winner, pp.role, pp.won, m.played_at FROM matches m JOIN player_performance pp ON m.id = pp.match_id WHERE pp.user_id = $1 ORDER BY m.played_at DESC LIMIT 10",
+      "SELECT m.id, m.winner, pp.role, pp.won, m.played_at AS \"playedAt\" FROM matches m JOIN player_performance pp ON m.id = pp.match_id WHERE pp.user_id = $1 ORDER BY m.played_at DESC LIMIT 10",
       [userId]
     );
     const achievements = await db.all<UserAchievement>(
