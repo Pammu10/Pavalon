@@ -227,6 +227,11 @@ export interface ClientToServerEvents {
   playerReadyForNextGame: () => void;
   initiateRestart: () => void;
   voteOnRestart: (vote: 'yes' | 'no') => void;
+
+  // Voice Chat
+  'voice:offer': (data: { targetId: string, sdp: RTCSessionDescriptionInit }) => void;
+  'voice:answer': (data: { targetId: string, sdp: RTCSessionDescriptionInit }) => void;
+  'voice:ice-candidate': (data: { targetId: string, candidate: RTCIceCandidateInit }) => void;
 }
 
 export interface ServerToClientEvents {
@@ -235,4 +240,11 @@ export interface ServerToClientEvents {
   error: (message: string) => void;
   achievementUnlocked: (achievement: Achievement) => void;
   kicked: (reason: string) => void;
+
+  // Voice Chat
+  'voice:user-joined': (data: { socketId: string }) => void;
+  'voice:user-left': (data: { socketId: string }) => void;
+  'voice:offer': (data: { fromId: string, sdp: RTCSessionDescriptionInit }) => void;
+  'voice:answer': (data: { fromId: string, sdp: RTCSessionDescriptionInit }) => void;
+  'voice:ice-candidate': (data: { fromId: string, candidate: RTCIceCandidateInit }) => void;
 }

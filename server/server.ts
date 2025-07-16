@@ -35,6 +35,7 @@ const app = express();
 // --- CORS Configuration ---
 const allowedOrigins = [
     'http://localhost:3000', // For local development
+    'https://wtwmw7ps-3000.inc1.devtunnels.ms',
     'https://pavalononline.pramodhthetechguy.site',
 ];
 
@@ -557,6 +558,9 @@ class GameService {
       selectedIcon: userCustomizations?.selected_icon,
     };
     gameState.players.push(newPlayer);
+    
+    // Notify other clients that a new user joined for WebRTC setup
+    socket.broadcast.to(code).emit('voice:user-joined', { socketId: socket.id });
 
     this.io.to(code).emit("updateGameState", gameState);
   }
@@ -588,6 +592,10 @@ class GameService {
         "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
         [user.id]
     );
+    
+    // Notify other clients about the reconnected user for WebRTC
+    socket.broadcast.to(roomCode).emit('voice:user-joined', { socketId: socket.id });
+
     player.selectedTitle = userCustomizations?.selected_title;
     player.selectedBorder = userCustomizations?.selected_border;
     player.selectedIcon = userCustomizations?.selected_icon;
@@ -950,6 +958,7 @@ class GameService {
   
     const { name, userId } = gameState.reconnectingPlayer;
     console.log(`Reconnect timeout for ${name} in room ${roomCode}.`);
+    this.io.to(roomCode).emit('voice:user-left', { socketId: gameState.players.find(p => p.userId === userId)!.id });
     
     this.reconnectionTimers.delete(roomCode);
   
@@ -993,6 +1002,8 @@ class GameService {
 
     const disconnectedPlayer = this.getPlayer(gameState, playerId);
     if (!disconnectedPlayer) return;
+    
+    this.io.to(roomCode).emit('voice:user-left', { socketId: playerId });
 
     disconnectedPlayer.status = "DISCONNECTED";
     this.addLog(gameState, `${disconnectedPlayer.name} has disconnected.`, 'system');
@@ -1435,6 +1446,7 @@ class GameService {
     const leavingPlayer = this.getPlayer(gameState, playerId);
     if (!leavingPlayer) return;
 
+    this.io.to(roomCode).emit('voice:user-left', { socketId: playerId });
     const socket = this.io.sockets.sockets.get(playerId);
     if (socket) {
         // Explicitly tell the leaving client to reset its state.
@@ -1486,6 +1498,8 @@ class GameService {
 
     const kickedPlayerName = playerToKick.name;
     const kickedSocket = this.io.sockets.sockets.get(playerIdToKick);
+    
+    this.io.to(roomCode).emit('voice:user-left', { socketId: playerIdToKick });
 
     if (kickedSocket) {
         // Let the kicked player know they were kicked and should reset state
@@ -1620,6 +1634,17 @@ io.on("connection", (socket: any) => {
   socket.on("initiateRestart", () => gameService.handleInitiateRestart(socket.id));
   socket.on("voteOnRestart", (vote) => gameService.handleVoteOnRestart(socket.id, vote));
   socket.on("kickPlayer", (playerIdToKick) => gameService.handleKickPlayer(socket.id, playerIdToKick));
+
+  // --- Voice Chat Signaling ---
+  socket.on('voice:offer', ({ targetId, sdp }) => {
+    socket.to(targetId).emit('voice:offer', { fromId: socket.id, sdp });
+  });
+  socket.on('voice:answer', ({ targetId, sdp }) => {
+    socket.to(targetId).emit('voice:answer', { fromId: socket.id, sdp });
+  });
+  socket.on('voice:ice-candidate', ({ targetId, candidate }) => {
+    socket.to(targetId).emit('voice:ice-candidate', { fromId: socket.id, candidate });
+  });
 
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);
