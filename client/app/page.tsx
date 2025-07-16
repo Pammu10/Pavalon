@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { GameProvider, useGame } from "@/components/context/GameContext";
-import { AudioProvider, useAudio } from "@/components/context/AudiContext";
+import { useGame } from "@/components/context/GameContext";
+import { useAudio } from "@/components/context/AudiContext";
 import AuthScreen from "@/components/screens/AuthScreen";
 import LobbyScreen from "@/components/screens/LobbyScreen";
 import RoleRevealScreen from "@/components/screens/RoleRevealScreen";
@@ -21,9 +21,8 @@ import HomeScreen from "@/components/screens/HomeScreen";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementsTab from "../components/ui/AchievementsTab";
-import { Toaster } from "@/components/ui/sonner";
-import GameLog from "@/components/ui/GameLog";
 import AdminPage from "./admin/page";
+import { useInteraction } from "@/components/context/ClientProviders";
 
 type Tab = "game" | "chat" | "leaderboard" | "achievements" | "settings" | "gamelog" | "admin";
 
@@ -34,30 +33,6 @@ const BASE_TABS_CONFIG: { id: Tab; label: string; icon: React.ReactNode; desktop
   { id: 'achievements', label: 'Achievements', icon: <Star size={24} />, desktop: true, mobile: false },
   { id: 'settings', label: 'Settings', icon: <Settings size={24} />, desktop: true, mobile: true },
 ];
-
-const InteractionContext = React.createContext({
-  hasInteracted: false,
-});
-
-const InteractionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [hasInteracted, setHasInteracted] = useState(false);
-    
-    const handleFirstInteraction = React.useCallback(() => {
-        if (!hasInteracted) {
-            setHasInteracted(true);
-        }
-    }, [hasInteracted]);
-
-    return (
-        <InteractionContext.Provider value={{ hasInteracted }}>
-            <div onClick={handleFirstInteraction} className="h-full w-full">
-                {children}
-            </div>
-        </InteractionContext.Provider>
-    );
-};
-const useInteraction = () => React.useContext(InteractionContext);
-
 
 const ReconnectionBanner: React.FC<{
   player: { name: string; endsAt: number };
@@ -332,14 +307,7 @@ const MainContent: React.FC = () => {
 };
 
 export default function Home() {
-  return (<AudioProvider>
-    <GameProvider>
-      
-        <InteractionProvider>
-          <MainContent />
-          <Toaster richColors position="top-right" />
-        </InteractionProvider>
-      
-    </GameProvider></AudioProvider>
+  return (
+    <MainContent />
   );
 }

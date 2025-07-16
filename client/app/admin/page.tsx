@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
-import { GameProvider, useGame } from '@/components/context/GameContext';
+import { useGame } from '@/components/context/GameContext';
 import api from '@/services/api';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -369,7 +369,7 @@ const AdminPage: React.FC = () => {
         );
     }
 
-    return (<GameProvider><AdminPageContent /></GameProvider>)
+    return <AdminPageContent />;
 };
 
 
