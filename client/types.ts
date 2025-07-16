@@ -1,4 +1,5 @@
 
+
 export enum Role {
   MERLIN = "Merlin",
   PERCIVAL = "Percival",
@@ -226,11 +227,6 @@ export interface ClientToServerEvents {
   playerReadyForNextGame: () => void;
   initiateRestart: () => void;
   voteOnRestart: (vote: 'yes' | 'no') => void;
-
-  // WebRTC Signaling
-  'voice:offer': (data: { targetId: string; sdp: RTCSessionDescriptionInit }) => void;
-  'voice:answer': (data: { targetId: string; sdp: RTCSessionDescriptionInit }) => void;
-  'voice:ice-candidate': (data: { targetId: string; candidate: RTCIceCandidateInit }) => void;
 }
 
 export interface ServerToClientEvents {
@@ -239,11 +235,4 @@ export interface ServerToClientEvents {
   error: (message: string) => void;
   achievementUnlocked: (achievement: Achievement) => void;
   kicked: (reason: string) => void;
-
-  // WebRTC Signaling
-  'voice:user-joined': (data: { socketId: string; user: { userId: number; name: string } }) => void;
-  'voice:user-left': (data: { socketId: string }) => void;
-  'voice:offer': (data: { fromId: string; sdp: RTCSessionDescriptionInit }) => void;
-  'voice:answer': (data: { fromId: string; sdp: RTCSessionDescriptionInit }) => void;
-  'voice:ice-candidate': (data: { fromId: string; candidate: RTCIceCandidateInit }) => void;
 }

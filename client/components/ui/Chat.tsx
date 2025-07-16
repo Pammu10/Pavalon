@@ -1,11 +1,10 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
-import { Send, X, ScrollText, MessageSquare, Mic } from "lucide-react";
+import { Send, X, ScrollText, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GameLog from "./GameLog";
-import VoiceControls from "./VoiceControls";
 
 
 interface ChatProps {
@@ -49,7 +48,6 @@ export const Chat: React.FC<ChatProps> = ({ isMobileView = false, onHeaderClose 
     switch(activeTab) {
         case 'chat': return 'Game Chat';
         case 'log': return 'Game Log';
-        case 'voice': return 'Voice Controls';
         default: return 'Communications';
     }
   }
@@ -72,15 +70,12 @@ export const Chat: React.FC<ChatProps> = ({ isMobileView = false, onHeaderClose 
             )}
         </header>
 
-        <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 p-1 h-auto rounded-none">
+        <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 p-1 h-auto rounded-none">
             <TabsTrigger value="chat" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
                 <MessageSquare size={16} /> Chat
             </TabsTrigger>
             <TabsTrigger value="log" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
                 <ScrollText size={16} /> Log
-            </TabsTrigger>
-             <TabsTrigger value="voice" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
-                <Mic size={16} /> Voice
             </TabsTrigger>
         </TabsList>
         
@@ -146,9 +141,6 @@ export const Chat: React.FC<ChatProps> = ({ isMobileView = false, onHeaderClose 
         </TabsContent>
         <TabsContent value="log" className="flex-grow m-0 overflow-hidden">
             <GameLog isMobileView={true}/>
-        </TabsContent>
-         <TabsContent value="voice" className="flex-grow m-0 overflow-hidden">
-            <VoiceControls />
         </TabsContent>
 
     </Tabs>

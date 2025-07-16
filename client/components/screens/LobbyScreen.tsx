@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useMemo, useCallback } from "react";
 import { useGame } from "@/components/context/GameContext";
 import Button from "@/components/ui/Button";
@@ -270,7 +266,7 @@ const LobbyView: React.FC = () => {
             <h2 className="font-eaglelake text-xl md:text-2xl font-bold text-yellow-500 mb-4 pb-2 border-b-2 border-slate-700">
               Players ({players.length}/10)
             </h2>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,10rem))] md:grid-cols-[repeat(auto-fit,minmax(9rem,10rem))] gap-x-4 gap-y-6">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-x-4 gap-y-6">
               {players.map((p) => (
                  <div key={p.userId} className="flex flex-col items-center gap-2">
                     <PlayerTile player={p} className="w-full" />

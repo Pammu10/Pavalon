@@ -33,8 +33,7 @@ const app = express();
 // --- CORS Configuration ---
 const allowedOrigins = [
     'http://localhost:3000', // For local development
-    'https://wtwmw7ps-3000.inc1.devtunnels.ms', // From your error log
-    'https://pavalononline.pramodhthetechguy.site'
+    'https://pavalononline.pramodhthetechguy.site',
 ];
 
 const corsOptions: cors.CorsOptions = {
@@ -255,7 +254,7 @@ app.post("/api/user/username", authMiddleware, async (req, res) => {
             selectedIcon: userRow?.selected_icon
         };
         
-        const token = generateToken(fullUserObject);
+        const token = generateToken({ id: fullUserObject.id, username: fullUserObject.username, is_admin: fullUserObject.is_admin });
 
         res.json({ success: true, message: "Username updated successfully.", user: fullUserObject, token });
 
@@ -532,16 +531,6 @@ class GameService {
         [user.id]
     );
     
-    // --- Voice Chat Integration Start ---
-    const otherPlayers = gameState.players.filter(p => p.status === 'CONNECTED');
-    for (const player of otherPlayers) {
-      // Tell new user about existing players
-      socket.emit('voice:user-joined', { socketId: player.id, user: { userId: player.userId, name: player.name }});
-      // Tell existing players about new user
-      this.io.to(player.id).emit('voice:user-joined', { socketId: socket.id, user: { userId: user.id, name: user.username }});
-    }
-    // --- Voice Chat Integration End ---
-
     socket.join(code);
     const isHost = gameState.players.length === 0;
     const newPlayer: Player = {
@@ -585,16 +574,6 @@ class GameService {
         gameState.reconnectingPlayer = null;
     }
     
-    // --- Voice Chat Integration Reconnect Start ---
-    const otherPlayers = gameState.players.filter(p => p.status === 'CONNECTED' && p.userId !== user.id);
-    for (const otherPlayer of otherPlayers) {
-        // Tell reconnected user about existing players
-        socket.emit('voice:user-joined', { socketId: otherPlayer.id, user: { userId: otherPlayer.userId, name: otherPlayer.name }});
-        // Tell existing players about reconnected user
-        this.io.to(otherPlayer.id).emit('voice:user-joined', { socketId: socket.id, user: { userId: user.id, name: user.username }});
-    }
-    // --- Voice Chat Integration Reconnect End ---
-
     const userCustomizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string; }>(
         "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
         [user.id]
@@ -1008,9 +987,6 @@ class GameService {
     disconnectedPlayer.status = "DISCONNECTED";
     this.addLog(gameState, `${disconnectedPlayer.name} has disconnected.`, 'system');
     
-    // Voice Chat: Notify others the user left
-    this.io.to(roomCode).emit('voice:user-left', { socketId: playerId });
-
 
      if (gameState.phase === GamePhase.END_GAME) {
        gameState.endGameReadyPlayers = gameState.endGameReadyPlayers.filter(id => id !== playerId);
@@ -1455,9 +1431,6 @@ class GameService {
         socket.emit("kicked", "You have left the lobby.");
         socket.leave(roomCode);
     }
-
-    // Voice Chat: Notify others
-    this.io.to(roomCode).emit('voice:user-left', { socketId: playerId });
     
     gameState.players = gameState.players.filter(p => p.id !== playerId);
 
@@ -1510,8 +1483,6 @@ class GameService {
         kickedSocket.leave(roomCode);
     }
     
-    // Voice Chat: Notify others
-    this.io.to(roomCode).emit('voice:user-left', { socketId: playerIdToKick });
 
     if (gameState.phase === GamePhase.LOBBY) {
         gameState.players = gameState.players.filter(p => p.id !== playerIdToKick);
@@ -1639,19 +1610,6 @@ io.on("connection", (socket: any) => {
   socket.on("initiateRestart", () => gameService.handleInitiateRestart(socket.id));
   socket.on("voteOnRestart", (vote) => gameService.handleVoteOnRestart(socket.id, vote));
   socket.on("kickPlayer", (playerIdToKick) => gameService.handleKickPlayer(socket.id, playerIdToKick));
-
-  // --- Voice Chat Signaling ---
-  socket.on('voice:offer', ({ targetId, sdp }) => {
-    io.to(targetId).emit('voice:offer', { fromId: socket.id, sdp });
-  });
-
-  socket.on('voice:answer', ({ targetId, sdp }) => {
-    io.to(targetId).emit('voice:answer', { fromId: socket.id, sdp });
-  });
-
-  socket.on('voice:ice-candidate', ({ targetId, candidate }) => {
-    io.to(targetId).emit('voice:ice-candidate', { fromId: socket.id, candidate });
-  });
 
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);
