@@ -34,7 +34,7 @@ const app = express();
 const allowedOrigins = [
     'http://localhost:3000', // For local development
     'https://wtwmw7ps-3000.inc1.devtunnels.ms', // From your error log
-    // Add your Vercel production URL here, e.g., 'https://your-app-name.vercel.app'
+    'https://pavalononline.pramodhthetechguy.site'
 ];
 
 const corsOptions: cors.CorsOptions = {
