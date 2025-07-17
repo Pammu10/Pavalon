@@ -113,7 +113,7 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const audioContextRef = useRef<AudioContext | null>(null);
     const localAnalyserRef = useRef<{ analyser: AnalyserNode, source: MediaStreamAudioSourceNode } | null>(null);
     const loopbackNodesRef = useRef<{ source: MediaStreamAudioSourceNode; gain: GainNode } | null>(null);
-    const speakingTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const speakingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const analyserNodesRef = useRef<{ [socketId: string]: { analyser: AnalyserNode, source: MediaStreamAudioSourceNode } }>({});
 
     // --- Core WebRTC Functions ---

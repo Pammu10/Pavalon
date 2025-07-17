@@ -1,7 +1,6 @@
 
 
 import 'dotenv/config';
-import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from './types';
 import { Socket } from 'socket.io';
@@ -13,7 +12,7 @@ export const generateToken = (user: User): string => {
 };
 
 // Middleware for Express to protect routes
-export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+export const authMiddleware = (req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) => {
     const authHeader = req.headers.authorization;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -32,7 +31,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 };
 
 // Middleware for admin-only Express routes
-export const adminMiddleware = (req: Request, res: Response, next: NextFunction) => {
+export const adminMiddleware = (req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) => {
     const user = (req as any).user;
     if (user && user.isAdmin) {
         next();

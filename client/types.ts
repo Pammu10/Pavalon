@@ -1,5 +1,4 @@
 
-
 export enum Role {
   MERLIN = "Merlin",
   PERCIVAL = "Percival",
@@ -40,6 +39,7 @@ export enum GamePhase {
   QUEST_RESULT = "QUEST_RESULT",
   ASSASSINATION = "ASSASSINATION",
   END_GAME = "END_GAME",
+  DRAGONS_BREATH = "DRAGONS_BREATH", // New phase for the 2-player game
 }
 
 export interface Quest {
@@ -73,8 +73,62 @@ export interface LogEntry {
   id: string;
   timestamp: number;
   text: string;
-  type: 'leader' | 'team' | 'vote' | 'quest' | 'system' | 'assassination';
+  type: 'leader' | 'team' | 'vote' | 'quest' | 'system' | 'assassination' | 'dragonsBreath';
 }
+
+// --- Dragon's Breath Types ---
+export enum DragonCardType {
+    DRAGON_BREATH = 'Dragon Breath',
+    DEFUSE = 'Defuse',
+    ATTACK = 'Attack',
+    SKIP = 'Skip',
+    SEE_THE_FUTURE = 'See the Future',
+    SHUFFLE = 'Shuffle',
+    EMBERDRAKE_HATCHLING = 'Emberdrake Hatchling',
+    GLIMMERING_WHELP = 'Glimmering Whelp',
+    SUNSTONE_DRAKE = 'Sunstone Drake',
+}
+
+export interface DragonCard {
+    id: string;
+    type: DragonCardType;
+}
+
+export interface DragonsBreathState {
+    deck: DragonCard[];
+    hands: { [playerId: string]: DragonCard[] };
+    discardPile: DragonCard[];
+    currentPlayerId: string;
+    turnsToTake: number;
+    isViewingFuture: string | null; // PlayerId of who is viewing
+    futureCards: DragonCard[];
+    isPlacingDragon: string | null; // PlayerId of who is placing the dragon
+    winner: string | null; // PlayerId of the winner
+    loser: string | null; // PlayerId of the loser
+}
+
+export interface DragonsBreathMatch {
+  id: number;
+  opponentName: string;
+  won: boolean;
+  playedAt: string;
+}
+
+export interface DragonsBreathOpponentStats {
+  opponentId: number;
+  opponentName: string;
+  gamesPlayed: number;
+  wins: number;
+  winRate: number;
+}
+
+export interface DragonsBreathStats {
+  totalGames: number;
+  totalWins: number;
+  opponentStats: DragonsBreathOpponentStats[];
+  matchHistory: DragonsBreathMatch[];
+}
+
 
 export interface GameState {
   roomCode: string | null;
@@ -99,6 +153,7 @@ export interface GameState {
   } | null;
   lastRestartInitiatedAt: number | null;
   pendingTeam: string[] | null;
+  dragonsBreathState: DragonsBreathState | null;
 }
 
 export interface RoleDescription {
@@ -215,6 +270,7 @@ export interface LeaderboardData {
 export interface ClientToServerEvents {
   joinRoom: (data: { roomCode?: string }) => void;
   leaveRoom: () => void;
+  // Pavalon Events
   startGame: (data: { selectedRoles: Role[] }) => void;
   kickPlayer: (playerIdToKick: string) => void;
   selectTeam: (teamPlayerIds: string[]) => void;
@@ -222,11 +278,19 @@ export interface ClientToServerEvents {
   voteOnTeam: (vote: "APPROVE" | "REJECT") => void;
   voteOnQuest: (vote: "SUCCESS" | "FAIL") => void;
   assassinate: (targetId: string) => void;
-  sendMessage: (messageText: string) => void;
   playerReady: () => void;
   playerReadyForNextGame: () => void;
   initiateRestart: () => void;
   voteOnRestart: (vote: 'yes' | 'no') => void;
+  // Shared
+  sendMessage: (messageText: string) => void;
+  // Dragon's Breath Events
+  startDragonsBreath: () => void;
+  drawCard: () => void;
+  playCard: (cardId: string) => void;
+  placeDragonCard: (index: number) => void;
+  endFutureView: () => void;
+  returnToLobby: () => void;
 
   // Voice Chat
   'voice:offer': (data: { targetId: string, sdp: RTCSessionDescriptionInit }) => void;

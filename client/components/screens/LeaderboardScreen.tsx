@@ -1,16 +1,18 @@
 
+
 import React, { useState, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import api from "@/services/api";
-import { LeaderboardData, LeaderboardEntry, PlayerStats, Match, Alignment } from "@/types";
+import { LeaderboardData, LeaderboardEntry, PlayerStats, Match, Alignment, DragonsBreathStats, DragonsBreathOpponentStats } from "@/types";
 import Card from "@/components/ui/Card";
 import Spinner from "@/components/ui/Spinner";
-import { Crown, Trophy, Target, TrendingUp, ShieldCheck, Skull, User, Download, Swords, Star } from 'lucide-react';
+import { Crown, Trophy, Target, TrendingUp, ShieldCheck, Skull, User, Download, Swords, Star, Flame } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Button from "../ui/Button";
 import MatchDetailsModal from "../ui/MatchDetailsModal";
+import { cn } from "@/lib/utils";
 
-// --- Stats Components ---
+// --- Pavalon Stats Components ---
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({ title, value, icon }) => (
     <div className="bg-slate-800/50 p-4 rounded-lg text-center flex flex-col items-center justify-center gap-2">
       <div className="text-yellow-400">{icon}</div>
@@ -102,7 +104,7 @@ const MyStatsTab: React.FC = () => {
         <>
         <Card>
              <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
-                <h2 className="font-eagleLake text-3xl text-yellow-500">My Personal Stats</h2>
+                <h2 className="font-eagleLake text-3xl text-yellow-500">My Pavalon Stats</h2>
                 <Button variant="secondary" onClick={handleDownloadStats} disabled={!stats} className="text-sm py-1.5 px-3 flex items-center gap-2">
                     <Download size={16}/>
                     Download CSV
@@ -140,6 +142,94 @@ const MyStatsTab: React.FC = () => {
     )
 }
 
+// --- Dragon's Breath Stats Component ---
+const HeadToHeadStatRow: React.FC<{ opponentStat: DragonsBreathOpponentStats }> = ({ opponentStat: op }) => {
+    return (
+        <div className="bg-slate-800/60 p-4 rounded-lg">
+            <div className="flex justify-between items-center mb-2">
+                <span className="font-bold text-lg text-white">{op.opponentName}</span>
+                <span className="text-slate-400 text-sm">{op.gamesPlayed} games</span>
+            </div>
+            <div className="flex justify-between items-center text-sm mb-2">
+                <span className="text-blue-400 font-semibold">Your Wins: {op.wins}</span>
+                <span className="text-red-400 font-semibold">Opponent Wins: {op.gamesPlayed - op.wins}</span>
+            </div>
+            <div className="w-full flex h-3 rounded-full overflow-hidden bg-slate-700">
+                <div className="bg-blue-500 transition-all duration-500" style={{ width: `${op.winRate}%` }}></div>
+                <div className="bg-red-600 transition-all duration-500" style={{ width: `${100 - op.winRate}%` }}></div>
+            </div>
+            <div className="text-center text-sm font-bold text-yellow-400 mt-2">{op.winRate}% Win Rate</div>
+        </div>
+    );
+};
+
+const DragonsBreathStatsTab: React.FC = () => {
+    const [stats, setStats] = useState<DragonsBreathStats | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+          try {
+            const { data } = await api.get("/stats/dragons-breath");
+            setStats(data);
+          } catch (err) {
+            setError("Failed to load Dragon's Breath stats.");
+          } finally {
+            setLoading(false);
+          }
+        };
+        fetchStats();
+    }, []);
+    
+    if (loading) return <div className="flex justify-center items-center h-40"><Spinner /></div>;
+    if (error || !stats) return <p className="text-center text-red-500">{error || "Could not load stats."}</p>;
+    if (stats.totalGames === 0) {
+        return (
+            <Card className="text-center py-12">
+                <Flame size={48} className="mx-auto text-slate-500 mb-4" />
+                <h3 className="text-2xl font-eagleLake text-slate-300">No Games Played</h3>
+                <p className="text-slate-400 mt-2">You haven't played any Dragon's Breath games yet. <br/>Challenge a friend in a 2-player lobby!</p>
+            </Card>
+        )
+    }
+
+    return (
+        <div className="space-y-8">
+            <Card>
+                <h2 className="font-eagleLake text-3xl text-yellow-500 text-center mb-6">Overall Performance</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <StatCard title="Total Games" value={stats.totalGames} icon={<Swords size={24} />} />
+                    <StatCard title="Total Wins" value={stats.totalWins} icon={<Trophy size={24} />} />
+                </div>
+            </Card>
+            <Card>
+                <h2 className="font-eagleLake text-3xl text-yellow-500 text-center mb-6">Head-to-Head</h2>
+                <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                    {stats.opponentStats.map(op => (
+                        <HeadToHeadStatRow key={op.opponentId} opponentStat={op} />
+                    ))}
+                </div>
+            </Card>
+            <Card>
+                <h2 className="font-eagleLake text-3xl text-yellow-500 text-center mb-6">Recent Matches</h2>
+                <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                    {stats.matchHistory.map(match => (
+                        <div key={match.id} className={`flex justify-between items-center p-3 rounded-lg ${match.won ? 'bg-green-800/20' : 'bg-red-800/20'}`}>
+                            <div>
+                                <p className="text-white">vs <span className="font-bold">{match.opponentName}</span></p>
+                                <p className="text-xs text-slate-400">{new Date(match.playedAt).toLocaleString()}</p>
+                            </div>
+                            <span className={`font-eagleLake font-bold px-3 py-1 rounded-full text-sm ${match.won ? "text-green-300 bg-green-900/50" : "text-red-300 bg-red-900/50"}`}>
+                                {match.won ? 'VICTORY' : 'DEFEAT'}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </Card>
+        </div>
+    );
+}
 
 // --- Leaderboard Components ---
 const LeaderboardList: React.FC<{ title: string; icon: React.ReactNode; entries: LeaderboardEntry[]; isPercent?: boolean; }> = ({ title, icon, entries, isPercent = false }) => {
@@ -238,7 +328,8 @@ const LeaderboardScreen: React.FC = () => {
     }, []);
 
     const TABS_CONFIG = [
-        { value: "my-stats", label: "My Stats", icon: <User size={18} /> },
+        { value: "my-stats", label: "Pavalon Stats", icon: <User size={18} /> },
+        { value: "dragons-breath", label: "Dragon's Breath", icon: <Flame size={18} /> },
         { value: "leaderboard", label: "Global Ranks", icon: <Trophy size={18} /> },
     ];
 
@@ -246,13 +337,38 @@ const LeaderboardScreen: React.FC = () => {
         <div className="animate-fadeIn max-w-7xl mx-auto space-y-6">
             <h1 className="font-eagleLake text-5xl text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Hall of Heroes</h1>
             <Tabs defaultValue="my-stats" className="w-full">
-                <TabsList className="grid w-full max-w-lg mx-auto grid-cols-2 bg-slate-800/50 p-1 h-auto">
-                    {TABS_CONFIG.map(tab => (
-                        <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
-                            {tab.icon}
-                            {tab.label}
+                <TabsList className="w-full max-w-xl mx-auto flex flex-col sm:flex-row bg-slate-800/50 p-1 h-auto gap-1 rounded-lg">
+                    <div className="w-full flex flex-row gap-1">
+                        <TabsTrigger
+                            value="my-stats"
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold rounded-md"
+                            )}
+                        >
+                            {TABS_CONFIG[0].icon}
+                            {TABS_CONFIG[0].label}
                         </TabsTrigger>
-                    ))}
+                         <TabsTrigger
+                            value="dragons-breath"
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold rounded-md"
+                            )}
+                        >
+                            {TABS_CONFIG[1].icon}
+                            {TABS_CONFIG[1].label}
+                        </TabsTrigger>
+                    </div>
+                    <div className="w-full flex flex-row gap-1">
+                        <TabsTrigger
+                            value="leaderboard"
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold rounded-md"
+                            )}
+                        >
+                            {TABS_CONFIG[2].icon}
+                            {TABS_CONFIG[2].label}
+                        </TabsTrigger>
+                    </div>
                 </TabsList>
                 <TabsContent value="my-stats" className="mt-6">
                      {loading ? (
@@ -262,6 +378,9 @@ const LeaderboardScreen: React.FC = () => {
                     ) : (
                         <MyStatsTab />
                     )}
+                </TabsContent>
+                 <TabsContent value="dragons-breath" className="mt-6">
+                    <DragonsBreathStatsTab />
                 </TabsContent>
                 <TabsContent value="leaderboard" className="mt-6">
                      {loading ? (

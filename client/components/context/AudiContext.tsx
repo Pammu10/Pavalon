@@ -1,7 +1,8 @@
 
+
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 
-type SoundEffect = 'transition' | 'quest-success' | 'quest-fail' | 'victory' | 'defeat' | 'role-reveal' | 'success' | 'error';
+type SoundEffect = 'transition' | 'quest-success' | 'quest-fail' | 'victory' | 'defeat' | 'role-reveal' | 'success' | 'error' | 'card-swish' | 'db-game-over' | 'card-fan';
 
 interface AudioContextType {
   isBgmMuted: boolean;
@@ -26,6 +27,9 @@ const AUDIO_FILES: Record<SoundEffect | 'background-lobby' | 'background-game', 
   'role-reveal': '/audio/role-reveals.mp3',
   'success': '/audio/transition.mp3',
   'error': '/audio/error.mp3',
+  'card-swish': '/audio/card_swish.mp3',
+  'db-game-over': '/audio/db_game_over.mp3',
+  'card-fan': '/audio/card_fan.mp3',
 };
 
 export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) => {

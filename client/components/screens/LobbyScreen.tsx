@@ -5,7 +5,7 @@ import Card from "@/components/ui/Card";
 import { Player, Role, Alignment } from "@/types";
 import { ROLES, EVIL_PLAYER_COUNT } from "@/constants";
 import Spinner from "@/components/ui/Spinner";
-import { Copy, Check, LogOut, ShieldAlert } from "lucide-react";
+import { Copy, Check, LogOut, ShieldAlert, Flame } from "lucide-react";
 import PlayerTile from "@/components/ui/PlayerTile";
 
 const RoleToggle: React.FC<{
@@ -68,7 +68,7 @@ const RoleCustomization: React.FC<{
       } else if (role === Role.MORGANA) {
         newRoles.has(Role.MORGANA)
           ? newRoles.add(Role.PERCIVAL)
-          : newRoles.delete(Role.PERCIVAL);
+          : newRoles.delete(Role.MORGANA);
       }
       return newRoles;
     });
@@ -197,7 +197,7 @@ const RoleCustomization: React.FC<{
 };
 
 const LobbyView: React.FC = () => {
-    const { gameState, playerId, startGame, leaveRoom, kickPlayer } = useGame();
+    const { gameState, playerId, startGame, leaveRoom, kickPlayer, startDragonsBreath } = useGame();
     const { roomCode, players } = gameState;
     const isPaused = !!gameState.reconnectingPlayer;
     const [copied, setCopied] = useState(false);
@@ -217,7 +217,8 @@ const LobbyView: React.FC = () => {
     };
   
     const currentPlayer = players.find((p) => p.id === playerId);
-    const canStart = players.length >= 5 && players.length <= 10;
+    const canStartPavalon = players.length >= 5 && players.length <= 10;
+    const canStartDragonsBreath = players.length === 2;
   
     return (
       <div className="animate-fadeIn w-full max-w-5xl mx-auto">
@@ -287,7 +288,7 @@ const LobbyView: React.FC = () => {
   
           {/* Host Controls Section */}
           {currentPlayer?.isHost &&
-            (canStart ? (
+            (canStartPavalon ? (
               <RoleCustomization
                 playerCount={players.length}
                 onStart={(selectedRoles) => startGame({ selectedRoles })}
@@ -295,12 +296,20 @@ const LobbyView: React.FC = () => {
               />
             ) : (
               <div className="mt-8 p-4 bg-slate-800/40 rounded-lg">
-                <Button disabled={true}>Need 5-10 Players to Start</Button>
+                <Button disabled={true}>Need 5-10 Players for Pavalon</Button>
                 <p className="text-red-400 mt-2 font-semibold">
                   You currently have {players.length} players.
                 </p>
+                {canStartDragonsBreath && (
+                    <div className="mt-4 pt-4 border-t border-slate-700">
+                        <Button onClick={startDragonsBreath} disabled={isPaused} variant="secondary" className="flex items-center justify-center gap-2">
+                            <Flame size={20} /> Play Dragon's Breath (2 Players)
+                        </Button>
+                    </div>
+                )}
               </div>
             ))}
+
           {!currentPlayer?.isHost && (
             <p className="text-slate-400 mt-8 italic text-lg">
               Waiting for the host, <span className="font-bold text-white">{players.find(p => p.isHost)?.name || '...'}</span>, to start the game...

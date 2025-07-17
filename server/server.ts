@@ -1,5 +1,6 @@
 
 
+
 import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
@@ -23,7 +24,11 @@ import {
   PlayerStats,
   Achievement as ClientAchievement,
   LogEntry,
-  Match
+  Match,
+  DragonCardType,
+  DragonCard,
+  DragonsBreathState,
+  DragonsBreathStats
 } from "./types";
 import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES } from "./constants";
 import db from "./db";
@@ -35,7 +40,6 @@ const app = express();
 // --- CORS Configuration ---
 const allowedOrigins = [
     'http://localhost:3000', // For local development
-    'https://wtwmw7ps-3000.inc1.devtunnels.ms',
     'https://pavalononline.pramodhthetechguy.site',
 ];
 
@@ -146,6 +150,17 @@ app.get("/api/stats", authMiddleware, async (req, res) => {
     res.json(stats);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch player stats." });
+  }
+});
+
+app.get("/api/stats/dragons-breath", authMiddleware, async (req, res) => {
+  const userId = (req as any).user.id;
+  try {
+    const stats = await gameService.getDragonsBreathStats(userId);
+    res.json(stats);
+  } catch (error) {
+    console.error("Failed to fetch Dragon's Breath stats:", error);
+    res.status(500).json({ message: "Failed to fetch Dragon's Breath stats." });
   }
 });
 
@@ -296,6 +311,8 @@ adminRouter.delete('/users/:id', async (req, res) => {
         // This is necessary to prevent foreign key constraint violations if ON DELETE CASCADE is not set.
         await db.run("DELETE FROM player_performance WHERE user_id = $1", [userId]);
         await db.run("DELETE FROM user_achievements WHERE user_id = $1", [userId]);
+        await db.run("DELETE FROM dragons_breath_matches WHERE winner_user_id = $1 OR loser_user_id = $1", [userId]);
+
 
         // Now it is safe to delete the user.
         await db.run("DELETE FROM users WHERE id = $1", [userId]);
@@ -466,6 +483,7 @@ class GameService {
       restartVote: null,
       lastRestartInitiatedAt: null,
       pendingTeam: null,
+      dragonsBreathState: null,
     };
   }
 
@@ -596,16 +614,87 @@ class GameService {
     // Notify other clients about the reconnected user for WebRTC
     socket.broadcast.to(roomCode).emit('voice:user-joined', { socketId: socket.id });
 
+    const oldPlayerId = player.id;
+    const newPlayerId = socket.id;
+    
+    // Do nothing if ID hasn't changed (e.g., dev server hot reload without client reconnect)
+    if (oldPlayerId === newPlayerId) {
+        player.status = "CONNECTED";
+        socket.join(roomCode);
+        this.io.to(roomCode).emit("updateGameState", gameState);
+        console.log(`User ${user.username} re-established connection with same socket ID ${newPlayerId}`);
+        return;
+    }
+
     player.selectedTitle = userCustomizations?.selected_title;
     player.selectedBorder = userCustomizations?.selected_border;
     player.selectedIcon = userCustomizations?.selected_icon;
 
-    player.id = socket.id;
+    player.id = newPlayerId;
     player.status = "CONNECTED";
+    
+    // --- Comprehensive State Migration from oldPlayerId to newPlayerId ---
+
+    // 1. Ready players lists
+    gameState.readyPlayers = gameState.readyPlayers.map(id => id === oldPlayerId ? newPlayerId : id);
+    gameState.endGameReadyPlayers = gameState.endGameReadyPlayers.map(id => id === oldPlayerId ? newPlayerId : id);
+
+    // 2. Pending team
+    if (gameState.pendingTeam) {
+        gameState.pendingTeam = gameState.pendingTeam.map(id => id === oldPlayerId ? newPlayerId : id);
+    }
+    
+    // 3. Quest history (votes and results)
+    gameState.questHistory.forEach(quest => {
+        quest.votes.forEach(vote => {
+            if (vote.playerId === oldPlayerId) vote.playerId = newPlayerId;
+        });
+        quest.results.forEach(result => {
+            if (result.playerId === oldPlayerId) result.playerId = newPlayerId;
+        });
+        quest.pastVotes.forEach(pastVote => {
+            pastVote.votes.forEach(vote => {
+                 if (vote.playerId === oldPlayerId) vote.playerId = newPlayerId;
+            });
+        });
+        if(quest.approvedVote) {
+             quest.approvedVote.votes.forEach(vote => {
+                 if (vote.playerId === oldPlayerId) vote.playerId = newPlayerId;
+            });
+        }
+    });
+
+    // 4. Restart vote
+    if (gameState.restartVote) {
+        if (gameState.restartVote.initiatorId === oldPlayerId) {
+            gameState.restartVote.initiatorId = newPlayerId;
+        }
+        if (gameState.restartVote.votes[oldPlayerId]) {
+            gameState.restartVote.votes[newPlayerId] = gameState.restartVote.votes[oldPlayerId];
+            delete gameState.restartVote.votes[oldPlayerId];
+        }
+    }
+    
+    // 5. Dragon's Breath State
+    if (gameState.phase === GamePhase.DRAGONS_BREATH && gameState.dragonsBreathState) {
+        const dbState = gameState.dragonsBreathState;
+        
+        if (dbState.hands[oldPlayerId]) {
+            dbState.hands[newPlayerId] = dbState.hands[oldPlayerId];
+            delete dbState.hands[oldPlayerId];
+        }
+
+        if (dbState.currentPlayerId === oldPlayerId) dbState.currentPlayerId = newPlayerId;
+        if (dbState.isViewingFuture === oldPlayerId) dbState.isViewingFuture = newPlayerId;
+        if (dbState.isPlacingDragon === oldPlayerId) dbState.isPlacingDragon = newPlayerId;
+        if (dbState.winner === oldPlayerId) dbState.winner = newPlayerId;
+        if (dbState.loser === oldPlayerId) dbState.loser = newPlayerId;
+    }
+    // --- End State Migration ---
     
     socket.join(roomCode);
     this.io.to(roomCode).emit("updateGameState", gameState);
-    console.log(`Successfully reconnected user ${user.username} with new socket ID ${socket.id}`);
+    console.log(`Successfully reconnected user ${user.username}. Migrated state from ${oldPlayerId} to new socket ID ${newPlayerId}`);
   }
 
   handleStartGame(playerId: string, selectedRoles: Role[]) {
@@ -730,6 +819,91 @@ class GameService {
       achievements: achievements,
     };
   }
+
+  async getDragonsBreathStats(userId: number): Promise<DragonsBreathStats> {
+    // Total Games
+    const totalGamesResult = await db.get<{ count: string }>(
+      "SELECT COUNT(*) FROM dragons_breath_matches WHERE winner_user_id = $1 OR loser_user_id = $1",
+      [userId]
+    );
+    const totalGames = parseInt(totalGamesResult?.count || '0', 10);
+
+    // Total Wins
+    const totalWinsResult = await db.get<{ count: string }>(
+      "SELECT COUNT(*) FROM dragons_breath_matches WHERE winner_user_id = $1",
+      [userId]
+    );
+    const totalWins = parseInt(totalWinsResult?.count || '0', 10);
+
+    // Opponent Stats
+    const opponentData = await db.all<{
+      opponent_id: number;
+      opponent_name: string;
+      games_played: string; // count returns string
+      wins: string; // sum returns string
+    }>(`
+      SELECT
+        opponent.id as opponent_id,
+        opponent.username as opponent_name,
+        COUNT(*) as games_played,
+        SUM(CASE WHEN m.winner_user_id = $1 THEN 1 ELSE 0 END) as wins
+      FROM dragons_breath_matches m
+      JOIN users opponent ON (CASE
+        WHEN m.winner_user_id = $1 THEN m.loser_user_id
+        ELSE m.winner_user_id
+      END) = opponent.id
+      WHERE m.winner_user_id = $1 OR m.loser_user_id = $1
+      GROUP BY opponent.id, opponent.username
+      ORDER BY games_played DESC
+    `, [userId]);
+
+    const opponentStats = opponentData.map(o => {
+        const gamesPlayed = parseInt(o.games_played, 10);
+        const wins = parseInt(o.wins, 10);
+        return {
+            opponentId: o.opponent_id,
+            opponentName: o.opponent_name,
+            gamesPlayed,
+            wins,
+            winRate: gamesPlayed > 0 ? Math.round((wins / gamesPlayed) * 100) : 0,
+        };
+    });
+
+    // Match History
+    const matchHistoryData = await db.all<{
+      id: number;
+      opponent_name: string;
+      won: boolean;
+      played_at: string;
+    }>(`
+      SELECT
+        m.id,
+        opponent.username as opponent_name,
+        (m.winner_user_id = $1) as won,
+        m.played_at
+      FROM dragons_breath_matches m
+      JOIN users opponent ON (CASE
+        WHEN m.winner_user_id = $1 THEN m.loser_user_id
+        ELSE m.winner_user_id
+      END) = opponent.id
+      WHERE m.winner_user_id = $1 OR m.loser_user_id = $1
+      ORDER BY m.played_at DESC
+      LIMIT 20
+    `, [userId]);
+
+    return {
+      totalGames,
+      totalWins,
+      opponentStats,
+      matchHistory: matchHistoryData.map(m => ({
+          id: m.id,
+          opponentName: m.opponent_name,
+          won: m.won,
+          playedAt: m.played_at,
+      })),
+    };
+}
+
 
   async getLeaderboard(): Promise<LeaderboardData> {
      const allUsers: { 
@@ -895,24 +1069,28 @@ class GameService {
     // Preserve chat and players
     const preservedChat = gameState.chat;
     const preservedLog = gameState.gameLog;
-    const originalPlayerInfos = await Promise.all(gameState.players.map(async (p) => {
-        const customizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string }>(
-            "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1", [p.userId]
-        );
-        return {
-            id: p.id,
-            userId: p.userId,
-            name: p.name,
-            role: null,
-            alignment: null,
-            isHost: p.isHost,
-            hasVoted: false,
-            status: "CONNECTED" as "CONNECTED", // Reset status
-            selectedTitle: customizations?.selected_title,
-            selectedBorder: customizations?.selected_border,
-            selectedIcon: customizations?.selected_icon,
-        };
-    }));
+    const originalPlayerInfos = await Promise.all(
+        gameState.players
+            .filter(p => p.status === 'CONNECTED') // Filter out disconnected players before mapping
+            .map(async (p) => {
+                const customizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string }>(
+                    "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1", [p.userId]
+                );
+                return {
+                    id: p.id,
+                    userId: p.userId,
+                    name: p.name,
+                    role: null,
+                    alignment: null,
+                    isHost: p.isHost,
+                    hasVoted: false,
+                    status: "CONNECTED" as "CONNECTED", // Reset status
+                    selectedTitle: customizations?.selected_title,
+                    selectedBorder: customizations?.selected_border,
+                    selectedIcon: customizations?.selected_icon,
+                };
+            })
+    );
 
 
     const newGameState = this.createInitialGameState(roomCode);
@@ -920,6 +1098,7 @@ class GameService {
     newGameState.chat = preservedChat;
     newGameState.gameLog = preservedLog;
     newGameState.pendingTeam = null;
+    newGameState.dragonsBreathState = null;
 
     // Re-assign host if the original host disconnected
     if (!newGameState.players.some(p => p.isHost)) {
@@ -962,7 +1141,7 @@ class GameService {
     
     this.reconnectionTimers.delete(roomCode);
   
-    if (gameState.phase === GamePhase.LOBBY) {
+    if (gameState.phase === GamePhase.LOBBY || gameState.phase === GamePhase.DRAGONS_BREATH) {
       gameState.players = gameState.players.filter(p => p.userId !== userId);
       
       this.io.to(roomCode).emit("chatMessage", { senderId: 'system', senderUserId: 0, senderName: 'System', text: `${name} left the lobby.`});
@@ -977,8 +1156,12 @@ class GameService {
           gameState.players[0].isHost = true;
       }
       gameState.reconnectingPlayer = null;
-      this.io.to(roomCode).emit("updateGameState", gameState);
-  
+      // If a player leaves a dragon's breath game, it aborts.
+      if(gameState.phase === GamePhase.DRAGONS_BREATH) {
+        this.restartGameByRoomCode(roomCode);
+      } else {
+        this.io.to(roomCode).emit("updateGameState", gameState);
+      }
     } else {
       this.abortGameForReconnectFailure(roomCode);
     }
@@ -1515,6 +1698,7 @@ class GameService {
         this.io.to(roomCode).emit("updateGameState", gameState);
     } else {
         // In game, kicking aborts the game
+        playerToKick.status = 'DISCONNECTED';
         this.endGame(
             gameState,
             null,
@@ -1564,6 +1748,232 @@ class GameService {
     }
   }
   
+  // --- Dragon's Breath Mini-game Logic ---
+
+  private _createDragonsBreathGame(gameState: GameState) {
+    const player1 = gameState.players[0];
+    const player2 = gameState.players[1];
+
+    const baseDeck: DragonCardType[] = [
+        DragonCardType.ATTACK, DragonCardType.ATTACK,
+        DragonCardType.SKIP, DragonCardType.SKIP,
+        DragonCardType.SEE_THE_FUTURE, DragonCardType.SEE_THE_FUTURE,
+        DragonCardType.SHUFFLE,
+        DragonCardType.EMBERDRAKE_HATCHLING, DragonCardType.GLIMMERING_WHELP, DragonCardType.SUNSTONE_DRAKE,
+        DragonCardType.EMBERDRAKE_HATCHLING, DragonCardType.GLIMMERING_WHELP, DragonCardType.SUNSTONE_DRAKE,
+    ];
+    
+    // Add Defuse cards to hands and remove from deck pool
+    const hands: { [playerId: string]: DragonCard[] } = { 
+        [player1.id]: [{ id: `defuse-${player1.id}`, type: DragonCardType.DEFUSE }], 
+        [player2.id]: [{ id: `defuse-${player2.id}`, type: DragonCardType.DEFUSE }] 
+    };
+
+    const fullDeck: DragonCard[] = baseDeck.map(type => ({ id: `${type}-${Math.random()}`, type }));
+    this._shuffleArray(fullDeck);
+    
+    // Deal 4 more cards to each player
+    for (let i = 0; i < 4; i++) {
+        hands[player1.id].push(fullDeck.pop()!);
+        hands[player2.id].push(fullDeck.pop()!);
+    }
+    
+    fullDeck.push({ id: 'dragon-breath', type: DragonCardType.DRAGON_BREATH });
+    this._shuffleArray(fullDeck);
+
+    gameState.dragonsBreathState = {
+        deck: fullDeck,
+        hands: hands,
+        discardPile: [],
+        currentPlayerId: player1.id,
+        turnsToTake: 1,
+        isViewingFuture: null,
+        futureCards: [],
+        isPlacingDragon: null,
+        winner: null,
+        loser: null,
+    };
+  }
+  
+  private _shuffleArray<T>(array: T[]): T[] {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+  
+  private _advanceDBTurn(gameState: GameState) {
+    const dbState = gameState.dragonsBreathState!;
+    const currentPlayerIndex = gameState.players.findIndex(p => p.id === dbState.currentPlayerId);
+    const nextPlayerIndex = (currentPlayerIndex + 1) % gameState.players.length;
+    dbState.currentPlayerId = gameState.players[nextPlayerIndex].id;
+    dbState.turnsToTake = 1;
+    this.addLog(gameState, `${gameState.players[nextPlayerIndex].name}'s turn.`, 'dragonsBreath');
+  }
+
+  private async _saveDragonsBreathResult(winnerUserId: number, loserUserId: number) {
+    try {
+        await db.run(
+            "INSERT INTO dragons_breath_matches (winner_user_id, loser_user_id) VALUES ($1, $2)",
+            [winnerUserId, loserUserId]
+        );
+        console.log(`Dragon's Breath match saved: Winner ${winnerUserId}, Loser ${loserUserId}`);
+    } catch (error) {
+        console.error("Failed to save Dragon's Breath match result:", error);
+    }
+  }
+
+  handleStartDragonsBreath(playerId: string) {
+    const roomCode = this.findRoomByPlayerId(playerId);
+    if (!roomCode) return;
+    const gameState = this.games.get(roomCode)!;
+    const player = this.getPlayer(gameState, playerId);
+
+    if (!player?.isHost || gameState.players.length !== 2) {
+      return this.io.to(playerId).emit('error', "Dragon's Breath can only be started by the host in a 2-player lobby.");
+    }
+    
+    this._createDragonsBreathGame(gameState);
+    gameState.phase = GamePhase.DRAGONS_BREATH;
+    this.addLog(gameState, "A game of Dragon's Breath has begun!", 'dragonsBreath');
+    this.io.to(roomCode).emit('updateGameState', gameState);
+  }
+
+  handleDrawCard(playerId: string) {
+    const roomCode = this.findRoomByPlayerId(playerId);
+    if (!roomCode) return;
+    const gameState = this.games.get(roomCode)!;
+    const dbState = gameState.dragonsBreathState;
+    const player = this.getPlayer(gameState, playerId);
+    
+    if (!dbState || !player || dbState.currentPlayerId !== playerId || dbState.isPlacingDragon || dbState.isViewingFuture) return;
+
+    if (dbState.deck.length === 0) {
+        this.io.to(playerId).emit('error', 'The deck is empty!');
+        return;
+    }
+
+    const drawnCard = dbState.deck.pop()!;
+    this.addLog(gameState, `${player.name} draws a card...`, 'dragonsBreath');
+    
+    if (drawnCard.type === DragonCardType.DRAGON_BREATH) {
+        const defuseIndex = dbState.hands[playerId].findIndex(c => c.type === DragonCardType.DEFUSE);
+        if (defuseIndex !== -1) {
+            const defuseCard = dbState.hands[playerId].splice(defuseIndex, 1)[0];
+            dbState.discardPile.push(defuseCard);
+            dbState.isPlacingDragon = playerId;
+            this.addLog(gameState, `...it's the Dragon's Breath! But ${player.name} defuses it!`, 'dragonsBreath');
+        } else {
+            dbState.loser = playerId;
+            const winner = gameState.players.find(p => p.id !== playerId)!;
+            dbState.winner = winner.id;
+            this.addLog(gameState, `...it's the Dragon's Breath! ${player.name} is eliminated! ${winner.name} wins!`, 'dragonsBreath');
+            
+            // Save match result
+            if (winner.userId && player.userId) {
+                this._saveDragonsBreathResult(winner.userId, player.userId);
+            }
+        }
+    } else {
+        dbState.hands[playerId].push(drawnCard);
+    }
+    
+    dbState.turnsToTake--;
+    if(dbState.turnsToTake <= 0) {
+        if (!dbState.isPlacingDragon && !dbState.winner) {
+            this._advanceDBTurn(gameState);
+        }
+    }
+
+    this.io.to(roomCode).emit('updateGameState', gameState);
+  }
+
+  handlePlayCard(playerId: string, cardId: string) {
+    const roomCode = this.findRoomByPlayerId(playerId);
+    if (!roomCode) return;
+    const gameState = this.games.get(roomCode)!;
+    const dbState = gameState.dragonsBreathState;
+    const player = this.getPlayer(gameState, playerId);
+
+    if (!dbState || !player || dbState.currentPlayerId !== playerId) return;
+
+    const cardIndex = dbState.hands[playerId].findIndex(c => c.id === cardId);
+    if (cardIndex === -1) return;
+
+    const card = dbState.hands[playerId].splice(cardIndex, 1)[0];
+    dbState.discardPile.push(card);
+    this.addLog(gameState, `${player.name} played ${card.type}.`, 'dragonsBreath');
+
+    switch (card.type) {
+        case DragonCardType.ATTACK:
+            this._advanceDBTurn(gameState);
+            dbState.turnsToTake = 2;
+            this.addLog(gameState, `${dbState.currentPlayerId === player.id ? player.name : 'The opponent'} must now take 2 turns.`, 'dragonsBreath');
+            break;
+        case DragonCardType.SKIP:
+            this._advanceDBTurn(gameState);
+            break;
+        case DragonCardType.SEE_THE_FUTURE:
+            dbState.isViewingFuture = playerId;
+            dbState.futureCards = dbState.deck.slice(-3).reverse();
+            break;
+        case DragonCardType.SHUFFLE:
+            this._shuffleArray(dbState.deck);
+            this.addLog(gameState, `The deck has been shuffled.`, 'dragonsBreath');
+            break;
+    }
+    
+    this.io.to(roomCode).emit('updateGameState', gameState);
+  }
+
+  handlePlaceDragonCard(playerId: string, index: number) {
+      const roomCode = this.findRoomByPlayerId(playerId);
+      if (!roomCode) return;
+      const gameState = this.games.get(roomCode)!;
+      const dbState = gameState.dragonsBreathState;
+
+      if (!dbState || dbState.isPlacingDragon !== playerId) return;
+
+      const deckSizeBeforePlacing = dbState.deck.length;
+      if (index < 0 || index > deckSizeBeforePlacing) {
+          this.io.to(playerId).emit('error', 'Invalid placement index.');
+          return;
+      }
+      
+      // The user sees "position 0" as the top of the deck (drawn next).
+      // The deck is drawn from the end using .pop().
+      // So, "position 0" from the user means we should place it at the end of the array.
+      // "position deck.length" means we should place it at the beginning.
+      const placementIndex = deckSizeBeforePlacing - index;
+      
+      dbState.deck.splice(placementIndex, 0, { id: 'dragon-breath', type: DragonCardType.DRAGON_BREATH });
+      
+      dbState.isPlacingDragon = null;
+      this._advanceDBTurn(gameState);
+      
+      this.addLog(gameState, `${this.getPlayer(gameState, playerId)!.name} placed the Dragon's Breath back in the deck...`, 'dragonsBreath');
+      this.io.to(roomCode).emit('updateGameState', gameState);
+  }
+
+  handleEndFutureView(playerId: string) {
+      const roomCode = this.findRoomByPlayerId(playerId);
+      if (!roomCode) return;
+      const gameState = this.games.get(roomCode)!;
+      const dbState = gameState.dragonsBreathState;
+      if (!dbState || dbState.isViewingFuture !== playerId) return;
+
+      dbState.isViewingFuture = null;
+      dbState.futureCards = [];
+      this.io.to(roomCode).emit('updateGameState', gameState);
+  }
+
+  handleReturnToLobby(playerId: string) {
+    const roomCode = this.findRoomByPlayerId(playerId);
+    if (!roomCode) return;
+    this.restartGameByRoomCode(roomCode);
+  }
+
   // --- Admin Methods ---
   getRoomCount() {
     return this.games.size;
@@ -1634,6 +2044,14 @@ io.on("connection", (socket: any) => {
   socket.on("initiateRestart", () => gameService.handleInitiateRestart(socket.id));
   socket.on("voteOnRestart", (vote) => gameService.handleVoteOnRestart(socket.id, vote));
   socket.on("kickPlayer", (playerIdToKick) => gameService.handleKickPlayer(socket.id, playerIdToKick));
+
+  // --- Dragon's Breath Events ---
+  socket.on('startDragonsBreath', () => gameService.handleStartDragonsBreath(socket.id));
+  socket.on('drawCard', () => gameService.handleDrawCard(socket.id));
+  socket.on('playCard', (cardId) => gameService.handlePlayCard(socket.id, cardId));
+  socket.on('placeDragonCard', (index) => gameService.handlePlaceDragonCard(socket.id, index));
+  socket.on('endFutureView', () => gameService.handleEndFutureView(socket.id));
+  socket.on('returnToLobby', () => gameService.handleReturnToLobby(socket.id));
 
   // --- Voice Chat Signaling ---
   socket.on('voice:offer', ({ targetId, sdp }) => {

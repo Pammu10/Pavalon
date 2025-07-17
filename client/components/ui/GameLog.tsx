@@ -1,9 +1,10 @@
 
 
+
 import React, { useRef, useEffect } from 'react';
 import { useGame } from '@/components/context/GameContext';
 import { LogEntry } from '@/types';
-import { Crown, Swords, Vote, CheckCircle, XCircle, Shield, Skull, Info, UserX, UserCheck, Users, ScrollText } from 'lucide-react';
+import { Crown, Swords, Vote, CheckCircle, XCircle, Shield, Skull, Info, UserX, UserCheck, Users, ScrollText, Flame } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const logIcons: { [key in LogEntry['type']]: React.ReactNode } = {
@@ -13,6 +14,7 @@ const logIcons: { [key in LogEntry['type']]: React.ReactNode } = {
   quest: <Swords className="w-5 h-5 text-green-400" />,
   assassination: <Skull className="w-5 h-5 text-red-500" />,
   system: <Info className="w-5 h-5 text-slate-400" />,
+  dragonsBreath: <Flame className="w-5 h-5 text-orange-400" />,
 };
 
 const LogItem: React.FC<{ entry: LogEntry }> = ({ entry }) => {

@@ -55,6 +55,13 @@ async function initializeDb() {
             unlocked_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id, achievement_id)
         );
+
+        CREATE TABLE IF NOT EXISTS dragons_breath_matches (
+            id SERIAL PRIMARY KEY,
+            winner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            loser_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            played_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        );
     `);
 
     // Add columns if they don't exist for graceful migration
@@ -93,7 +100,6 @@ dbPromise = initializeDb();
 
 dbPromise.catch(err => {
     console.error('Failed to initialize database pool:', err);
-    process.exit(1); // Exit if DB connection fails
 });
 
 // Export an object of async functions that use the connection pool.

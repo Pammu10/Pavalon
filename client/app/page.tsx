@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import AchievementsTab from "../components/ui/AchievementsTab";
 import AdminPage from "./admin/page";
 import { useInteraction } from "@/components/context/ClientProviders";
+import DragonsBreathScreen from "@/components/screens/DragonsBreathScreen";
 
 type Tab = "game" | "chat" | "leaderboard" | "achievements" | "settings" | "gamelog" | "admin";
 
@@ -116,6 +117,7 @@ const MainContent: React.FC = () => {
         GamePhase.QUEST_VOTE,
         GamePhase.QUEST_RESULT,
         GamePhase.ASSASSINATION,
+        GamePhase.DRAGONS_BREATH,
     ].includes(gameState.phase);
 
     const isLobbyPhase = [
@@ -140,7 +142,7 @@ const MainContent: React.FC = () => {
         setUnreadMessages((prev) => prev + 1);
       }
     }
-  }, [messages, user?.id]);
+  }, [messages, user?.id, activeTab, isChatOpen]);
 
   const handleTabChange = (value: string) => {
     const tab = value as Tab;
@@ -184,6 +186,8 @@ const MainContent: React.FC = () => {
       case GamePhase.QUEST_RESULT:
       case GamePhase.ASSASSINATION:
         return <GameScreen />;
+      case GamePhase.DRAGONS_BREATH:
+        return <DragonsBreathScreen />;
       case GamePhase.END_GAME:
         return <EndGameScreen />;
       default:
@@ -196,7 +200,8 @@ const MainContent: React.FC = () => {
     gameState.phase !== GamePhase.HOME &&
     gameState.phase !== GamePhase.LOBBY &&
     gameState.phase !== GamePhase.END_GAME &&
-    gameState.phase !== GamePhase.ROLE_REVEAL;
+    gameState.phase !== GamePhase.ROLE_REVEAL &&
+    gameState.phase !== GamePhase.DRAGONS_BREATH;
 
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-[100dvh] w-screen">

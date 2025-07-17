@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { GameState, GamePhase, Player, Message, Role, User, LoginCredentials, RegisterCredentials, Achievement } from '@/types';
 import { socketService } from '@/services/socketService';
@@ -38,17 +39,26 @@ interface GameContextType {
     joinRoom: (roomCode?: string) => void;
     leaveRoom: () => void;
     kickPlayer: (playerIdToKick: string) => void;
+    // Pavalon
     startGame: (data: { selectedRoles: Role[] }) => void;
     selectTeam: (teamPlayerIds: string[]) => void;
     updatePendingTeam: (teamPlayerIds: string[]) => void;
     voteOnTeam: (vote: 'APPROVE' | 'REJECT') => void;
     voteOnQuest: (vote: 'SUCCESS' | 'FAIL') => void;
     assassinate: (targetId: string) => void;
-    sendMessage: (messageText: string) => void;
     playerReady: () => void;
     playerReadyForNextGame: () => void;
     initiateRestart: () => void;
     voteOnRestart: (vote: 'yes' | 'no') => void;
+    // Shared
+    sendMessage: (messageText: string) => void;
+    // Dragon's Breath
+    startDragonsBreath: () => void;
+    drawCard: () => void;
+    playCard: (cardId: string) => void;
+    placeDragonCard: (index: number) => void;
+    endFutureView: () => void;
+    returnToLobby: () => void;
 }
 
 const initialGameState: GameState = {
@@ -69,6 +79,7 @@ const initialGameState: GameState = {
     restartVote: null,
     lastRestartInitiatedAt: null,
     pendingTeam: null,
+    dragonsBreathState: null,
 };
 
 const initialSettings: Settings = {
@@ -365,6 +376,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // We DO NOT reset state here, as it causes desynchronization. The server is the source of truth.
     }, []);
     
+    // --- Emitting Functions ---
     const kickPlayer = (playerIdToKick: string) => socketService.emit('kickPlayer', playerIdToKick);
     const sendMessage = (messageText: string) => socketService.emit('sendMessage', messageText);
     const startGame = (data: { selectedRoles: Role[] }) => {
@@ -380,6 +392,14 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const playerReadyForNextGame = () => socketService.emit('playerReadyForNextGame');
     const initiateRestart = () => socketService.emit('initiateRestart');
     const voteOnRestart = (vote: 'yes' | 'no') => socketService.emit('voteOnRestart', vote);
+    // Dragon's Breath Emitters
+    const startDragonsBreath = () => socketService.emit('startDragonsBreath');
+    const drawCard = () => socketService.emit('drawCard');
+    const playCard = (cardId: string) => socketService.emit('playCard', cardId);
+    const placeDragonCard = (index: number) => socketService.emit('placeDragonCard', index);
+    const endFutureView = () => socketService.emit('endFutureView');
+    const returnToLobby = () => socketService.emit('returnToLobby');
+
 
     const hasViewedCurrentQuestResult = viewedSessionKeys.has(`viewedQuest-${gameState.roomCode}-${gameState.currentQuest}`);
     const hasViewedEndGameResult = viewedSessionKeys.has(`viewedEndGame-${gameState.roomCode}`);
@@ -417,11 +437,17 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         voteOnTeam,
         voteOnQuest,
         assassinate,
-        sendMessage,
         playerReady,
         playerReadyForNextGame,
+        sendMessage,
         initiateRestart,
         voteOnRestart,
+        startDragonsBreath,
+        drawCard,
+        playCard,
+        placeDragonCard,
+        endFutureView,
+        returnToLobby,
     };
 
     return (
