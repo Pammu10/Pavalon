@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { useGame } from '@/components/context/GameContext';
 import { Player, DragonCard, DragonCardType } from '@/types';
 import Button from '@/components/ui/Button';
@@ -126,6 +127,29 @@ const DragonsBreathScreen: React.FC = () => {
     const { players, dragonsBreathState: dbState } = gameState;
     
     const [isHandExpanded, setIsHandExpanded] = useState(false);
+    const localPlayer = players.find(p => p.id === playerId);
+    const prevGameLogLength = useRef(gameState.gameLog.length);
+
+    useEffect(() => {
+        if (!localPlayer) return;
+
+        // This check prevents firing toasts for old logs on re-render.
+        if (gameState.gameLog.length > prevGameLogLength.current) {
+            const newEntries = gameState.gameLog.slice(prevGameLogLength.current);
+            
+            newEntries.forEach(entry => {
+                // Only show toasts for Dragon's Breath game events not initiated by the current player.
+                // This covers opponent moves and turn changes.
+                if (entry.type === 'dragonsBreath' && !entry.text.startsWith(localPlayer.name)) {
+                     toast.info(entry.text, {
+                        icon: <Info size={16} />,
+                    });
+                }
+            });
+        }
+        prevGameLogLength.current = gameState.gameLog.length;
+    }, [gameState.gameLog, localPlayer]);
+
 
     // --- Modals ---
     const SeeTheFutureModal: React.FC<{ cards: DragonCard[]; onClose: () => void }> = ({ cards, onClose }) => (
@@ -169,8 +193,8 @@ const DragonsBreathScreen: React.FC = () => {
             <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-50 flex flex-col items-center justify-center p-4 animate-fadeIn">
                 <Flame className="w-24 h-24 text-yellow-400 animate-glow mb-4"/>
                 <h2 className="text-5xl font-eaglelake text-yellow-400 mb-4">Game Over!</h2>
-                <p className="text-2xl text-white mb-2"><span className="font-bold">{winner.name}</span> is victorious!</p>
-                
+                <p className="text-2xl text-white mb-4"><span className="font-bold">{winner.name}</span> is victorious!</p>
+            
                 <div className="flex gap-4">
                     
                     <Button onClick={onLeave} variant="primary">Back to Lobby</Button>
@@ -179,9 +203,8 @@ const DragonsBreathScreen: React.FC = () => {
         );
     };
 
-    if (!dbState) return <div className="h-full w-full flex items-center justify-center"><Spinner size="lg" /></div>;
-
-    const localPlayer = players.find(p => p.id === playerId)!;
+    if (!dbState || !localPlayer) return <div className="h-full w-full flex items-center justify-center"><Spinner size="lg" /></div>;
+    
     const opponent = players.find(p => p.id !== playerId)!;
     const myHand = dbState.hands[playerId!] || [];
     const opponentHandSize = dbState.hands[opponent.id]?.length || 0;
@@ -230,7 +253,7 @@ const DragonsBreathScreen: React.FC = () => {
             <div className="w-full flex flex-col items-center gap-4 z-10">
                 <div className="flex items-center gap-3 bg-black/40 backdrop-blur-sm p-2 px-4 rounded-lg border border-slate-700/50">
                     <User size={20} className={cn("transition-colors", !isMyTurn ? 'text-yellow-400' : 'text-slate-400')} />
-                    <h2 className={cn("text-xl font-bold transition-colors", !isMyTurn ? "text-yellow-400" : "text-slate-400")}>{opponent.name}</h2>
+                    <h2 className={cn("text-xl font-bold transition-all", !isMyTurn ? 'text-yellow-400 animate-glow' : 'text-slate-400')}>{opponent.name}</h2>
                 </div>
                 <div className="relative flex justify-center items-start h-48 w-full pt-4">
                     <AnimatePresence>
@@ -267,8 +290,9 @@ const DragonsBreathScreen: React.FC = () => {
             </div>
 
             {/* --- MIDDLE: Board Area --- */}
-            <div className="w-full max-w-lg mx-auto flex-grow flex flex-col items-center justify-center z-10 p-4 sm:p-6 my-4 bg-slate-900/50 backdrop-blur-md rounded-2xl border border-slate-700">
-                <div className="flex items-end justify-center gap-8 sm:gap-12 w-full">
+            <div className="w-full max-w-lg mx-auto flex-grow flex flex-col items-center justify-center z-10 p-4 sm:p-6 my-4 bg-slate-900/50 backdrop-blur-md rounded-2xl border border-slate-700 relative">
+
+                <div className="flex items-end justify-center gap-8 sm:gap-12 w-full mt-16">
                     {/* Discard Pile */}
                     <div className="flex flex-col items-center gap-2">
                          <div className="relative w-36 sm:w-40 aspect-[3/4] rounded-xl border-2 border-slate-600/50">
@@ -297,7 +321,7 @@ const DragonsBreathScreen: React.FC = () => {
                     </div>
                     {/* Draw Pile */}
                      <div className="flex flex-col items-center gap-2">
-                        <button onClick={handleDrawClick} disabled={!isMyTurn || isUIBlocked} className="disabled:cursor-not-allowed">
+                        <button onClick={handleDrawClick} disabled={!isMyTurn || !!isUIBlocked} className="disabled:cursor-not-allowed">
                              <div>
                                 <CardBack isClickable={isMyTurn && !isUIBlocked} className={cn(isMyTurn && !isUIBlocked && 'animate-pulse-glow shadow-glow-yellow')}/>
                              </div>
@@ -311,7 +335,7 @@ const DragonsBreathScreen: React.FC = () => {
             <div className="w-full flex flex-col items-center gap-2 z-10 flex-shrink-0">
                 <div className="flex items-center gap-3 bg-black/40 backdrop-blur-sm p-2 px-4 rounded-lg border border-slate-700/50">
                     <User size={20} className={cn("transition-colors", isMyTurn ? 'text-yellow-400' : 'text-slate-400')} />
-                    <h2 className={cn("text-xl font-bold transition-colors", isMyTurn ? "text-yellow-400" : "text-slate-400")}>{localPlayer.name}</h2>
+                    <h2 className={cn("text-xl font-bold transition-all", isMyTurn ? 'text-yellow-400 animate-glow' : 'text-slate-400')}>{localPlayer.name}</h2>
                 </div>
 
                 <motion.div

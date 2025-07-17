@@ -1,6 +1,7 @@
 
 
 
+
 import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
@@ -1754,6 +1755,7 @@ class GameService {
     const player1 = gameState.players[0];
     const player2 = gameState.players[1];
 
+    // Add Defuse cards to the base deck
     const baseDeck: DragonCardType[] = [
         DragonCardType.ATTACK, DragonCardType.ATTACK,
         DragonCardType.SKIP, DragonCardType.SKIP,
@@ -1761,23 +1763,25 @@ class GameService {
         DragonCardType.SHUFFLE,
         DragonCardType.EMBERDRAKE_HATCHLING, DragonCardType.GLIMMERING_WHELP, DragonCardType.SUNSTONE_DRAKE,
         DragonCardType.EMBERDRAKE_HATCHLING, DragonCardType.GLIMMERING_WHELP, DragonCardType.SUNSTONE_DRAKE,
+        DragonCardType.DEFUSE, DragonCardType.DEFUSE,
     ];
     
-    // Add Defuse cards to hands and remove from deck pool
+    // Initialize empty hands
     const hands: { [playerId: string]: DragonCard[] } = { 
-        [player1.id]: [{ id: `defuse-${player1.id}`, type: DragonCardType.DEFUSE }], 
-        [player2.id]: [{ id: `defuse-${player2.id}`, type: DragonCardType.DEFUSE }] 
+        [player1.id]: [], 
+        [player2.id]: [] 
     };
 
     const fullDeck: DragonCard[] = baseDeck.map(type => ({ id: `${type}-${Math.random()}`, type }));
     this._shuffleArray(fullDeck);
     
-    // Deal 4 more cards to each player
-    for (let i = 0; i < 4; i++) {
-        hands[player1.id].push(fullDeck.pop()!);
-        hands[player2.id].push(fullDeck.pop()!);
+    // Deal 5 cards to each player
+    for (let i = 0; i < 5; i++) {
+        if(fullDeck.length > 0) hands[player1.id].push(fullDeck.pop()!);
+        if(fullDeck.length > 0) hands[player2.id].push(fullDeck.pop()!);
     }
     
+    // Add Dragon's Breath to the remaining deck
     fullDeck.push({ id: 'dragon-breath', type: DragonCardType.DRAGON_BREATH });
     this._shuffleArray(fullDeck);
 
@@ -1909,7 +1913,10 @@ class GameService {
         case DragonCardType.ATTACK:
             this._advanceDBTurn(gameState);
             dbState.turnsToTake = 2;
-            this.addLog(gameState, `${dbState.currentPlayerId === player.id ? player.name : 'The opponent'} must now take 2 turns.`, 'dragonsBreath');
+            const attackedPlayer = gameState.players.find(p => p.id === dbState.currentPlayerId);
+            if (attackedPlayer) {
+              this.addLog(gameState, `${attackedPlayer.name} must now take 2 turns.`, 'dragonsBreath');
+            }
             break;
         case DragonCardType.SKIP:
             this._advanceDBTurn(gameState);
