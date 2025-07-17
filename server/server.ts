@@ -1752,8 +1752,7 @@ class GameService {
   // --- Dragon's Breath Mini-game Logic ---
 
   private _createDragonsBreathGame(gameState: GameState) {
-    const player1 = gameState.players[0];
-    const player2 = gameState.players[1];
+    const [player1, player2] = gameState.players;
 
     // Add Defuse cards to the base deck
     const baseDeck: DragonCardType[] = [
@@ -1785,11 +1784,13 @@ class GameService {
     fullDeck.push({ id: 'dragon-breath', type: DragonCardType.DRAGON_BREATH });
     this._shuffleArray(fullDeck);
 
+    const startingPlayer = Math.random() < 0.5 ? player1 : player2;
+
     gameState.dragonsBreathState = {
         deck: fullDeck,
         hands: hands,
         discardPile: [],
-        currentPlayerId: player1.id,
+        currentPlayerId: startingPlayer.id,
         turnsToTake: 1,
         isViewingFuture: null,
         futureCards: [],
@@ -1840,7 +1841,8 @@ class GameService {
     
     this._createDragonsBreathGame(gameState);
     gameState.phase = GamePhase.DRAGONS_BREATH;
-    this.addLog(gameState, "A game of Dragon's Breath has begun!", 'dragonsBreath');
+    const startingPlayer = gameState.players.find(p => p.id === gameState.dragonsBreathState!.currentPlayerId);
+    this.addLog(gameState, `A game of Dragon's Breath has begun! ${startingPlayer?.name || 'A player'} starts.`, 'dragonsBreath');
     this.io.to(roomCode).emit('updateGameState', gameState);
   }
 
