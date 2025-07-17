@@ -64,6 +64,7 @@ const MainContent: React.FC = () => {
   const { playSound, playLobbyMusic, playInGameMusic, stopBackgroundMusic } = useAudio();
   const { hasInteracted } = useInteraction();
   const [activeTab, setActiveTab] = useState<Tab>("game");
+  const [chatActiveTab, setChatActiveTab] = useState('chat');
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
   
@@ -139,7 +140,7 @@ const MainContent: React.FC = () => {
         setUnreadMessages((prev) => prev + 1);
       }
     }
-  }, [messages, user?.id, activeTab, isChatOpen]);
+  }, [messages, user?.id]);
 
   const handleTabChange = (value: string) => {
     const tab = value as Tab;
@@ -236,7 +237,9 @@ const MainContent: React.FC = () => {
             <TabsContent value="game" className="mt-0 outline-none">
               {renderGameScreen()}
             </TabsContent>
-            <TabsContent value="chat" className="mt-0 outline-none"><Chat /></TabsContent>
+            <TabsContent value="chat" className="mt-0 outline-none">
+                <Chat activeTab={chatActiveTab} onTabChange={setChatActiveTab} />
+            </TabsContent>
             <TabsContent value="settings" className="mt-0 outline-none"><SettingsScreen /></TabsContent>
             <TabsContent value="leaderboard" className="mt-0 outline-none"><LeaderboardScreen /></TabsContent>
             <TabsContent value="achievements" className="mt-0 outline-none"><AchievementsTab /></TabsContent>
@@ -280,7 +283,12 @@ const MainContent: React.FC = () => {
               className="absolute bottom-16 left-0 right-0 h-[calc(100dvh-4rem)] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <Chat isMobileView={true} onHeaderClose={() => setIsChatOpen(false)} />
+              <Chat 
+                isMobileView={true} 
+                onHeaderClose={() => setIsChatOpen(false)} 
+                activeTab={chatActiveTab} 
+                onTabChange={setChatActiveTab}
+              />
             </motion.div>
           </motion.div>
         )}

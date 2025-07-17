@@ -461,7 +461,7 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 const volume = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
                 const isCurrentlySpeaking = volume > 10;
                 
-                setIsSelfSpeaking(isCurrentlySpeaking);
+                setIsSelfSpeaking(isCurrentlySpeaking && !isMuted);
             }
         }, 200);
 
@@ -471,7 +471,7 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 speakingTimerRef.current = null;
             }
         };
-    }, []); // This runs once and cleans up on unmount.
+    }, [isMuted]);
 
     // --- Control Functions ---
     const toggleMute = useCallback(() => {

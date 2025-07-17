@@ -12,14 +12,15 @@ import VoiceControls from "./VoiceControls";
 interface ChatProps {
   isMobileView?: boolean;
   onHeaderClose?: () => void; // Prop to handle close from a parent modal
+  activeTab: string;
+  onTabChange: (newTab: string) => void;
 }
 
-export const Chat: React.FC<ChatProps> = ({ isMobileView = false, onHeaderClose }) => {
+export const Chat: React.FC<ChatProps> = ({ isMobileView = false, onHeaderClose, activeTab, onTabChange }) => {
   const { messages, sendMessage, user, gameState } = useGame();
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isGameActive = !!gameState.roomCode;
-  const [activeTab, setActiveTab] = useState("chat");
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -56,7 +57,7 @@ export const Chat: React.FC<ChatProps> = ({ isMobileView = false, onHeaderClose 
   }
   
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className={containerClasses}>
+    <Tabs value={activeTab} onValueChange={onTabChange} className={containerClasses}>
         {/* Header */}
         <header className="flex-shrink-0 flex justify-between items-center p-3 border-b border-slate-700/50 pt-safe-top">
             <h3 className="font-eaglelake text-lg text-yellow-500">
