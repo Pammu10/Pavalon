@@ -1,101 +1,101 @@
-"use client";
+  "use client";
 
-import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import { speak, stopSpeaking } from "@/hooks/useNarration";
-import Image from "next/image";
-// import { useHapticFeedback } from "@/hooks/useHapticFeedback";
+  import { motion } from "framer-motion";
+  import { useEffect, useState } from "react";
+  import { useAudio } from "@/components/context/AudiContext";
+  import Image from "next/image";
+  import { ArrowLeft, ArrowRight } from "lucide-react";
+  // import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 
-const storySlides = [
-  {
-    text: "In the time of King Arthur, a great evil lurked in the shadows…",
-    image: "/story/slide1.jpeg",
-  },
-  {
-    text: "Merlin foresaw the threat. traitors hidden among the King’s own",
-    image: "/story/slide2.jpeg",
-  },
-  {
-    text: "You have been summoned. Loyalty is your sword. Deceit is your shield.",
-    image: "/story/slide3.jpeg",
-  },
-];
+  const storySlides = [
+    {
+      text: "In the time of King Arthur, a great evil lurked in the shadows…",
+      image: "/story/slide1.jpeg",
+      audio: "narration1" as const,
+    },
+    {
+      text: "Merlin foresaw the threat. traitors hidden among the King’s own",
+      image: "/story/slide2.jpeg",
+      audio: "narration2" as const,
+    },
+    {
+      text: "You have been summoned. Loyalty is your sword. Deceit is your shield.",
+      image: "/story/slide3.jpeg",
+      audio: "narration3" as const,
+    },
+  ];
 
-export const StorybookScene = ({ onSkip }: { onSkip: () => void }) => {
-  const [index, setIndex] = useState(0);
-  const handleNext = () => {
-    if (index < storySlides.length - 1) {
-      setIndex(index + 1);
-    } else {
-    stopSpeaking();
-    onSkip();
-    }
-  };
+  export const StorybookScene = ({ onSkip }: { onSkip: () => void }) => {
+    const [index, setIndex] = useState(0);
+    const { playSound, stopAllSfx } = useAudio();
 
-  const handleBack = () => {
-    if (index > 0) {
-      setIndex(index - 1);
-    }
-  };
+    const handleNext = () => {
+      stopAllSfx();
+      if (index < storySlides.length - 1) {
+        setIndex(index + 1);
+      } else {
+        onSkip();
+      }
+    };
 
-  useEffect(() => {
-  
-    speak(storySlides[index].text);
-  
- return () => {
-    stopSpeaking();
-  };
-}, [index]);
+    const handleBack = () => {
+      stopAllSfx();
+      if (index > 0) {
+        setIndex(index - 1);
+      }
+    };
 
-// const {impact} = useHapticFeedback();
+    useEffect(() => {
+      playSound(storySlides[index].audio, { manageBgm: false });
+      return () => {
+        stopAllSfx();
+      };
+    }, [index, playSound, stopAllSfx]);
 
-  return (
-    
-    <div className="fixed inset-0 z-50 bg-black text-white flex flex-col items-center justify-center p-6">
+  // const {impact} = useHapticFeedback();
+
+    return (
       
-      <motion.div
-        key={index}
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -30 }}
-        transition={{ duration: 0.8 }}
-        className="max-w-xl text-center space-y-6"
-      >
-        <Image
-          src={storySlides[index].image}
-          alt={`Slide ${index + 1}`}
-          width={600}
-          height={400}
-          className="rounded-xl object-cover shadow-lg"
-        />
+      <div className="fixed inset-0 z-50 bg-black text-white flex flex-col items-center justify-center p-6">
+        
+        <motion.div
+          key={index}
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -30 }}
+          transition={{ duration: 0.8 }}
+          className="max-w-xl text-center space-y-6"
+        >
+          <Image
+            src={storySlides[index].image}
+            alt={`Slide ${index + 1}`}
+            width={600}
+            height={400}
+            className="rounded-xl object-cover shadow-lg"
+          />
 
-        <p className="text-xl sm:text-2xl font-serif italic leading-relaxed drop-shadow">
-          {storySlides[index].text}
-        </p>
+          <p className="text-xl sm:text-2xl font-serif italic leading-relaxed drop-shadow">
+            {storySlides[index].text}
+          </p>
 
-        <div className="mt-4 flex justify-center space-x-4">
-          { index !== 0 && 
-          <button
-            onClick={async () => { handleBack();}}
-            className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-black font-bold rounded-full transition"
-          >
-            Back
-          </button>}
-          <button
-            onClick={async() => { handleNext()}}
-            className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-black font-bold rounded-full transition"
-          >
-            {index < storySlides.length - 1 ? "Next" : "Begin"}
-          </button>
-        { index !== 2 && 
-          <button
-            onClick={async () => { stopSpeaking(); onSkip();}}
-            className="px-4 py-2 text-amber-300 hover:text-white text-sm underline"
-          >
-            Skip
-          </button>}
-        </div>
-      </motion.div>
-    </div>
-  );
-};
+          <div className="mt-8 flex justify-center items-center space-x-8">
+              <button
+                  onClick={handleBack}
+                  disabled={index === 0}
+                  className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-black font-bold rounded-full transition flex items-center gap-2 disabled:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                  <ArrowLeft size={20} />
+                  Back
+              </button>
+              <button
+                  onClick={handleNext}
+                  className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-black font-bold rounded-full transition flex items-center gap-2"
+              >
+                  {index < storySlides.length - 1 ? "Next" : "Begin"}
+                  <ArrowRight size={20} />
+              </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };

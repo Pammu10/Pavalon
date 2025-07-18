@@ -2,12 +2,13 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 
-type SoundEffect = 'transition' | 'quest-success' | 'quest-fail' | 'victory' | 'defeat' | 'role-reveal' | 'success' | 'error' | 'card-swish' | 'db-game-over' | 'card-fan';
+type SoundEffect = 'transition' | 'quest-success' | 'quest-fail' | 'victory' | 'defeat' | 'role-reveal' | 'success' | 'error' | 'card-swish' | 'db-game-over' | 'card-fan' | 'narration1' | 'narration2' | 'narration3';
 
 interface AudioContextType {
   isBgmMuted: boolean;
   toggleBgm: () => void;
   playSound: (sound: SoundEffect, options?: { manageBgm?: boolean }) => Promise<void>;
+  stopAllSfx: () => void;
   playLobbyMusic: () => void;
   playInGameMusic: () => void;
   stopBackgroundMusic: () => void; // General purpose stop
@@ -30,6 +31,9 @@ const AUDIO_FILES: Record<SoundEffect | 'background-lobby' | 'background-game', 
   'card-swish': '/audio/card_swish.mp3',
   'db-game-over': '/audio/db_game_over.mp3',
   'card-fan': '/audio/card_fan.mp3',
+  'narration1': '/audio/slide1.mp3',
+  'narration2': '/audio/slide2.mp3',
+  'narration3': '/audio/slide3.mp3',
 };
 
 export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -138,6 +142,15 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, []);
 
+  const stopAllSfx = useCallback(() => {
+    Object.values(sfxRefs.current).forEach(audio => {
+        if (audio && !audio.paused) {
+            audio.pause();
+            audio.currentTime = 0;
+        }
+    });
+  }, []);
+
   const stopLobbyMusic = useCallback(() => {
       if (lobbyMusicRef.current) {
           lobbyMusicRef.current.pause();
@@ -189,6 +202,7 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     isBgmMuted, 
     toggleBgm, 
     playSound, 
+    stopAllSfx,
     playLobbyMusic, 
     playInGameMusic,
     stopBackgroundMusic

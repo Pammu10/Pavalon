@@ -2,7 +2,7 @@
 import React from 'react';
 import { Player } from '@/types';
 import { useGame } from '../context/GameContext';
-import { useVoice } from '../context/VoiceContext';
+// import { useVoice } from '../context/VoiceContext';
 import { Crown, Ghost, Shield, Swords, Eye, Mic } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROLES } from '@/constants';
@@ -27,11 +27,11 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
   isKnownAs = null,
 }) => {
   const { playerId } = useGame();
-  const { peerStates, isSelfSpeaking } = useVoice();
+  // const { peerStates, isSelfSpeaking } = useVoice();
 
   const isLocalPlayer = player.id === playerId;
-  const voiceState = peerStates[player.id];
-  const isSpeaking = isLocalPlayer ? isSelfSpeaking : voiceState?.isSpeaking ?? false;
+  // const voiceState = peerStates[player.id];
+  // const isSpeaking = isLocalPlayer ? isSelfSpeaking : voiceState?.isSpeaking ?? false;
 
   const isDisconnected = player.status === 'DISCONNECTED';
   const borderClass = player.selectedBorder ? `border-style-${player.selectedBorder}` : 'border-slate-600';
@@ -65,7 +65,7 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
       <div className="relative w-full bg-black/50 backdrop-blur-sm rounded-md p-2 text-center z-10">
         <div className="text-base font-bold text-slate-100 truncate w-full flex items-center justify-center gap-1.5 h-6">
             <span className="truncate">{player.name}</span>
-            <AnimatePresence>
+            {/* <AnimatePresence>
                 {isSpeaking && (
                     <motion.div
                         initial={{ scale: 0, opacity: 0 }}
@@ -76,7 +76,7 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
                         <Mic size={14} className="text-green-400" style={{ filter: 'drop-shadow(0 0 3px #4ade80)' }}/>
                     </motion.div>
                 )}
-            </AnimatePresence>
+            </AnimatePresence> */}
             
         </div>
         {player.selectedTitle ? (
