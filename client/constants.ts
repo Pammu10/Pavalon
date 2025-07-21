@@ -15,7 +15,7 @@ export const ROLES: Record<Role, { alignment: Alignment, description: string, vi
         alignment: Alignment.GOOD,
         description: "Sees both Merlin and Morgana but cannot distinguish between them.",
         vision: "You see Merlin and Morgana, but you don't know which is which.",
-        img: "/characters/percival.jpg",
+        img: "/characters/percival.png",
         strategy: "Watch for subtle differences in behavior to identify the real Merlin.",
         color: "text-blue-600",
       bgColor:
@@ -25,7 +25,7 @@ export const ROLES: Record<Role, { alignment: Alignment, description: string, vi
         alignment: Alignment.GOOD,
         description: "Loyal servants of Arthur m  ust help complete quests successfully and identify evil players.",
         vision: "You know nothing.",
-        img: "/characters/loyal-servant.jpg",
+        img: "/characters/loyal-servant.png",
         strategy: "Pay attention to voting patterns and quest failures to identify evil players.",
         color: "text-blue-600",
       bgColor:
@@ -35,7 +35,7 @@ export const ROLES: Record<Role, { alignment: Alignment, description: string, vi
         alignment: Alignment.EVIL,
         description: "The false wizard who appears as Merlin to Percival. Must fail quests and confuse good.",
         vision: "You see your fellow Minions of Mordred, but not Oberon.",
-        img: "/characters/morgana.jpg",
+        img: "/characters/morgana.png",
         strategy: "Act like Merlin to confuse Percival while secretly coordinating with evil.",
         color: "text-red-600",
       bgColor:
@@ -45,7 +45,7 @@ export const ROLES: Record<Role, { alignment: Alignment, description: string, vi
         alignment: Alignment.EVIL,
         description: "You are the evil killer. If the forces of Good succeed on three quests, you have one chance to assassinate Merlin to win.",
         vision: "You see your fellow Minions of Mordred, but not Oberon.",
-        img: "/characters/assassin.jpg",
+        img: "/characters/assassin.png",
         strategy: "Your main job is to identify Merlin. Pay attention to who seem to have too much information.",
         color: "text-red-600",
       bgColor:
@@ -75,7 +75,7 @@ export const ROLES: Record<Role, { alignment: Alignment, description: string, vi
         alignment: Alignment.EVIL,
         description: "Standard evil minion. Works with other evil players to fail quests.",
         vision: "You see your fellow Minions of Mordred, but not Oberon.",
-        img: "/characters/minion-of-mordred.jpg",
+        img: "/characters/minion-of-mordred.png",
         strategy: "Coordinate with other evil players and blend in with good players.",
         color: "text-red-600",
       bgColor:
