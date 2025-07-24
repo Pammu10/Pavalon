@@ -106,6 +106,27 @@ export interface DragonsBreathState {
     loser: string | null; // PlayerId of the loser
 }
 
+export interface DragonsBreathMatch {
+  id: number;
+  opponentName: string;
+  won: boolean;
+  playedAt: string;
+}
+
+export interface DragonsBreathOpponentStats {
+  opponentId: number;
+  opponentName: string;
+  gamesPlayed: number;
+  wins: number;
+  winRate: number;
+}
+
+export interface DragonsBreathStats {
+  totalGames: number;
+  totalWins: number;
+  opponentStats: DragonsBreathOpponentStats[];
+  matchHistory: DragonsBreathMatch[];
+}
 
 export interface GameState {
   roomCode: string | null;
