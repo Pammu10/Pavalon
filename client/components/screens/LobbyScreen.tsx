@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback } from "react";
 import { useGame } from "@/components/context/GameContext";
 import Button from "@/components/ui/Button";
@@ -5,8 +6,9 @@ import Card from "@/components/ui/Card";
 import { Player, Role, Alignment } from "@/types";
 import { ROLES, EVIL_PLAYER_COUNT } from "@/constants";
 import Spinner from "@/components/ui/Spinner";
-import { Copy, Check, LogOut, ShieldAlert, Flame } from "lucide-react";
+import { Copy, Check, LogOut, ShieldAlert, Flame, Share2 } from "lucide-react";
 import PlayerTile from "@/components/ui/PlayerTile";
+import { toast } from "sonner";
 
 const RoleToggle: React.FC<{
   role: Role;
@@ -216,6 +218,25 @@ const LobbyView: React.FC = () => {
       }
     };
   
+    const handleShare = () => {
+      if (!roomCode) return;
+      const joinUrl = `${window.location.origin}/join/${roomCode}`;
+      if (navigator.share) {
+        navigator.share({
+            title: 'Join my Pavalon Game!',
+            text: `Join my game with code: ${roomCode}`,
+            url: joinUrl,
+        }).catch(() => {
+            // Fallback to clipboard if share fails
+            navigator.clipboard.writeText(joinUrl);
+            toast.success('Join link copied to clipboard!');
+        });
+      } else {
+        navigator.clipboard.writeText(joinUrl);
+        toast.success('Join link copied to clipboard!');
+      }
+    };
+
     const currentPlayer = players.find((p) => p.id === playerId);
     const canStartPavalon = players.length >= 5 && players.length <= 10;
     const canStartDragonsBreath = players.length === 2;
@@ -231,10 +252,16 @@ const LobbyView: React.FC = () => {
               </h1>
               <p className="text-slate-400">Waiting for players to join...</p>
             </div>
-            <Button variant="danger" onClick={leaveRoom} className="text-sm py-1.5 px-4 flex items-center gap-2 w-full sm:w-auto justify-center">
-              <LogOut size={16} />
-              Leave
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+                 <Button variant="secondary" onClick={handleShare} className="text-sm py-1.5 px-4 flex-1 flex items-center gap-2 justify-center">
+                    <Share2 size={16} />
+                    Share
+                </Button>
+                <Button variant="danger" onClick={leaveRoom} className="text-sm py-1.5 px-4 flex-1 flex items-center gap-2 justify-center">
+                    <LogOut size={16} />
+                    Leave
+                </Button>
+            </div>
           </header>
   
           {/* Room Code Section */}
@@ -320,83 +347,17 @@ const LobbyView: React.FC = () => {
     );
   };
 
-const JoinHostView: React.FC = () => {
-  const { joinRoom, user, logout } = useGame();
-  const [roomCode, setRoomCode] = useState("");
-
-  return (
-    <div className="animate-fadeIn flex flex-col items-center justify-center space-y-8">
-      <h1
-        className="font-eaglelake text-5xl sm:text-6xl font-bold text-yellow-500 text-center tracking-wider"
-        style={{ textShadow: "0 0 25px rgba(234, 179, 8, 0.5)" }}
-      >
-      PAVALON: THE SHATTERED THRONE
-
-      </h1>
-      <div className="text-center">
-        <p className="text-slate-300 text-lg">
-          Welcome,{" "}
-          <span className="font-bold text-white">{user?.username}</span>!
-        </p>
-        <Button
-          variant="danger"
-          onClick={logout}
-          className="text-sm py-1 px-3 mt-2"
-        >
-          Log Out
-        </Button>
-      </div>
-
-      <Card className="w-full max-w-md">
-        <div className="flex flex-col space-y-6">
-          <Button onClick={() => joinRoom()} className="w-full">
-            Host New Game
-          </Button>
-          <div className="flex items-center text-slate-500">
-            <hr className="flex-grow border-slate-700" />
-            <span className="px-2">OR</span>
-            <hr className="flex-grow border-slate-700" />
-          </div>
-          <div className="flex flex-col gap-4 w-full">
-            <input
-              type="text"
-              placeholder="Room Code"
-              value={roomCode}
-              onChange={(e) => setRoomCode(e.target.value)}
-              className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 uppercase transition"
-            />
-            <Button
-              variant="secondary"
-              onClick={() => joinRoom(roomCode)}
-              disabled={!roomCode.trim()}
-              className="w-full"
-            >
-              Join Game
-            </Button>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
-};
-
 const LobbyScreen: React.FC = () => {
   const { gameState, user } = useGame();
 
-  // Player is in a room if there's a room code and they are in the players list
   if (gameState.roomCode && gameState.players.some((p) => p.userId === user?.id)) {
     return <LobbyView />;
   }
-
-  // Player is logged in but not in a room
-  if (!gameState.roomCode) {
-    return <JoinHostView />;
-  }
-
-  // This state occurs briefly during transitions, e.g., after logout before context resets
+  
   return (
     <div className="text-center">
       <Spinner />
+      <p className="mt-2 text-white">Loading lobby...</p>
     </div>
   );
 };

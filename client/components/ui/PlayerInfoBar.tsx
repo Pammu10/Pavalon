@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { useGame } from '@/components/context/GameContext';
 import { ROLES } from '@/constants';
 import { Alignment } from '@/types';
-import { KeyRound, User, Eye, Copy, Check } from 'lucide-react';
+import { KeyRound, User, Eye, Share2, Check } from 'lucide-react';
 import { getVisiblePlayers } from '@/hooks/usePlayerVision';
 import { toast } from 'sonner';
 
@@ -15,19 +16,26 @@ const PlayerInfoBar: React.FC = () => {
         return null;
     }
 
-    const handleCopyClick = () => {
-        if (gameState.roomCode) {
-            navigator.clipboard.writeText(gameState.roomCode).then(
-                () => {
-                    setCopied(true);
-                    toast.success("Room code copied!");
-                    setTimeout(() => setCopied(false), 2000);
-                },
-                () => {
-                    toast.error("Failed to copy room code.");
-                }
-            );
-        }
+    const handleShareClick = () => {
+      if (!gameState.roomCode) return;
+      const joinUrl = `${window.location.origin}/join/${gameState.roomCode}`;
+       if (navigator.share) {
+        navigator.share({
+            title: 'Join my Pavalon Game!',
+            text: `Join my game with code: ${gameState.roomCode}`,
+            url: joinUrl,
+        }).catch(() => { // Fallback for when share is cancelled or fails
+            navigator.clipboard.writeText(joinUrl);
+            setCopied(true);
+            toast.success("Join link copied to clipboard!");
+            setTimeout(() => setCopied(false), 2000);
+        });
+      } else {
+        navigator.clipboard.writeText(joinUrl);
+        setCopied(true);
+        toast.success("Join link copied to clipboard!");
+        setTimeout(() => setCopied(false), 2000);
+      }
     };
 
     const roleInfo = ROLES[player.role];
@@ -74,14 +82,14 @@ const PlayerInfoBar: React.FC = () => {
                     <KeyRound className="w-5 h-5 text-yellow-500" />
                     <p className="font-mono font-bold text-base tracking-widest text-white">{gameState.roomCode}</p>
                     <button
-                        onClick={handleCopyClick}
+                        onClick={handleShareClick}
                         className="bg-slate-700/70 p-1.5 rounded-md hover:bg-slate-600 transition-colors ml-1"
-                        aria-label="Copy room code"
+                        aria-label="Share join link"
                     >
                         {copied ? (
                             <Check className="w-4 h-4 text-green-400" />
                         ) : (
-                            <Copy className="w-4 h-4 text-slate-400" />
+                            <Share2 className="w-4 h-4 text-slate-400" />
                         )}
                     </button>
                 </div>

@@ -1,4 +1,3 @@
-
 export enum Role {
     MERLIN = 'Merlin',
     PERCIVAL = 'Percival',
@@ -150,6 +149,7 @@ export interface GameState {
     lastRestartInitiatedAt: number | null;
     pendingTeam: string[] | null;
     dragonsBreathState: DragonsBreathState | null; // State for the mini-game
+    assassinationTargetId: string | null;
 }
 
 export interface RoleDescription {
@@ -244,6 +244,7 @@ export interface ClientToServerEvents {
     kickPlayer: (playerIdToKick: string) => void;
     selectTeam: (teamPlayerIds: string[]) => void;
     updatePendingTeam: (teamPlayerIds: string[]) => void;
+    updateAssassinationTarget: (targetId: string | null) => void;
     voteOnTeam: (vote: 'APPROVE' | 'REJECT') => void;
     voteOnQuest: (vote: 'SUCCESS' | 'FAIL') => void;
     assassinate: (targetId: string) => void;

@@ -1,4 +1,5 @@
 import { Role } from "./types";
+import { ShieldCheck, Skull, Crown, Swords, Star, Eye, Trophy, Shield, Zap, Feather, Spade, BookHeart, HeartCrack, Castle, Cherry } from "lucide-react";
 
 export interface AchievementReward {
     type: 'TITLE' | 'BORDER' | 'ICON';
@@ -13,6 +14,7 @@ export interface Achievement {
     icon: string; // Lucide icon name
     rewards: AchievementReward[];
     check: (stats: any, performance: any) => boolean;
+    hidden?: boolean; // If true, it won't show in the list unless unlocked
 }
 
 export const ALL_ACHIEVEMENTS: Achievement[] = [
@@ -31,7 +33,6 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         description: 'Win your first game.',
         icon: 'Trophy',
         rewards: [
-            { type: 'TITLE', value: 'Adventurer', name: 'Adventurer Title' },
             { type: 'ICON', value: 'trophy', name: 'Trophy Icon' }
         ],
         check: (stats) => stats.totalWins >= 1,
@@ -55,7 +56,6 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         description: 'Win a game as Merlin.',
         icon: 'Eye',
         rewards: [
-            { type: 'TITLE', value: 'The Seer', name: 'The Seer Title' },
             { type: 'ICON', value: 'eye', name: 'Eye Icon' },
         ],
         check: (stats, p) => p.role === Role.MERLIN && p.won,
@@ -66,7 +66,6 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         description: 'Win a game by assassinating Merlin.',
         icon: 'Skull',
         rewards: [
-            { type: 'TITLE', value: 'Shadow', name: 'Shadow Title' },
             { type: 'ICON', value: 'skull', name: 'Skull Icon' }
         ],
         check: (stats, p) => p.role === Role.ASSASSIN && p.won,
@@ -101,7 +100,6 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         description: 'Win 10 games.',
         icon: 'Crown',
         rewards: [
-            { type: 'TITLE', value: 'Champion', name: 'Champion Title' },
             { type: 'ICON', value: 'crown', name: 'Crown Icon' }
         ],
         check: (stats) => stats.totalWins >= 10,
@@ -112,7 +110,6 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         description: 'Win 5 games as a member of Good.',
         icon: 'ShieldCheck',
         rewards: [
-            { type: 'TITLE', value: 'Guardian', name: 'Guardian Title' },
             { type: 'ICON', value: 'shieldcheck', name: 'Shield Check Icon' },
         ],
         check: (stats) => stats.goodWins >= 5,
@@ -145,10 +142,9 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         description: 'A special blessing bestowed upon the most dedicated knights of the realm.',
         icon: 'Cherry',
         rewards: [
-            {type: 'TITLE', value: 'Pookie', name: 'Pookie Title'},
-            { type: 'BORDER', value: 'sakura', name: 'Sakura Border' },
-            { type: 'ICON', value: 'cherry', name: 'Cherry Icon' },
+            { type: 'BORDER', value: 'sakura', name: 'Sakura Border' }
         ],
         check: () => false, // Cannot be earned automatically
+        hidden: true,
     },
 ];

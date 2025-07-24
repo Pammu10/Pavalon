@@ -1,11 +1,12 @@
 
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { GameState, GamePhase, Player, Message, Role, User, LoginCredentials, RegisterCredentials, Achievement } from '@/types';
 import { socketService } from '@/services/socketService';
 import api from '@/services/api';
 import { toast } from 'sonner';
 import { useAudio } from './AudiContext';
+import { useRouter } from 'next/navigation';
 
 interface Settings {
     skipIntro: boolean;
@@ -22,6 +23,7 @@ interface GameContextType {
     isAuthenticated: boolean;
     authError: string | null;
     isLoading: boolean;
+    isConnected: boolean;
     hasViewedRole: boolean;
     settings: Settings;
     achievementsVersion: number;
@@ -33,8 +35,8 @@ interface GameContextType {
     updateSettings: (newSettings: Partial<Settings>) => void;
     updateUser: (data: Partial<User>) => void;
     updateUsername: (newUsername: string) => Promise<void>;
-    login: (credentials: LoginCredentials) => Promise<void>;
-    register: (credentials: RegisterCredentials) => Promise<void>;
+    login: (credentials: LoginCredentials, onSuccess?: () => void) => Promise<void>;
+    register: (credentials: RegisterCredentials, onSuccess?: () => void) => Promise<void>;
     logout: () => void;
     joinRoom: (roomCode?: string) => void;
     leaveRoom: () => void;
@@ -43,6 +45,7 @@ interface GameContextType {
     startGame: (data: { selectedRoles: Role[] }) => void;
     selectTeam: (teamPlayerIds: string[]) => void;
     updatePendingTeam: (teamPlayerIds: string[]) => void;
+    updateAssassinationTarget: (targetId: string | null) => void;
     voteOnTeam: (vote: 'APPROVE' | 'REJECT') => void;
     voteOnQuest: (vote: 'SUCCESS' | 'FAIL') => void;
     assassinate: (targetId: string) => void;
@@ -80,6 +83,7 @@ const initialGameState: GameState = {
     lastRestartInitiatedAt: null,
     pendingTeam: null,
     dragonsBreathState: null,
+    assassinationTargetId: null,
 };
 
 const initialSettings: Settings = {
@@ -90,6 +94,7 @@ const initialSettings: Settings = {
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const router = useRouter();
     const [gameState, setGameState] = useState<GameState>(initialGameState);
     const [playerId, setPlayerId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -107,6 +112,18 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
     const [authError, setAuthError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [isConnected, setIsConnected] = useState<boolean>(false);
+
+    const prevRoomCode = useRef(gameState.roomCode);
+
+    useEffect(() => {
+        if (gameState.roomCode && gameState.roomCode !== prevRoomCode.current) {
+            router.push(`/game/${gameState.roomCode}`);
+        } else if (!gameState.roomCode && prevRoomCode.current) {
+            router.push('/');
+        }
+        prevRoomCode.current = gameState.roomCode;
+    }, [gameState.roomCode, router]);
 
     const autoClearError = useCallback((setter: React.Dispatch<React.SetStateAction<string | null>>, message: string) => {
       setter(message);
@@ -206,10 +223,32 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             socketService.disconnect();
         }
     }, [token, isAuthenticated]);
+
+    // Effect for socket connection status
+    useEffect(() => {
+        const onConnect = () => setIsConnected(true);
+        const onDisconnect = () => setIsConnected(false);
+
+        setIsConnected(socketService.socket.connected);
+
+        socketService.socket.on('connect', onConnect);
+        socketService.socket.on('disconnect', onDisconnect);
+
+        return () => {
+            socketService.socket.off('connect', onConnect);
+            socketService.socket.off('disconnect', onDisconnect);
+        };
+    }, []);
     
     // --- Socket Event Handlers (wrapped in useCallback) ---
     const handleUpdate = useCallback((newState: GameState) => {
         setGameState(prevState => {
+            // --- Sound Effect Logic ---
+            if (newState.phase === GamePhase.LOBBY && prevState.phase === GamePhase.HOME) {
+                playSound('transition');
+            }
+
+            // --- State Cleanup Logic ---
             const isNewGameStarting = (prevState.phase === GamePhase.END_GAME && newState.phase === GamePhase.LOBBY) || 
                                       (prevState.phase === GamePhase.LOBBY && newState.phase === GamePhase.ROLE_REVEAL);
             if (isNewGameStarting) {
@@ -230,7 +269,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return newState;
         });
         setMessages(newState.chat || []);
-    }, []); // Setters are stable, no deps needed.
+    }, [playSound]);
 
     const handleChatMessage = useCallback((message: Message) => {
         setMessages(prev => [...prev, message]);
@@ -254,10 +293,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         toast.error(reason, {
             description: "You have been removed from the game."
         });
-        setGameState(initialGameState);
+        setGameState(initialGameState); // This will trigger the useEffect to redirect to '/'
         setMessages([]);
         setHasViewedRole(false);
-    }, []); // Setters are stable, no deps needed.
+    }, []);
 
     // --- Main Socket Listener `useEffect` ---
     useEffect(() => {
@@ -285,7 +324,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     }, [])
 
-    const login = async (credentials: LoginCredentials) => {
+    const login = async (credentials: LoginCredentials, onSuccess?: () => void) => {
         try {
             setAuthError(null);
             const { data } = await api.post('/login', credentials);
@@ -296,6 +335,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setToken(new_token);
             setUser(new_user);
             setIsAuthenticated(true);
+            onSuccess?.();
         } catch (err: any) {
             const message = err.response?.data?.message || 'Login failed.';
             autoClearError(setAuthError, message);
@@ -303,7 +343,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const register = async (credentials: RegisterCredentials) => {
+    const register = async (credentials: RegisterCredentials, onSuccess?: () => void) => {
         try {
             setAuthError(null);
             const { data } = await api.post('/register', credentials);
@@ -314,6 +354,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setToken(new_token);
             setUser(new_user);
             setIsAuthenticated(true);
+            onSuccess?.();
         } catch (err: any) {
             const message = err.response?.data?.message || 'Registration failed.';
             autoClearError(setAuthError, message);
@@ -335,6 +376,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setGameState(initialGameState);
         setHasViewedRole(false);
         setViewedSessionKeys(new Set());
+        router.push('/');
     };
 
     const updateUsername = async (newUsername: string) => {
@@ -365,6 +407,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const message = 'You must be logged in to join a room.';
             autoClearError(setError, message);
             toast.error(message);
+            router.push(`/join/${roomCode}`);
             return
         };
         socketService.emit('joinRoom', { roomCode });
@@ -372,8 +415,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const leaveRoom = useCallback(() => {
         socketService.emit('leaveRoom');
-        // The server will handle the state change and push an update.
-        // We DO NOT reset state here, as it causes desynchronization. The server is the source of truth.
+        // The server will handle the state change and push an update with a null roomCode,
+        // which will trigger the useEffect to redirect to home.
     }, []);
     
     // --- Emitting Functions ---
@@ -385,6 +428,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
     const selectTeam = (teamPlayerIds: string[]) => socketService.emit('selectTeam', teamPlayerIds);
     const updatePendingTeam = (teamPlayerIds: string[]) => socketService.emit('updatePendingTeam', teamPlayerIds);
+    const updateAssassinationTarget = (targetId: string | null) => socketService.emit('updateAssassinationTarget', targetId);
     const voteOnTeam = (vote: 'APPROVE' | 'REJECT') => socketService.emit('voteOnTeam', vote);
     const voteOnQuest = (vote: 'SUCCESS' | 'FAIL') => socketService.emit('voteOnQuest', vote);
     const assassinate = (targetId: string) => socketService.emit('assassinate', targetId);
@@ -414,6 +458,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isAuthenticated,
         authError,
         isLoading,
+        isConnected,
         hasViewedRole,
         settings,
         achievementsVersion,
@@ -434,6 +479,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         startGame,
         selectTeam,
         updatePendingTeam,
+        updateAssassinationTarget,
         voteOnTeam,
         voteOnQuest,
         assassinate,

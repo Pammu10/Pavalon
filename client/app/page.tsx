@@ -1,91 +1,78 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
-import { useAudio } from "@/components/context/AudiContext";
 import AuthScreen from "@/components/screens/AuthScreen";
-import LobbyScreen from "@/components/screens/LobbyScreen";
-import RoleRevealScreen from "@/components/screens/RoleRevealScreen";
-import GameScreen from "@/components/screens/GameScreen";
-import EndGameScreen from "@/components/screens/EndGameScreen";
-import SettingsScreen from "@/components/screens/SettingsScreen";
-import LeaderboardScreen from "@/components/screens/LeaderboardScreen";
-import RestartVoteOverlay from "@/components/ui/RestartVoteOverlay";
-import { Chat } from "@/components/ui/Chat";
-import PlayerInfoBar from "@/components/ui/PlayerInfoBar";
-import { GamePhase } from "@/types";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 import Spinner from "@/components/ui/Spinner";
-import { Swords, MessageSquare, Settings, Trophy, Star, ShieldAlert } from "lucide-react";
-import HomeScreen from "@/components/screens/HomeScreen";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { motion, AnimatePresence } from "framer-motion";
-import AchievementsTab from "../components/ui/AchievementsTab";
-import AdminPage from "./admin/page";
-import { useInteraction } from "@/components/context/ClientProviders";
-import DragonsBreathScreen from "@/components/screens/DragonsBreathScreen";
+import { useRouter } from "next/navigation";
 
-type Tab = "game" | "chat" | "leaderboard" | "achievements" | "settings" | "gamelog" | "admin";
-
-const BASE_TABS_CONFIG: { id: Tab; label: string; icon: React.ReactNode; desktop: boolean; mobile: boolean; }[] = [
-  { id: 'game', label: 'Game', icon: <Swords size={24} />, desktop: true, mobile: true },
-  { id: 'chat', label: 'Chat & Log', icon: <MessageSquare size={24} />, desktop: true, mobile: false },
-  { id: 'leaderboard', label: 'Hall of Heroes', icon: <Trophy size={24} />, desktop: true, mobile: true },
-  { id: 'achievements', label: 'Achievements', icon: <Star size={24} />, desktop: true, mobile: false },
-  { id: 'settings', label: 'Settings', icon: <Settings size={24} />, desktop: true, mobile: true },
-];
-
-const ReconnectionBanner: React.FC<{
-  player: { name: string; endsAt: number };
-}> = ({ player }) => {
-  const [timeLeft, setTimeLeft] = useState(
-    Math.round((player.endsAt - Date.now()) / 1000)
-  );
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const seconds = Math.round((player.endsAt - Date.now()) / 1000);
-      setTimeLeft(Math.max(0, seconds));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [player.endsAt]);
+const JoinHostView: React.FC = () => {
+  const { joinRoom, user, logout } = useGame();
+  const [roomCode, setRoomCode] = useState("");
 
   return (
-    <div className="fixed top-0 left-0 w-full bg-yellow-600/90 text-white font-bold text-center p-2 z-[200] flex items-center justify-center gap-4 animate-fadeIn">
-      <Spinner size="sm" />
-      <span>
-        Waiting for {player.name} to reconnect... {timeLeft}s
-      </span>
+    <div className="animate-fadeIn flex flex-col items-center justify-center space-y-8 min-h-[90vh]">
+      <h1
+        className="font-eaglelake text-5xl sm:text-6xl font-bold text-yellow-500 text-center tracking-wider"
+        style={{ textShadow: "0 0 25px rgba(234, 179, 8, 0.5)" }}
+      >
+        PAVALON: THE SHATTERED THRONE
+      </h1>
+      <div className="text-center">
+        <p className="text-slate-300 text-lg">
+          Welcome,{" "}
+          <span className="font-bold text-white">{user?.username}</span>!
+        </p>
+        <Button
+          variant="danger"
+          onClick={logout}
+          className="text-sm py-1 px-3 mt-2"
+        >
+          Log Out
+        </Button>
+      </div>
+
+      <Card className="w-full max-w-md">
+        <div className="flex flex-col space-y-6">
+          <Button onClick={() => joinRoom()} className="w-full">
+            Host New Game
+          </Button>
+          <div className="flex items-center text-slate-500">
+            <hr className="flex-grow border-slate-700" />
+            <span className="px-2">OR</span>
+            <hr className="flex-grow border-slate-700" />
+          </div>
+          <div className="flex flex-col gap-4 w-full">
+            <input
+              type="text"
+              placeholder="Room Code"
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value)}
+              className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 uppercase transition"
+            />
+            <Button
+              variant="secondary"
+              onClick={() => joinRoom(roomCode)}
+              disabled={!roomCode.trim()}
+              className="w-full"
+            >
+              Join Game
+            </Button>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 };
 
-const MainContent: React.FC = () => {
-  const { gameState, isAuthenticated, isLoading, messages, user, settings } = useGame();
-  const { playSound, playLobbyMusic, playInGameMusic, stopBackgroundMusic } = useAudio();
-  const { hasInteracted } = useInteraction();
-  const [activeTab, setActiveTab] = useState<Tab>("game");
-  const [chatActiveTab, setChatActiveTab] = useState('chat');
-  const [unreadMessages, setUnreadMessages] = useState(0);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  
+
+export default function Home() {
+  const { isAuthenticated, isLoading, gameState, settings } = useGame();
+  const router = useRouter();
   const [showIntro, setShowIntro] = useState(true);
-
-  const mainContentRef = useRef<HTMLElement>(null);
-  const prevPhase = useRef(gameState.phase);
-  const prevTab = useRef(activeTab);
-
-  const TABS_CONFIG = useMemo(() => {
-    const config = [...BASE_TABS_CONFIG];
-    if (user?.is_admin) {
-      config.push({ id: 'admin', label: 'Admin Panel', icon: <ShieldAlert size={24} />, desktop: true, mobile: false });
-    }
-    return config;
-  }, [user?.is_admin]);
-
-  const desktopTabs = TABS_CONFIG.filter(t => t.desktop);
-  const mobileTabs = TABS_CONFIG.filter(t => t.mobile);
-
 
   useEffect(() => {
     if (settings.skipIntro) {
@@ -94,69 +81,6 @@ const MainContent: React.FC = () => {
   }, [settings.skipIntro]);
 
 
-  useEffect(() => {
-    if (gameState.phase !== prevPhase.current || activeTab !== prevTab.current) {
-        mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-    
-    if (gameState.phase === GamePhase.LOBBY && prevPhase.current === GamePhase.HOME) {
-        playSound('transition');
-    }
-
-    prevPhase.current = gameState.phase;
-    prevTab.current = activeTab;
-  }, [gameState.phase, activeTab, playSound]);
-
-  useEffect(() => {
-    if (!hasInteracted) return;
-
-    const isGamePhase = [
-        GamePhase.ROLE_REVEAL,
-        GamePhase.TEAM_SELECTION,
-        GamePhase.TEAM_VOTE,
-        GamePhase.QUEST_VOTE,
-        GamePhase.QUEST_RESULT,
-        GamePhase.ASSASSINATION,
-        GamePhase.DRAGONS_BREATH,
-    ].includes(gameState.phase);
-
-    const isLobbyPhase = [
-        GamePhase.HOME,
-        GamePhase.LOBBY,
-    ].includes(gameState.phase);
-
-    if (isGamePhase) {
-        playInGameMusic();
-    } else if (isLobbyPhase) {
-        playLobbyMusic();
-    } else if (gameState.phase !== GamePhase.END_GAME) { 
-        stopBackgroundMusic();
-    }
-  }, [gameState.phase, hasInteracted, playInGameMusic, playLobbyMusic, stopBackgroundMusic]);
-
-
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (activeTab !== "chat" && !isChatOpen && lastMessage.senderUserId !== user?.id) {
-        setUnreadMessages((prev) => prev + 1);
-      }
-    }
-  }, [messages, user?.id, activeTab, isChatOpen]);
-
-  const handleTabChange = (value: string) => {
-    const tab = value as Tab;
-    if (tab === "chat") {
-      setUnreadMessages(0);
-    }
-    setActiveTab(tab);
-  };
-  
-  const handleOpenChat = () => {
-    setIsChatOpen(true);
-    setUnreadMessages(0);
-  };
-  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen w-screen">
@@ -164,163 +88,24 @@ const MainContent: React.FC = () => {
       </div>
     );
   }
-
-  if (showIntro) {
-    return <HomeScreen onEnter={() => setShowIntro(false)} />;
-  }
   
+  if (isAuthenticated && gameState.roomCode) {
+    router.replace(`/game/${gameState.roomCode}`);
+    return (
+        <div className="flex items-center justify-center h-screen w-screen">
+            <Spinner size="lg" />
+            <p className="ml-4 text-white">Redirecting to your game...</p>
+        </div>
+    )
+  }
+
   if (!isAuthenticated) {
     return <AuthScreen />;
   }
 
-  const renderGameScreen = () => {
-    switch (gameState.phase) {
-      case GamePhase.LOBBY:
-      case GamePhase.HOME:
-        return <LobbyScreen />;
-      case GamePhase.ROLE_REVEAL:
-        return <RoleRevealScreen />;
-      case GamePhase.TEAM_SELECTION:
-      case GamePhase.TEAM_VOTE:
-      case GamePhase.QUEST_VOTE:
-      case GamePhase.QUEST_RESULT:
-      case GamePhase.ASSASSINATION:
-        return <GameScreen />;
-      case GamePhase.DRAGONS_BREATH:
-        return <DragonsBreathScreen />;
-      case GamePhase.END_GAME:
-        return <EndGameScreen />;
-      default:
-        return <LobbyScreen />;
-    }
-  };
-
-  const showPlayerInfo =
-    isAuthenticated &&
-    gameState.phase !== GamePhase.HOME &&
-    gameState.phase !== GamePhase.LOBBY &&
-    gameState.phase !== GamePhase.END_GAME &&
-    gameState.phase !== GamePhase.ROLE_REVEAL &&
-    gameState.phase !== GamePhase.DRAGONS_BREATH;
-
   return (
-    <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-[100dvh] w-screen">
-
-      {gameState.reconnectingPlayer && (
-        <ReconnectionBanner player={gameState.reconnectingPlayer} />
-      )}
-      {gameState.restartVote && (
-        <RestartVoteOverlay />
-      )}
-      
-      {/* HEADER: Player info + Desktop Nav */}
-      <header className="w-full bg-slate-900/70 backdrop-blur-md border-b border-slate-700 z-30 flex-shrink-0">
-        {showPlayerInfo && <PlayerInfoBar />}
-
-        <TabsList className="hidden md:flex bg-transparent p-0 rounded-none h-auto">
-          {desktopTabs.map(({ id, label }) => (
-            <TabsTrigger
-              key={id}
-              value={id}
-              className="relative flex-1 py-6 font-eagleLake text-lg capitalize transition-colors duration-200 rounded-none 
-                        text-slate-400 data-[state=active]:text-yellow-500 
-                        data-[state=active]:border-b-2 data-[state=active]:border-yellow-500
-                        hover:text-white focus-visible:ring-0 focus-visible:ring-offset-0 
-                        data-[state=active]:shadow-none data-[state=active]:bg-transparent p-0"
-            >
-              {label}
-              {id === "chat" && unreadMessages > 0 && (
-                <span className="absolute top-2 right-4 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-800"></span>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </header>
-
-      <main ref={mainContentRef} className="flex-grow p-2 sm:p-4 md:p-6 overflow-y-auto pb-28 md:pb-6 scroll-smooth">
-        <div className="w-full max-w-7xl mx-auto">
-            <TabsContent value="game" className="mt-0 outline-none">
-              {renderGameScreen()}
-            </TabsContent>
-            <TabsContent value="chat" className="mt-0 outline-none">
-                <Chat activeTab={chatActiveTab} onTabChange={setChatActiveTab} />
-            </TabsContent>
-            <TabsContent value="settings" className="mt-0 outline-none"><SettingsScreen /></TabsContent>
-            <TabsContent value="leaderboard" className="mt-0 outline-none"><LeaderboardScreen /></TabsContent>
-            <TabsContent value="achievements" className="mt-0 outline-none"><AchievementsTab /></TabsContent>
-            <TabsContent value="admin" className="mt-0 outline-none"><AdminPage /></TabsContent>
-        </div>
-      </main>
-      
-      {/* MOBILE: Chat pop-up button */}
-      <div className="md:hidden fixed bottom-20 right-4 z-30">
-        <button
-          onClick={handleOpenChat}
-          className="relative flex items-center justify-center w-16 h-16 bg-slate-800/80 backdrop-blur-md border-2 border-yellow-600 rounded-full text-yellow-500 shadow-lg hover:bg-slate-700 hover:border-yellow-500 hover:text-yellow-400 active:scale-95 transition-all pointer-events-auto"
-          aria-label="Open chat"
-        >
-          <MessageSquare size={32} />
-          {unreadMessages > 0 && (
-            <span className="absolute -top-1 -right-1 w-6 h-6 text-sm flex items-center justify-center bg-red-500 text-white font-sans font-bold rounded-full border-2 border-slate-900">
-              {unreadMessages > 9 ? '9+' : unreadMessages}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* MOBILE: Chat Modal */}
-      <AnimatePresence>
-        {isChatOpen && (
-          <motion.div
-            key="chat-modal-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="md:hidden fixed inset-0 bg-black/60 z-50"
-            onClick={() => setIsChatOpen(false)}
-          >
-            <motion.div
-              key="chat-modal-content"
-              initial={{ y: "100%" }}
-              animate={{ y: "0%" }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 400, damping: 40 }}
-              className="absolute bottom-16 left-0 right-0 h-[calc(100dvh-4rem)] flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Chat 
-                isMobileView={true} 
-                onHeaderClose={() => setIsChatOpen(false)} 
-                activeTab={chatActiveTab} 
-                onTabChange={setChatActiveTab}
-              />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-
-      <TabsList className="md:hidden fixed bottom-0 left-0 w-full h-16 flex justify-around bg-slate-900/80 backdrop-blur-xl border-t border-slate-700 z-40 p-0 rounded-none">
-        {mobileTabs.map(({ id, label, icon }) => (
-          <TabsTrigger
-            key={id}
-            value={id}
-            className="group relative h-full flex-1 flex flex-col items-center justify-center gap-1 text-xs capitalize transition-colors duration-200 
-                     text-slate-400 data-[state=active]:text-yellow-500 font-eagleLake
-                     focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none p-0"
-          >
-            {icon}
-            <span className="mt-[-2px]">{label}</span>
-            <div className="absolute top-0 w-12 h-1 rounded-b-full bg-transparent group-data-[state=active]:bg-yellow-500"></div>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
-  );
-};
-
-export default function Home() {
-  return (
-    <MainContent />
+    <main className="flex-grow p-2 sm:p-4 md:p-6 overflow-y-auto scroll-smooth">
+      <JoinHostView />
+    </main>
   );
 }

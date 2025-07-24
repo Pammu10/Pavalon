@@ -1,4 +1,3 @@
-
 export enum Role {
   MERLIN = "Merlin",
   PERCIVAL = "Percival",
@@ -107,28 +106,6 @@ export interface DragonsBreathState {
     loser: string | null; // PlayerId of the loser
 }
 
-export interface DragonsBreathMatch {
-  id: number;
-  opponentName: string;
-  won: boolean;
-  playedAt: string;
-}
-
-export interface DragonsBreathOpponentStats {
-  opponentId: number;
-  opponentName: string;
-  gamesPlayed: number;
-  wins: number;
-  winRate: number;
-}
-
-export interface DragonsBreathStats {
-  totalGames: number;
-  totalWins: number;
-  opponentStats: DragonsBreathOpponentStats[];
-  matchHistory: DragonsBreathMatch[];
-}
-
 
 export interface GameState {
   roomCode: string | null;
@@ -154,6 +131,7 @@ export interface GameState {
   lastRestartInitiatedAt: number | null;
   pendingTeam: string[] | null;
   dragonsBreathState: DragonsBreathState | null;
+  assassinationTargetId: string | null;
 }
 
 export interface RoleDescription {
@@ -275,6 +253,7 @@ export interface ClientToServerEvents {
   kickPlayer: (playerIdToKick: string) => void;
   selectTeam: (teamPlayerIds: string[]) => void;
   updatePendingTeam: (teamPlayerIds: string[]) => void;
+  updateAssassinationTarget: (targetId: string | null) => void;
   voteOnTeam: (vote: "APPROVE" | "REJECT") => void;
   voteOnQuest: (vote: "SUCCESS" | "FAIL") => void;
   assassinate: (targetId: string) => void;
@@ -282,8 +261,10 @@ export interface ClientToServerEvents {
   playerReadyForNextGame: () => void;
   initiateRestart: () => void;
   voteOnRestart: (vote: 'yes' | 'no') => void;
-  // Shared
+
+  // Shared Events
   sendMessage: (messageText: string) => void;
+  
   // Dragon's Breath Events
   startDragonsBreath: () => void;
   drawCard: () => void;

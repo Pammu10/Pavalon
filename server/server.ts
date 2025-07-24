@@ -1,7 +1,4 @@
-
-
-
-
+//github current
 import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
@@ -29,37 +26,46 @@ import {
   DragonCardType,
   DragonCard,
   DragonsBreathState,
-  DragonsBreathStats
+  DragonsBreathStats,
 } from "./types";
-import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES } from "./constants";
+import {
+  EVIL_PLAYER_COUNT,
+  QUEST_CONFIGURATIONS,
+  ROLES,
+  DEFAULT_ICONS,
+} from "./constants";
 import db from "./db";
-import { authMiddleware, generateToken, authMiddlewareSocket, adminMiddleware } from "./auth";
+import {
+  authMiddleware,
+  generateToken,
+  authMiddlewareSocket,
+  adminMiddleware,
+} from "./auth";
 import { ALL_ACHIEVEMENTS, Achievement } from "./achievements";
 
 const app = express();
 
 // --- CORS Configuration ---
 const allowedOrigins = [
-    'http://localhost:3000', // For local development
-    'http://192.168.3.27:8081',
-    'https://pavalononline.pramodhthetechguy.site',
+  "http://localhost:3000", // For local development
+  "https://pavalononline.pramodhthetechguy.site",
 ];
 
 const corsOptions: cors.CorsOptions = {
-    origin: (origin, callback) => {
-        // Allow Vercel preview deployments
-        if (origin && origin.endsWith('.vercel.app')) {
-            return callback(null, true);
-        }
+  origin: (origin, callback) => {
+    // Allow Vercel preview deployments
+    if (origin && origin.endsWith(".vercel.app")) {
+      return callback(null, true);
+    }
 
-        // Allow whitelisted origins + no origin (server-to-server, mobile apps)
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true, // This is crucial for sending auth headers.
+    // Allow whitelisted origins + no origin (server-to-server, mobile apps)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true, // This is crucial for sending auth headers.
 };
 
 app.use(cors(corsOptions));
@@ -91,9 +97,18 @@ app.post("/api/register", async (req, res) => {
     const { id, is_admin } = result.rows[0];
     const user: User = { id, username, is_admin };
     const token = generateToken(user);
-    res.status(201).json({ token, user: { ...user, selectedTitle: null, selectedBorder: null, selectedIcon: null } });
+    res.status(201).json({
+      token,
+      user: {
+        ...user,
+        selectedTitle: null,
+        selectedBorder: null,
+        selectedIcon: null,
+      },
+    });
   } catch (error: any) {
-    if (error.code === "23505") { // Unique constraint violation
+    if (error.code === "23505") {
+      // Unique constraint violation
       return res.status(409).json({ message: "Username already exists." });
     }
     res.status(500).json({ message: "Server error during registration." });
@@ -109,13 +124,13 @@ app.post("/api/login", async (req, res) => {
   }
   try {
     const userRow = await db.get<{
-        id: number;
-        username: string;
-        password_hash: string;
-        is_admin: boolean;
-        selected_title: string | null;
-        selected_border: string | null;
-        selected_icon: string | null;
+      id: number;
+      username: string;
+      password_hash: string;
+      is_admin: boolean;
+      selected_title: string | null;
+      selected_border: string | null;
+      selected_icon: string | null;
     }>(
       "SELECT id, username, password_hash, is_admin, selected_title, selected_border, selected_icon FROM users WHERE username = $1",
       [username]
@@ -123,22 +138,23 @@ app.post("/api/login", async (req, res) => {
     if (!userRow) {
       return res.status(401).json({ message: "Invalid credentials." });
     }
-    const match = await bcrypt.compare(
-      password,
-      userRow.password_hash
-    );
+    const match = await bcrypt.compare(password, userRow.password_hash);
     if (!match) {
       return res.status(401).json({ message: "Invalid credentials." });
     }
-    const user: User = { 
-        id: userRow.id, 
-        username: userRow.username,
-        is_admin: userRow.is_admin,
-        selectedTitle: userRow.selected_title,
-        selectedBorder: userRow.selected_border,
-        selectedIcon: userRow.selected_icon,
+    const user: User = {
+      id: userRow.id,
+      username: userRow.username,
+      is_admin: userRow.is_admin,
+      selectedTitle: userRow.selected_title,
+      selectedBorder: userRow.selected_border,
+      selectedIcon: userRow.selected_icon,
     };
-    const token = generateToken({ id: user.id, username: user.username, is_admin: user.is_admin });
+    const token = generateToken({
+      id: user.id,
+      username: user.username,
+      is_admin: user.is_admin,
+    });
     res.json({ token, user });
   } catch (error) {
     res.status(500).json({ message: "Server error during login." });
@@ -194,250 +210,367 @@ app.get("/api/match/:id", authMiddleware, async (req, res) => {
 });
 
 app.get("/api/achievements", authMiddleware, async (req, res) => {
-    const userId = (req as any).user.id;
-    try {
-        const userAchievements = await db.all<UserAchievement>(
-            "SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = $1",
-            [userId]
-        );
-        const unlockedIds = new Set(userAchievements.map(ua => ua.achievement_id));
-        const fullAchievementData = ALL_ACHIEVEMENTS
-          .filter(ach => !ach.hidden || unlockedIds.has(ach.id))
-          .map(ach => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { check, ...rest } = ach;
-            return {
-                ...rest,
-                unlocked: unlockedIds.has(ach.id),
-                unlocked_at: userAchievements.find(ua => ua.achievement_id === ach.id)?.unlocked_at
-            }
-        });
-        res.json(fullAchievementData);
-    } catch (error) {
-        console.error("Failed to fetch achievements:", error);
-        res.status(500).json({ message: "Failed to fetch achievements." });
-    }
+  const userId = (req as any).user.id;
+  try {
+    const userAchievements = await db.all<UserAchievement>(
+      "SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = $1",
+      [userId]
+    );
+    const unlockedIds = new Set(
+      userAchievements.map((ua) => ua.achievement_id)
+    );
+    const fullAchievementData = ALL_ACHIEVEMENTS.filter(
+      (ach) => !ach.hidden || unlockedIds.has(ach.id)
+    ).map((ach) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { check, ...rest } = ach;
+      return {
+        ...rest,
+        unlocked: unlockedIds.has(ach.id),
+        unlocked_at: userAchievements.find((ua) => ua.achievement_id === ach.id)
+          ?.unlocked_at,
+      };
+    });
+    res.json(fullAchievementData);
+  } catch (error) {
+    console.error("Failed to fetch achievements:", error);
+    res.status(500).json({ message: "Failed to fetch achievements." });
+  }
 });
 
 app.post("/api/user/customize", authMiddleware, async (req, res) => {
-    const userId = (req as any).user.id;
-    const { title, border, icon } = req.body;
-    try {
-        // Here you would also validate that the user has unlocked this title/border/icon
-        // For simplicity, we'll trust the client for now.
-        await db.run("UPDATE users SET selected_title = $1, selected_border = $2, selected_icon = $3 WHERE id = $4", [title, border, icon, userId]);
-        
-        // Update player in any active game session for real-time changes
-        gameService.updatePlayerCustomization(userId, { title, border, icon });
-
-        res.json({ success: true, message: "Customizations updated." });
-    } catch (error) {
-        console.error("Failed to update customizations:", error);
-        res.status(500).json({ message: "Failed to update customizations." });
+  const userId = (req as any).user.id;
+  const { title, border, icon } = req.body;
+  try {
+    if (title && typeof title === "string" && title.length > 10) {
+      return res
+        .status(400)
+        .json({ message: "Title cannot be more than 10 characters." });
     }
+    const userAchievements = await db.all<{ achievement_id: string }>(
+      "SELECT achievement_id FROM user_achievements WHERE user_id = $1",
+      [userId]
+    );
+    const unlockedRewards = new Set<string>();
+    // Default icons are always unlocked
+    DEFAULT_ICONS.forEach((i) => unlockedRewards.add(i));
+
+    userAchievements.forEach((ua) => {
+      const achievement = ALL_ACHIEVEMENTS.find(
+        (a) => a.id === ua.achievement_id
+      );
+      achievement?.rewards.forEach((reward) => {
+        unlockedRewards.add(reward.value);
+      });
+    });
+
+    if (border && !unlockedRewards.has(border)) {
+      return res
+        .status(403)
+        .json({ message: "You have not unlocked this border." });
+    }
+    if (icon && !unlockedRewards.has(icon)) {
+      return res
+        .status(403)
+        .json({ message: "You have not unlocked this icon." });
+    }
+
+    await db.run(
+      "UPDATE users SET selected_title = $1, selected_border = $2, selected_icon = $3 WHERE id = $4",
+      [title, border, icon, userId]
+    );
+
+    // Update player in any active game session for real-time changes
+    gameService.updatePlayerCustomization(userId, { title, border, icon });
+
+    res.json({ success: true, message: "Customizations updated." });
+  } catch (error) {
+    console.error("Failed to update customizations:", error);
+    res.status(500).json({ message: "Failed to update customizations." });
+  }
 });
 
 app.post("/api/user/username", authMiddleware, async (req, res) => {
-    const userId = (req as any).user.id;
-    const oldUsername = (req as any).user.username;
-    const { username } = req.body;
+  const userId = (req as any).user.id;
+  const oldUsername = (req as any).user.username;
+  const { username } = req.body;
 
-    if (!username || typeof username !== 'string' || username.length < 3 || username.length > 10) {
-        return res.status(400).json({ message: "Username must be between 3 and 10 characters." });
+  if (
+    !username ||
+    typeof username !== "string" ||
+    username.length < 3 ||
+    username.length > 10
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Username must be between 3 and 10 characters." });
+  }
+
+  if (username === oldUsername) {
+    return res.status(400).json({ message: "This is already your username." });
+  }
+
+  try {
+    const existingUser = await db.get(
+      "SELECT id FROM users WHERE username = $1 AND id != $2",
+      [username, userId]
+    );
+    if (existingUser) {
+      return res.status(409).json({ message: "Username is already taken." });
     }
 
-    if (username === oldUsername) {
-        return res.status(400).json({ message: "This is already your username." });
-    }
+    await db.run("UPDATE users SET username = $1 WHERE id = $2", [
+      username,
+      userId,
+    ]);
 
-    try {
-        const existingUser = await db.get("SELECT id FROM users WHERE username = $1 AND id != $2", [username, userId]);
-        if (existingUser) {
-            return res.status(409).json({ message: "Username is already taken." });
-        }
+    gameService.updatePlayerUsername(userId, username);
 
-        await db.run("UPDATE users SET username = $1 WHERE id = $2", [username, userId]);
-        
-        gameService.updatePlayerUsername(userId, username);
-        
-        const userRow = await db.get<{ is_admin: boolean; selected_title: string | null; selected_border: string | null; selected_icon: string | null; }>(
-             "SELECT is_admin, selected_title, selected_border, selected_icon FROM users WHERE id = $1",
-             [userId]
-        );
+    const userRow = await db.get<{
+      is_admin: boolean;
+      selected_title: string | null;
+      selected_border: string | null;
+      selected_icon: string | null;
+    }>(
+      "SELECT is_admin, selected_title, selected_border, selected_icon FROM users WHERE id = $1",
+      [userId]
+    );
 
-        const fullUserObject: User = {
-            id: userId,
-            username,
-            is_admin: userRow?.is_admin,
-            selectedTitle: userRow?.selected_title,
-            selectedBorder: userRow?.selected_border,
-            selectedIcon: userRow?.selected_icon
-        };
-        
-        const token = generateToken({ id: fullUserObject.id, username: fullUserObject.username, is_admin: fullUserObject.is_admin });
+    const fullUserObject: User = {
+      id: userId,
+      username,
+      is_admin: userRow?.is_admin,
+      selectedTitle: userRow?.selected_title,
+      selectedBorder: userRow?.selected_border,
+      selectedIcon: userRow?.selected_icon,
+    };
 
-        res.json({ success: true, message: "Username updated successfully.", user: fullUserObject, token });
+    const token = generateToken({
+      id: fullUserObject.id,
+      username: fullUserObject.username,
+      is_admin: fullUserObject.is_admin,
+    });
 
-    } catch (error) {
-        console.error("Failed to update username:", error);
-        res.status(500).json({ message: "Server error during username update." });
-    }
+    res.json({
+      success: true,
+      message: "Username updated successfully.",
+      user: fullUserObject,
+      token,
+    });
+  } catch (error) {
+    console.error("Failed to update username:", error);
+    res.status(500).json({ message: "Server error during username update." });
+  }
 });
 
 // --- ADMIN ROUTES ---
 const adminRouter = express.Router();
 adminRouter.use(authMiddleware, adminMiddleware);
 
-adminRouter.get('/dashboard', async (req, res) => {
-    const userCount = await db.get<{count: string}>("SELECT COUNT(*) FROM users");
-    const matchCount = await db.get<{count: string}>("SELECT COUNT(*) FROM matches");
-    const roomCount = gameService.getRoomCount();
-    res.json({
-        userCount: parseInt(userCount?.count || '0', 10),
-        matchCount: parseInt(matchCount?.count || '0', 10),
-        roomCount
-    });
+adminRouter.get("/dashboard", async (req, res) => {
+  const userCount = await db.get<{ count: string }>(
+    "SELECT COUNT(*) FROM users"
+  );
+  const matchCount = await db.get<{ count: string }>(
+    "SELECT COUNT(*) FROM matches"
+  );
+  const roomCount = gameService.getRoomCount();
+  res.json({
+    userCount: parseInt(userCount?.count || "0", 10),
+    matchCount: parseInt(matchCount?.count || "0", 10),
+    roomCount,
+  });
 });
 
-adminRouter.get('/users', async (req, res) => {
-    const users = await db.all("SELECT id, username, created_at, is_admin FROM users ORDER BY created_at DESC");
-    res.json(users);
+adminRouter.get("/users", async (req, res) => {
+  const users = await db.all(
+    "SELECT id, username, created_at, is_admin FROM users ORDER BY created_at DESC"
+  );
+  res.json(users);
 });
 
-adminRouter.delete('/users/:id', async (req, res) => {
-    const userId = parseInt(req.params.id, 10);
-    try {
-        await gameService.forceRemoveUserByUserId(userId);
+adminRouter.delete("/users/:id", async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  try {
+    await gameService.forceRemoveUserByUserId(userId);
 
-        // Manually delete records from tables with foreign keys to users.id
-        // This is necessary to prevent foreign key constraint violations if ON DELETE CASCADE is not set.
-        await db.run("DELETE FROM player_performance WHERE user_id = $1", [userId]);
-        await db.run("DELETE FROM user_achievements WHERE user_id = $1", [userId]);
-        await db.run("DELETE FROM dragons_breath_matches WHERE winner_user_id = $1 OR loser_user_id = $1", [userId]);
+    // Manually delete records from tables with foreign keys to users.id
+    // This is necessary to prevent foreign key constraint violations if ON DELETE CASCADE is not set.
+    await db.run("DELETE FROM player_performance WHERE user_id = $1", [userId]);
+    await db.run("DELETE FROM user_achievements WHERE user_id = $1", [userId]);
+    await db.run(
+      "DELETE FROM dragons_breath_matches WHERE winner_user_id = $1 OR loser_user_id = $1",
+      [userId]
+    );
 
+    // Now it is safe to delete the user.
+    await db.run("DELETE FROM users WHERE id = $1", [userId]);
 
-        // Now it is safe to delete the user.
-        await db.run("DELETE FROM users WHERE id = $1", [userId]);
-        
-        res.json({ success: true, message: 'User deleted successfully.' });
-    } catch (error) {
-        console.error(`Admin failed to delete user ${userId}:`, error);
-        res.status(500).json({ message: 'Failed to delete user.' });
-    }
+    res.json({ success: true, message: "User deleted successfully." });
+  } catch (error) {
+    console.error(`Admin failed to delete user ${userId}:`, error);
+    res.status(500).json({ message: "Failed to delete user." });
+  }
 });
 
-adminRouter.get('/users/:id/stats', async (req, res) => {
-    const userId = parseInt(req.params.id, 10);
-    try {
-        const stats = await db.get(`
+adminRouter.get("/users/:id/stats", async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  try {
+    const stats = await db.get(
+      `
             SELECT 
                 win_streak, assassin_kills, total_games, total_wins, 
                 good_games, good_wins, evil_games, evil_wins 
-            FROM users WHERE id = $1`, [userId]);
-        if (!stats) return res.status(404).json({ message: 'User not found.' });
-        res.json(stats);
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch user stats.' });
-    }
+            FROM users WHERE id = $1`,
+      [userId]
+    );
+    if (!stats) return res.status(404).json({ message: "User not found." });
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch user stats." });
+  }
 });
 
-adminRouter.put('/users/:id/stats', async (req, res) => {
-    const userId = parseInt(req.params.id, 10);
-    const { win_streak, assassin_kills, total_games, total_wins, good_games, good_wins, evil_games, evil_wins } = req.body;
-    try {
-        await db.run(`
+adminRouter.put("/users/:id/stats", async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  const {
+    win_streak,
+    assassin_kills,
+    total_games,
+    total_wins,
+    good_games,
+    good_wins,
+    evil_games,
+    evil_wins,
+  } = req.body;
+  try {
+    await db.run(
+      `
             UPDATE users SET 
                 win_streak = $1, assassin_kills = $2, total_games = $3, total_wins = $4,
                 good_games = $5, good_wins = $6, evil_games = $7, evil_wins = $8
-            WHERE id = $9`, 
-            [win_streak, assassin_kills, total_games, total_wins, good_games, good_wins, evil_games, evil_wins, userId]
-        );
-        res.json({ success: true, message: 'Stats updated.' });
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to update stats.' });
-    }
+            WHERE id = $9`,
+      [
+        win_streak,
+        assassin_kills,
+        total_games,
+        total_wins,
+        good_games,
+        good_wins,
+        evil_games,
+        evil_wins,
+        userId,
+      ]
+    );
+    res.json({ success: true, message: "Stats updated." });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update stats." });
+  }
 });
 
-
-adminRouter.get('/rooms', (req, res) => {
-    const rooms = gameService.getAllRooms();
-    res.json(rooms);
+adminRouter.get("/rooms", (req, res) => {
+  const rooms = gameService.getAllRooms();
+  res.json(rooms);
 });
 
-adminRouter.delete('/rooms/:roomCode', (req, res) => {
-    const { roomCode } = req.params;
-    gameService.forceCloseRoom(roomCode);
-    res.json({ success: true, message: `Room ${roomCode} has been closed.` });
+adminRouter.delete("/rooms/:roomCode", (req, res) => {
+  const { roomCode } = req.params;
+  gameService.forceCloseRoom(roomCode);
+  res.json({ success: true, message: `Room ${roomCode} has been closed.` });
 });
 
-adminRouter.post('/achievements/grant', async (req, res) => {
-    const { userId, achievementId } = req.body;
-    try {
-        const achievement = ALL_ACHIEVEMENTS.find(a => a.id === achievementId);
-        if (!achievement) return res.status(404).json({ message: 'Achievement not found.'});
-        
-        await db.run("INSERT INTO user_achievements (user_id, achievement_id) VALUES ($1, $2) ON CONFLICT(user_id, achievement_id) DO NOTHING", [userId, achievementId]);
-        res.json({ success: true, message: `Achievement '${achievement.name}' granted.` });
-    } catch (error) {
-        console.error(`Admin failed to grant achievement:`, error);
-        res.status(500).json({ message: 'Failed to grant achievement.' });
-    }
+adminRouter.post("/achievements/grant", async (req, res) => {
+  const { userId, achievementId } = req.body;
+  try {
+    const achievement = ALL_ACHIEVEMENTS.find((a) => a.id === achievementId);
+    if (!achievement)
+      return res.status(404).json({ message: "Achievement not found." });
+
+    await db.run(
+      "INSERT INTO user_achievements (user_id, achievement_id) VALUES ($1, $2) ON CONFLICT(user_id, achievement_id) DO NOTHING",
+      [userId, achievementId]
+    );
+    res.json({
+      success: true,
+      message: `Achievement '${achievement.name}' granted.`,
+    });
+  } catch (error) {
+    console.error(`Admin failed to grant achievement:`, error);
+    res.status(500).json({ message: "Failed to grant achievement." });
+  }
 });
 
-adminRouter.get('/achievements', (req, res) => {
-    res.json(ALL_ACHIEVEMENTS.map(({ check, ...rest }) => rest));
+adminRouter.get("/achievements", (req, res) => {
+  res.json(ALL_ACHIEVEMENTS.map(({ check, ...rest }) => rest));
 });
 
-
-app.use('/api/admin', adminRouter);
-
+app.use("/api/admin", adminRouter);
 
 // --- Achievement Service ---
 class AchievementService {
   async checkAndGrantAchievements(
-    userId: number, 
-    performance: { role: Role; alignment: Alignment; won: boolean; },
+    userId: number,
+    performance: { role: Role; alignment: Alignment; won: boolean },
     io: Server<ClientToServerEvents, ServerToClientEvents>,
-    gameState: GameState,
+    gameState: GameState
   ) {
-      const stats = await gameService.getPlayerStats(userId);
-      const userAchievements = await db.all<UserAchievement>("SELECT achievement_id FROM user_achievements WHERE user_id = $1", [userId]);
-      const unlockedIds = new Set(userAchievements.map(ua => ua.achievement_id));
+    const stats = await gameService.getPlayerStats(userId);
+    const userAchievements = await db.all<UserAchievement>(
+      "SELECT achievement_id FROM user_achievements WHERE user_id = $1",
+      [userId]
+    );
+    const unlockedIds = new Set(
+      userAchievements.map((ua) => ua.achievement_id)
+    );
 
-      for (const achievement of ALL_ACHIEVEMENTS) {
-          if (!unlockedIds.has(achievement.id)) {
-              if (achievement.check(stats, performance)) {
-                  await this.grantAchievement(userId, achievement.id, io, gameState);
-              }
-          }
+    for (const achievement of ALL_ACHIEVEMENTS) {
+      if (!unlockedIds.has(achievement.id)) {
+        if (achievement.check(stats, performance)) {
+          await this.grantAchievement(userId, achievement.id, io, gameState);
+        }
       }
+    }
   }
 
-  private async grantAchievement(userId: number, achievementId: string, io: Server, gameState: GameState) {
-      try {
-          await db.run("INSERT INTO user_achievements (user_id, achievement_id) VALUES ($1, $2)", [userId, achievementId]);
-          console.log(`Achievement unlocked for user ${userId}: ${achievementId}`);
-          
-          const playerInGame = gameState.players.find(p => p.userId === userId);
-          if (playerInGame) {
-              const achievement = ALL_ACHIEVEMENTS.find(a => a.id === achievementId);
-              if (achievement) {
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  const { check, ...payload } = achievement;
-                  const unlockedPayload: ClientAchievement = {
-                      ...payload,
-                      unlocked: true,
-                      unlocked_at: new Date().toISOString()
-                  };
-                  io.to(playerInGame.id).emit('achievementUnlocked', unlockedPayload);
-              }
-          }
-      } catch (error) {
-          // It might fail if granted in another async process, which is fine
-          if ((error as any).code !== '23505') { // 23505 is unique_violation in postgres
-            console.error(`Failed to grant achievement ${achievementId} to user ${userId}:`, error);
-          }
+  private async grantAchievement(
+    userId: number,
+    achievementId: string,
+    io: Server,
+    gameState: GameState
+  ) {
+    try {
+      await db.run(
+        "INSERT INTO user_achievements (user_id, achievement_id) VALUES ($1, $2)",
+        [userId, achievementId]
+      );
+      console.log(`Achievement unlocked for user ${userId}: ${achievementId}`);
+
+      const playerInGame = gameState.players.find((p) => p.userId === userId);
+      if (playerInGame) {
+        const achievement = ALL_ACHIEVEMENTS.find(
+          (a) => a.id === achievementId
+        );
+        if (achievement) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { check, ...payload } = achievement;
+          const unlockedPayload: ClientAchievement = {
+            ...payload,
+            unlocked: true,
+            unlocked_at: new Date().toISOString(),
+          };
+          io.to(playerInGame.id).emit("achievementUnlocked", unlockedPayload);
+        }
       }
+    } catch (error) {
+      // It might fail if granted in another async process, which is fine
+      if ((error as any).code !== "23505") {
+        // 23505 is unique_violation in postgres
+        console.error(
+          `Failed to grant achievement ${achievementId} to user ${userId}:`,
+          error
+        );
+      }
+    }
   }
 }
 const achievementService = new AchievementService();
@@ -445,25 +578,27 @@ const achievementService = new AchievementService();
 // --- Game Service ---
 class GameService {
   private games: Map<string, GameState> = new Map();
-  private reconnectionTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
-  private restartVoteTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private reconnectionTimers: Map<string, ReturnType<typeof setTimeout>> =
+    new Map();
+  private restartVoteTimers: Map<string, ReturnType<typeof setTimeout>> =
+    new Map();
   private io: Server<ClientToServerEvents, ServerToClientEvents>;
 
   constructor(io: Server<ClientToServerEvents, ServerToClientEvents>) {
     this.io = io;
   }
 
-  private addLog(gameState: GameState, text: string, type: LogEntry['type']) {
-      const entry: LogEntry = {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          timestamp: Date.now(),
-          text,
-          type,
-      };
-      gameState.gameLog.push(entry);
-      if (gameState.gameLog.length > 150) {
-          gameState.gameLog.shift();
-      }
+  private addLog(gameState: GameState, text: string, type: LogEntry["type"]) {
+    const entry: LogEntry = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: Date.now(),
+      text,
+      type,
+    };
+    gameState.gameLog.push(entry);
+    if (gameState.gameLog.length > 150) {
+      gameState.gameLog.shift();
+    }
   }
 
   private createInitialGameState(roomCode: string): GameState {
@@ -486,6 +621,7 @@ class GameService {
       lastRestartInitiatedAt: null,
       pendingTeam: null,
       dragonsBreathState: null,
+      assassinationTargetId: null,
     };
   }
 
@@ -556,12 +692,16 @@ class GameService {
       gameState = this.createInitialGameState(code);
       this.games.set(code, gameState);
     }
-    
-    const userCustomizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string; }>(
-        "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
-        [user.id]
+
+    const userCustomizations = await db.get<{
+      selected_title: string;
+      selected_border: string;
+      selected_icon: string;
+    }>(
+      "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
+      [user.id]
     );
-    
+
     socket.join(code);
     const isHost = gameState.players.length === 0;
     const newPlayer: Player = {
@@ -578,9 +718,11 @@ class GameService {
       selectedIcon: userCustomizations?.selected_icon,
     };
     gameState.players.push(newPlayer);
-    
+
     // Notify other clients that a new user joined for WebRTC setup
-    socket.broadcast.to(code).emit('voice:user-joined', { socketId: socket.id });
+    socket.broadcast
+      .to(code)
+      .emit("voice:user-joined", { socketId: socket.id });
 
     this.io.to(code).emit("updateGameState", gameState);
   }
@@ -590,42 +732,55 @@ class GameService {
     user: User,
     [roomCode, gameState]: [string, GameState]
   ) {
-    console.log(`Attempting to reconnect user ${user.username} to room ${roomCode}`);
+    console.log(
+      `Attempting to reconnect user ${user.username} to room ${roomCode}`
+    );
     const player = gameState.players.find((p) => p.userId === user.id);
-    
+
     if (!player) {
-      socket.emit("error", "Could not find your player in this game to reconnect.");
+      socket.emit(
+        "error",
+        "Could not find your player in this game to reconnect."
+      );
       return;
     }
 
     if (gameState.reconnectingPlayer?.userId === user.id) {
-        const timer = this.reconnectionTimers.get(roomCode);
-        if (timer) {
-            clearTimeout(timer);
-            this.reconnectionTimers.delete(roomCode);
-        }
-        this.addLog(gameState, `${player.name} has reconnected.`, 'system');
-        gameState.reconnectingPlayer = null;
+      const timer = this.reconnectionTimers.get(roomCode);
+      if (timer) {
+        clearTimeout(timer);
+        this.reconnectionTimers.delete(roomCode);
+      }
+      this.addLog(gameState, `${player.name} has reconnected.`, "system");
+      gameState.reconnectingPlayer = null;
     }
-    
-    const userCustomizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string; }>(
-        "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
-        [user.id]
+
+    const userCustomizations = await db.get<{
+      selected_title: string;
+      selected_border: string;
+      selected_icon: string;
+    }>(
+      "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
+      [user.id]
     );
-    
+
     // Notify other clients about the reconnected user for WebRTC
-    socket.broadcast.to(roomCode).emit('voice:user-joined', { socketId: socket.id });
+    socket.broadcast
+      .to(roomCode)
+      .emit("voice:user-joined", { socketId: socket.id });
 
     const oldPlayerId = player.id;
     const newPlayerId = socket.id;
-    
+
     // Do nothing if ID hasn't changed (e.g., dev server hot reload without client reconnect)
     if (oldPlayerId === newPlayerId) {
-        player.status = "CONNECTED";
-        socket.join(roomCode);
-        this.io.to(roomCode).emit("updateGameState", gameState);
-        console.log(`User ${user.username} re-established connection with same socket ID ${newPlayerId}`);
-        return;
+      player.status = "CONNECTED";
+      socket.join(roomCode);
+      this.io.to(roomCode).emit("updateGameState", gameState);
+      console.log(
+        `User ${user.username} re-established connection with same socket ID ${newPlayerId}`
+      );
+      return;
     }
 
     player.selectedTitle = userCustomizations?.selected_title;
@@ -634,69 +789,89 @@ class GameService {
 
     player.id = newPlayerId;
     player.status = "CONNECTED";
-    
+
     // --- Comprehensive State Migration from oldPlayerId to newPlayerId ---
 
     // 1. Ready players lists
-    gameState.readyPlayers = gameState.readyPlayers.map(id => id === oldPlayerId ? newPlayerId : id);
-    gameState.endGameReadyPlayers = gameState.endGameReadyPlayers.map(id => id === oldPlayerId ? newPlayerId : id);
+    gameState.readyPlayers = gameState.readyPlayers.map((id) =>
+      id === oldPlayerId ? newPlayerId : id
+    );
+    gameState.endGameReadyPlayers = gameState.endGameReadyPlayers.map((id) =>
+      id === oldPlayerId ? newPlayerId : id
+    );
 
     // 2. Pending team
     if (gameState.pendingTeam) {
-        gameState.pendingTeam = gameState.pendingTeam.map(id => id === oldPlayerId ? newPlayerId : id);
+      gameState.pendingTeam = gameState.pendingTeam.map((id) =>
+        id === oldPlayerId ? newPlayerId : id
+      );
     }
-    
+
     // 3. Quest history (votes and results)
-    gameState.questHistory.forEach(quest => {
-        quest.votes.forEach(vote => {
-            if (vote.playerId === oldPlayerId) vote.playerId = newPlayerId;
+    gameState.questHistory.forEach((quest) => {
+      quest.votes.forEach((vote) => {
+        if (vote.playerId === oldPlayerId) vote.playerId = newPlayerId;
+      });
+      quest.results.forEach((result) => {
+        if (result.playerId === oldPlayerId) result.playerId = newPlayerId;
+      });
+      quest.pastVotes.forEach((pastVote) => {
+        pastVote.votes.forEach((vote) => {
+          if (vote.playerId === oldPlayerId) vote.playerId = newPlayerId;
         });
-        quest.results.forEach(result => {
-            if (result.playerId === oldPlayerId) result.playerId = newPlayerId;
+      });
+      if (quest.approvedVote) {
+        quest.approvedVote.votes.forEach((vote) => {
+          if (vote.playerId === oldPlayerId) vote.playerId = newPlayerId;
         });
-        quest.pastVotes.forEach(pastVote => {
-            pastVote.votes.forEach(vote => {
-                 if (vote.playerId === oldPlayerId) vote.playerId = newPlayerId;
-            });
-        });
-        if(quest.approvedVote) {
-             quest.approvedVote.votes.forEach(vote => {
-                 if (vote.playerId === oldPlayerId) vote.playerId = newPlayerId;
-            });
-        }
+      }
     });
 
     // 4. Restart vote
     if (gameState.restartVote) {
-        if (gameState.restartVote.initiatorId === oldPlayerId) {
-            gameState.restartVote.initiatorId = newPlayerId;
-        }
-        if (gameState.restartVote.votes[oldPlayerId]) {
-            gameState.restartVote.votes[newPlayerId] = gameState.restartVote.votes[oldPlayerId];
-            delete gameState.restartVote.votes[oldPlayerId];
-        }
+      if (gameState.restartVote.initiatorId === oldPlayerId) {
+        gameState.restartVote.initiatorId = newPlayerId;
+      }
+      if (gameState.restartVote.votes[oldPlayerId]) {
+        gameState.restartVote.votes[newPlayerId] =
+          gameState.restartVote.votes[oldPlayerId];
+        delete gameState.restartVote.votes[oldPlayerId];
+      }
     }
-    
-    // 5. Dragon's Breath State
-    if (gameState.phase === GamePhase.DRAGONS_BREATH && gameState.dragonsBreathState) {
-        const dbState = gameState.dragonsBreathState;
-        
-        if (dbState.hands[oldPlayerId]) {
-            dbState.hands[newPlayerId] = dbState.hands[oldPlayerId];
-            delete dbState.hands[oldPlayerId];
-        }
 
-        if (dbState.currentPlayerId === oldPlayerId) dbState.currentPlayerId = newPlayerId;
-        if (dbState.isViewingFuture === oldPlayerId) dbState.isViewingFuture = newPlayerId;
-        if (dbState.isPlacingDragon === oldPlayerId) dbState.isPlacingDragon = newPlayerId;
-        if (dbState.winner === oldPlayerId) dbState.winner = newPlayerId;
-        if (dbState.loser === oldPlayerId) dbState.loser = newPlayerId;
+    // 5. Dragon's Breath State
+    if (
+      gameState.phase === GamePhase.DRAGONS_BREATH &&
+      gameState.dragonsBreathState
+    ) {
+      const dbState = gameState.dragonsBreathState;
+
+      if (dbState.hands[oldPlayerId]) {
+        dbState.hands[newPlayerId] = dbState.hands[oldPlayerId];
+        delete dbState.hands[oldPlayerId];
+      }
+
+      if (dbState.currentPlayerId === oldPlayerId)
+        dbState.currentPlayerId = newPlayerId;
+      if (dbState.isViewingFuture === oldPlayerId)
+        dbState.isViewingFuture = newPlayerId;
+      if (dbState.isPlacingDragon === oldPlayerId)
+        dbState.isPlacingDragon = newPlayerId;
+      if (dbState.winner === oldPlayerId) dbState.winner = newPlayerId;
+      if (dbState.loser === oldPlayerId) dbState.loser = newPlayerId;
+    }
+
+    // 6. Assassination Target
+    if (gameState.assassinationTargetId === oldPlayerId) {
+      gameState.assassinationTargetId = newPlayerId;
     }
     // --- End State Migration ---
-    
+
     socket.join(roomCode);
     this.io.to(roomCode).emit("updateGameState", gameState);
-    console.log(`Successfully reconnected user ${user.username}. Migrated state from ${oldPlayerId} to new socket ID ${newPlayerId}`);
+    console.log(
+      `Successfully reconnected user ${user.username}. Migrated state from ${oldPlayerId} to new socket ID ${newPlayerId}`
+    );
   }
 
   handleStartGame(playerId: string, selectedRoles: Role[]) {
@@ -759,33 +934,50 @@ class GameService {
     gameState.leader =
       gameState.players[Math.floor(Math.random() * playerCount)];
 
-    this.addLog(gameState, `The game has begun with ${playerCount} players.`, 'system');
-    this.addLog(gameState, `${gameState.leader.name} is the first Quest Leader.`, 'leader');
+    this.addLog(
+      gameState,
+      `The game has begun with ${playerCount} players.`,
+      "system"
+    );
+    this.addLog(
+      gameState,
+      `${gameState.leader.name} is the first Quest Leader.`,
+      "leader"
+    );
     this.io.to(roomCode).emit("updateGameState", gameState);
   }
 
   async getPlayerStats(userId: number): Promise<PlayerStats> {
     const userStats = await db.get<{
-        total_games: number;
-        total_wins: number;
-        good_games: number;
-        good_wins: number;
-        evil_games: number;
-        evil_wins: number;
+      total_games: number;
+      total_wins: number;
+      good_games: number;
+      good_wins: number;
+      evil_games: number;
+      evil_wins: number;
     }>(
       "SELECT total_games, total_wins, good_games, good_wins, evil_games, evil_wins FROM users WHERE id = $1",
       [userId]
     );
 
     if (!userStats) {
-        return {
-            totalGames: 0, totalWins: 0, goodGames: 0, goodWins: 0, evilGames: 0, evilWins: 0,
-            winRate: 0, goodWinRate: 0, evilWinRate: 0, recentMatches: [], achievements: []
-        };
+      return {
+        totalGames: 0,
+        totalWins: 0,
+        goodGames: 0,
+        goodWins: 0,
+        evilGames: 0,
+        evilWins: 0,
+        winRate: 0,
+        goodWinRate: 0,
+        evilWinRate: 0,
+        recentMatches: [],
+        achievements: [],
+      };
     }
 
     const recentMatches = await db.all<Match>(
-      "SELECT m.id, m.winner, pp.role, pp.won, m.played_at AS \"playedAt\" FROM matches m JOIN player_performance pp ON m.id = pp.match_id WHERE pp.user_id = $1 ORDER BY m.played_at DESC LIMIT 10",
+      'SELECT m.id, m.winner, pp.role, pp.won, m.played_at AS "playedAt" FROM matches m JOIN player_performance pp ON m.id = pp.match_id WHERE pp.user_id = $1 ORDER BY m.played_at DESC LIMIT 10',
       [userId]
     );
     const achievements = await db.all<UserAchievement>(
@@ -793,7 +985,14 @@ class GameService {
       [userId]
     );
 
-    const { total_games, total_wins, good_games, good_wins, evil_games, evil_wins } = userStats;
+    const {
+      total_games,
+      total_wins,
+      good_games,
+      good_wins,
+      evil_games,
+      evil_wins,
+    } = userStats;
 
     return {
       totalGames: total_games,
@@ -802,15 +1001,9 @@ class GameService {
       goodWins: good_wins,
       evilGames: evil_games,
       evilWins: evil_wins,
-      winRate: total_games
-        ? Math.round((total_wins / total_games) * 100)
-        : 0,
-      goodWinRate: good_games
-        ? Math.round((good_wins / good_games) * 100)
-        : 0,
-      evilWinRate: evil_games
-        ? Math.round((evil_wins / evil_games) * 100)
-        : 0,
+      winRate: total_games ? Math.round((total_wins / total_games) * 100) : 0,
+      goodWinRate: good_games ? Math.round((good_wins / good_games) * 100) : 0,
+      evilWinRate: evil_games ? Math.round((evil_wins / evil_games) * 100) : 0,
       recentMatches: recentMatches.map((m) => ({
         id: m.id,
         winner: m.winner,
@@ -828,14 +1021,14 @@ class GameService {
       "SELECT COUNT(*) FROM dragons_breath_matches WHERE winner_user_id = $1 OR loser_user_id = $1",
       [userId]
     );
-    const totalGames = parseInt(totalGamesResult?.count || '0', 10);
+    const totalGames = parseInt(totalGamesResult?.count || "0", 10);
 
     // Total Wins
     const totalWinsResult = await db.get<{ count: string }>(
       "SELECT COUNT(*) FROM dragons_breath_matches WHERE winner_user_id = $1",
       [userId]
     );
-    const totalWins = parseInt(totalWinsResult?.count || '0', 10);
+    const totalWins = parseInt(totalWinsResult?.count || "0", 10);
 
     // Opponent Stats
     const opponentData = await db.all<{
@@ -843,7 +1036,8 @@ class GameService {
       opponent_name: string;
       games_played: string; // count returns string
       wins: string; // sum returns string
-    }>(`
+    }>(
+      `
       SELECT
         opponent.id as opponent_id,
         opponent.username as opponent_name,
@@ -857,18 +1051,20 @@ class GameService {
       WHERE m.winner_user_id = $1 OR m.loser_user_id = $1
       GROUP BY opponent.id, opponent.username
       ORDER BY games_played DESC
-    `, [userId]);
+    `,
+      [userId]
+    );
 
-    const opponentStats = opponentData.map(o => {
-        const gamesPlayed = parseInt(o.games_played, 10);
-        const wins = parseInt(o.wins, 10);
-        return {
-            opponentId: o.opponent_id,
-            opponentName: o.opponent_name,
-            gamesPlayed,
-            wins,
-            winRate: gamesPlayed > 0 ? Math.round((wins / gamesPlayed) * 100) : 0,
-        };
+    const opponentStats = opponentData.map((o) => {
+      const gamesPlayed = parseInt(o.games_played, 10);
+      const wins = parseInt(o.wins, 10);
+      return {
+        opponentId: o.opponent_id,
+        opponentName: o.opponent_name,
+        gamesPlayed,
+        wins,
+        winRate: gamesPlayed > 0 ? Math.round((wins / gamesPlayed) * 100) : 0,
+      };
     });
 
     // Match History
@@ -877,7 +1073,8 @@ class GameService {
       opponent_name: string;
       won: boolean;
       played_at: string;
-    }>(`
+    }>(
+      `
       SELECT
         m.id,
         opponent.username as opponent_name,
@@ -891,64 +1088,86 @@ class GameService {
       WHERE m.winner_user_id = $1 OR m.loser_user_id = $1
       ORDER BY m.played_at DESC
       LIMIT 20
-    `, [userId]);
+    `,
+      [userId]
+    );
 
     return {
       totalGames,
       totalWins,
       opponentStats,
-      matchHistory: matchHistoryData.map(m => ({
-          id: m.id,
-          opponentName: m.opponent_name,
-          won: m.won,
-          playedAt: m.played_at,
+      matchHistory: matchHistoryData.map((m) => ({
+        id: m.id,
+        opponentName: m.opponent_name,
+        won: m.won,
+        playedAt: m.played_at,
       })),
     };
-}
-
+  }
 
   async getLeaderboard(): Promise<LeaderboardData> {
-     const allUsers: { 
-        id: number;
-        username: string; 
-        win_streak: number; 
-        assassin_kills: number;
-        total_games: number;
-        total_wins: number;
-        good_wins: number;
-        evil_wins: number;
+    const allUsers: {
+      id: number;
+      username: string;
+      win_streak: number;
+      assassin_kills: number;
+      total_games: number;
+      total_wins: number;
+      good_wins: number;
+      evil_wins: number;
     }[] = await db.all(`
         SELECT id, username, win_streak, assassin_kills, 
                total_games, total_wins, good_wins, evil_wins 
         FROM users WHERE total_games > 0
     `);
-    
+
     const leaderboard: LeaderboardData = {
-        totalWins: [],
-        winRate: [],
-        topAssassins: [],
-        winStreaks: [],
-        bestGood: [],
-        bestEvil: [],
+      totalWins: [],
+      winRate: [],
+      topAssassins: [],
+      winStreaks: [],
+      bestGood: [],
+      bestEvil: [],
     };
 
     for (const user of allUsers) {
-        const winRateValue = user.total_games > 0 ? Math.round((user.total_wins / user.total_games) * 100) : 0;
+      const winRateValue =
+        user.total_games > 0
+          ? Math.round((user.total_wins / user.total_games) * 100)
+          : 0;
 
-        leaderboard.totalWins.push({ username: user.username, value: user.total_wins });
-        leaderboard.winRate.push({ username: user.username, value: winRateValue });
-        leaderboard.topAssassins.push({ username: user.username, value: user.assassin_kills });
-        leaderboard.winStreaks.push({ username: user.username, value: user.win_streak });
-        leaderboard.bestGood.push({ username: user.username, value: user.good_wins });
-        leaderboard.bestEvil.push({ username: user.username, value: user.evil_wins });
+      leaderboard.totalWins.push({
+        username: user.username,
+        value: user.total_wins,
+      });
+      leaderboard.winRate.push({
+        username: user.username,
+        value: winRateValue,
+      });
+      leaderboard.topAssassins.push({
+        username: user.username,
+        value: user.assassin_kills,
+      });
+      leaderboard.winStreaks.push({
+        username: user.username,
+        value: user.win_streak,
+      });
+      leaderboard.bestGood.push({
+        username: user.username,
+        value: user.good_wins,
+      });
+      leaderboard.bestEvil.push({
+        username: user.username,
+        value: user.evil_wins,
+      });
     }
 
     // Sort all categories with a secondary sort by username for stability
     const sortByValue = (a: LeaderboardEntry, b: LeaderboardEntry) => {
-        const diff = (b.value as number) - (a.value as number);
-        return diff !== 0 ? diff : a.username.localeCompare(b.username);
+      const diff = (b.value as number) - (a.value as number);
+      return diff !== 0 ? diff : a.username.localeCompare(b.username);
     };
-    
+
     leaderboard.totalWins.sort(sortByValue);
     leaderboard.winRate.sort(sortByValue);
     leaderboard.topAssassins.sort(sortByValue);
@@ -967,7 +1186,7 @@ class GameService {
     const roomCode = gameState.roomCode;
     if (!roomCode) return;
 
-    this.addLog(gameState, `Game Over: ${reason}`, 'system');
+    this.addLog(gameState, `Game Over: ${reason}`, "system");
 
     const timer = this.reconnectionTimers.get(roomCode);
     if (timer) {
@@ -986,6 +1205,7 @@ class GameService {
     gameState.reconnectingPlayer = null;
     gameState.restartVote = null;
     gameState.pendingTeam = null;
+    gameState.assassinationTargetId = null;
 
     if (winner) {
       try {
@@ -1007,17 +1227,28 @@ class GameService {
             };
             await db.run(
               "INSERT INTO player_performance (user_id, match_id, role, alignment, won) VALUES ($1, $2, $3, $4, $5)",
-              [ performance.user_id, performance.match_id, performance.role, performance.alignment, performance.won ]
+              [
+                performance.user_id,
+                performance.match_id,
+                performance.role,
+                performance.alignment,
+                performance.won,
+              ]
             );
-            
+
             // Update denormalized stats
-            const goodGameIncrement = player.alignment === Alignment.GOOD ? 1 : 0;
-            const evilGameIncrement = player.alignment === Alignment.EVIL ? 1 : 0;
-            const goodWinIncrement = (player.alignment === Alignment.GOOD && won) ? 1 : 0;
-            const evilWinIncrement = (player.alignment === Alignment.EVIL && won) ? 1 : 0;
+            const goodGameIncrement =
+              player.alignment === Alignment.GOOD ? 1 : 0;
+            const evilGameIncrement =
+              player.alignment === Alignment.EVIL ? 1 : 0;
+            const goodWinIncrement =
+              player.alignment === Alignment.GOOD && won ? 1 : 0;
+            const evilWinIncrement =
+              player.alignment === Alignment.EVIL && won ? 1 : 0;
             const winIncrement = won ? 1 : 0;
-            
-            await db.run(`
+
+            await db.run(
+              `
               UPDATE users 
               SET 
                 total_games = total_games + 1,
@@ -1028,11 +1259,24 @@ class GameService {
                 evil_wins = evil_wins + $5,
                 win_streak = CASE WHEN $1 = 1 THEN win_streak + 1 ELSE 0 END
               WHERE id = $6
-            `, [winIncrement, goodGameIncrement, goodWinIncrement, evilGameIncrement, evilWinIncrement, player.userId]);
-
+            `,
+              [
+                winIncrement,
+                goodGameIncrement,
+                goodWinIncrement,
+                evilGameIncrement,
+                evilWinIncrement,
+                player.userId,
+              ]
+            );
 
             // Check for achievements
-            await achievementService.checkAndGrantAchievements(player.userId, performance, this.io, gameState);
+            await achievementService.checkAndGrantAchievements(
+              player.userId,
+              performance,
+              this.io,
+              gameState
+            );
           }
         }
       } catch (e) {
@@ -1056,44 +1300,52 @@ class GameService {
     }
 
     if (gameState.readyPlayers.length === gameState.players.length) {
-      this.addLog(gameState, `All players are ready. Starting Quest ${gameState.currentQuest}.`, 'system');
+      this.addLog(
+        gameState,
+        `All players are ready. Starting Quest ${gameState.currentQuest}.`,
+        "system"
+      );
       gameState.phase = GamePhase.TEAM_SELECTION;
       gameState.readyPlayers = [];
     }
 
     this.io.to(roomCode).emit("updateGameState", gameState);
   }
-  
+
   private async restartGameByRoomCode(roomCode: string) {
     const gameState = this.games.get(roomCode);
-    if(!gameState) return;
+    if (!gameState) return;
 
     // Preserve chat and players
     const preservedChat = gameState.chat;
     const preservedLog = gameState.gameLog;
     const originalPlayerInfos = await Promise.all(
-        gameState.players
-            .filter(p => p.status === 'CONNECTED') // Filter out disconnected players before mapping
-            .map(async (p) => {
-                const customizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string }>(
-                    "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1", [p.userId]
-                );
-                return {
-                    id: p.id,
-                    userId: p.userId,
-                    name: p.name,
-                    role: null,
-                    alignment: null,
-                    isHost: p.isHost,
-                    hasVoted: false,
-                    status: "CONNECTED" as "CONNECTED", // Reset status
-                    selectedTitle: customizations?.selected_title,
-                    selectedBorder: customizations?.selected_border,
-                    selectedIcon: customizations?.selected_icon,
-                };
-            })
+      gameState.players
+        .filter((p) => p.status === "CONNECTED") // Filter out disconnected players before mapping
+        .map(async (p) => {
+          const customizations = await db.get<{
+            selected_title: string;
+            selected_border: string;
+            selected_icon: string;
+          }>(
+            "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
+            [p.userId]
+          );
+          return {
+            id: p.id,
+            userId: p.userId,
+            name: p.name,
+            role: null,
+            alignment: null,
+            isHost: p.isHost,
+            hasVoted: false,
+            status: "CONNECTED" as "CONNECTED", // Reset status
+            selectedTitle: customizations?.selected_title,
+            selectedBorder: customizations?.selected_border,
+            selectedIcon: customizations?.selected_icon,
+          };
+        })
     );
-
 
     const newGameState = this.createInitialGameState(roomCode);
     newGameState.players = originalPlayerInfos;
@@ -1101,10 +1353,13 @@ class GameService {
     newGameState.gameLog = preservedLog;
     newGameState.pendingTeam = null;
     newGameState.dragonsBreathState = null;
+    newGameState.assassinationTargetId = null;
 
     // Re-assign host if the original host disconnected
-    if (!newGameState.players.some(p => p.isHost)) {
-      const connected = newGameState.players.filter(p => p.status === 'CONNECTED');
+    if (!newGameState.players.some((p) => p.isHost)) {
+      const connected = newGameState.players.filter(
+        (p) => p.status === "CONNECTED"
+      );
       if (connected.length > 0) {
         connected[0].isHost = true;
       }
@@ -1118,15 +1373,20 @@ class GameService {
     const roomCode = this.findRoomByPlayerId(playerId);
     if (!roomCode) return;
     const gameState = this.games.get(roomCode)!;
-    
+
     if (gameState.phase !== GamePhase.END_GAME) return;
-    
+
     if (!gameState.endGameReadyPlayers.includes(playerId)) {
       gameState.endGameReadyPlayers.push(playerId);
     }
 
-    const connectedPlayers = gameState.players.filter(p => p.status === 'CONNECTED');
-    if (connectedPlayers.length > 0 && gameState.endGameReadyPlayers.length === connectedPlayers.length) {
+    const connectedPlayers = gameState.players.filter(
+      (p) => p.status === "CONNECTED"
+    );
+    if (
+      connectedPlayers.length > 0 &&
+      gameState.endGameReadyPlayers.length === connectedPlayers.length
+    ) {
       this.restartGameByRoomCode(roomCode);
     } else {
       this.io.to(roomCode).emit("updateGameState", gameState);
@@ -1136,30 +1396,40 @@ class GameService {
   private handleReconnectTimeout(roomCode: string) {
     const gameState = this.games.get(roomCode);
     if (!gameState || !gameState.reconnectingPlayer) return;
-  
+
     const { name, userId } = gameState.reconnectingPlayer;
     console.log(`Reconnect timeout for ${name} in room ${roomCode}.`);
-    this.io.to(roomCode).emit('voice:user-left', { socketId: gameState.players.find(p => p.userId === userId)!.id });
-    
+    this.io.to(roomCode).emit("voice:user-left", {
+      socketId: gameState.players.find((p) => p.userId === userId)!.id,
+    });
+
     this.reconnectionTimers.delete(roomCode);
-  
-    if (gameState.phase === GamePhase.LOBBY || gameState.phase === GamePhase.DRAGONS_BREATH) {
-      gameState.players = gameState.players.filter(p => p.userId !== userId);
-      
-      this.io.to(roomCode).emit("chatMessage", { senderId: 'system', senderUserId: 0, senderName: 'System', text: `${name} left the lobby.`});
-      this.addLog(gameState, `${name} left the lobby.`, 'system');
+
+    if (
+      gameState.phase === GamePhase.LOBBY ||
+      gameState.phase === GamePhase.DRAGONS_BREATH
+    ) {
+      gameState.players = gameState.players.filter((p) => p.userId !== userId);
+
+      this.io.to(roomCode).emit("chatMessage", {
+        senderId: "system",
+        senderUserId: 0,
+        senderName: "System",
+        text: `${name} left the lobby.`,
+      });
+      this.addLog(gameState, `${name} left the lobby.`, "system");
 
       if (gameState.players.length === 0) {
-          this.games.delete(roomCode);
-          console.log(`Lobby ${roomCode} is empty, deleting.`);
-          return;
+        this.games.delete(roomCode);
+        console.log(`Lobby ${roomCode} is empty, deleting.`);
+        return;
       }
-      if (!gameState.players.some(p => p.isHost)) {
-          gameState.players[0].isHost = true;
+      if (!gameState.players.some((p) => p.isHost)) {
+        gameState.players[0].isHost = true;
       }
       gameState.reconnectingPlayer = null;
       // If a player leaves a dragon's breath game, it aborts.
-      if(gameState.phase === GamePhase.DRAGONS_BREATH) {
+      if (gameState.phase === GamePhase.DRAGONS_BREATH) {
         this.restartGameByRoomCode(roomCode);
       } else {
         this.io.to(roomCode).emit("updateGameState", gameState);
@@ -1187,28 +1457,38 @@ class GameService {
 
     const disconnectedPlayer = this.getPlayer(gameState, playerId);
     if (!disconnectedPlayer) return;
-    
-    this.io.to(roomCode).emit('voice:user-left', { socketId: playerId });
+
+    this.io.to(roomCode).emit("voice:user-left", { socketId: playerId });
 
     disconnectedPlayer.status = "DISCONNECTED";
-    this.addLog(gameState, `${disconnectedPlayer.name} has disconnected.`, 'system');
-    
+    this.addLog(
+      gameState,
+      `${disconnectedPlayer.name} has disconnected.`,
+      "system"
+    );
 
-     if (gameState.phase === GamePhase.END_GAME) {
-       gameState.endGameReadyPlayers = gameState.endGameReadyPlayers.filter(id => id !== playerId);
+    if (gameState.phase === GamePhase.END_GAME) {
+      gameState.endGameReadyPlayers = gameState.endGameReadyPlayers.filter(
+        (id) => id !== playerId
+      );
 
-       const connectedPlayers = gameState.players.filter(p => p.status === 'CONNECTED');
-       if (connectedPlayers.length > 0 && gameState.endGameReadyPlayers.length === connectedPlayers.length) {
-         this.restartGameByRoomCode(roomCode);
-       } else {
-         this.io.to(roomCode).emit("updateGameState", gameState);
-       }
-       return;
-     }
+      const connectedPlayers = gameState.players.filter(
+        (p) => p.status === "CONNECTED"
+      );
+      if (
+        connectedPlayers.length > 0 &&
+        gameState.endGameReadyPlayers.length === connectedPlayers.length
+      ) {
+        this.restartGameByRoomCode(roomCode);
+      } else {
+        this.io.to(roomCode).emit("updateGameState", gameState);
+      }
+      return;
+    }
 
     if (gameState.reconnectingPlayer) {
-        this.io.to(roomCode).emit("updateGameState", gameState);
-        return;
+      this.io.to(roomCode).emit("updateGameState", gameState);
+      return;
     }
 
     const endsAt = Date.now() + RECONNECT_TIMEOUT;
@@ -1217,26 +1497,36 @@ class GameService {
       name: disconnectedPlayer.name,
       endsAt,
     };
-    
+
     if (gameState.phase === GamePhase.LOBBY && disconnectedPlayer.isHost) {
-        const connectedPlayers = gameState.players.filter(p => p.status === 'CONNECTED');
-        if (connectedPlayers.length > 0) {
-            connectedPlayers[0].isHost = true;
-        }
+      const connectedPlayers = gameState.players.filter(
+        (p) => p.status === "CONNECTED"
+      );
+      if (connectedPlayers.length > 0) {
+        connectedPlayers[0].isHost = true;
+      }
     }
 
     const timer = setTimeout(() => {
-        const currentGameState = this.games.get(roomCode);
-        if (currentGameState && currentGameState.reconnectingPlayer?.userId === disconnectedPlayer.userId) {
-            this.handleReconnectTimeout(roomCode);
-        }
+      const currentGameState = this.games.get(roomCode);
+      if (
+        currentGameState &&
+        currentGameState.reconnectingPlayer?.userId ===
+          disconnectedPlayer.userId
+      ) {
+        this.handleReconnectTimeout(roomCode);
+      }
     }, RECONNECT_TIMEOUT);
 
     this.reconnectionTimers.set(roomCode, timer);
-    
+
     this.io.to(roomCode).emit("updateGameState", gameState);
     console.log(
-      `Player ${disconnectedPlayer.name} disconnected from ${roomCode}. Starting ${RECONNECT_TIMEOUT / 1000}s timer.`
+      `Player ${
+        disconnectedPlayer.name
+      } disconnected from ${roomCode}. Starting ${
+        RECONNECT_TIMEOUT / 1000
+      }s timer.`
     );
   }
 
@@ -1322,7 +1612,13 @@ class GameService {
     gameState.players.forEach((p) => (p.hasVoted = false));
     gameState.pendingTeam = null;
 
-    this.addLog(gameState, `${gameState.leader!.name} has proposed a team: ${currentQuest.team.map(p => p.name).join(', ')}.`, 'team');
+    this.addLog(
+      gameState,
+      `${gameState.leader!.name} has proposed a team: ${currentQuest.team
+        .map((p) => p.name)
+        .join(", ")}.`,
+      "team"
+    );
     this.io.to(roomCode).emit("updateGameState", gameState);
   }
 
@@ -1362,7 +1658,11 @@ class GameService {
     const rejections = connectedPlayers.length - approvals;
 
     if (approvals > connectedPlayers.length / 2) {
-      this.addLog(gameState, `Team Approved. Votes: ${approvals} Approve, ${rejections} Reject.`, 'vote');
+      this.addLog(
+        gameState,
+        `Team Approved. Votes: ${approvals} Approve, ${rejections} Reject.`,
+        "vote"
+      );
       gameState.phase = GamePhase.QUEST_VOTE;
       gameState.voteTrack = 0;
       currentQuest.questLeader = gameState.leader;
@@ -1372,7 +1672,11 @@ class GameService {
       };
     } else {
       gameState.voteTrack++;
-      this.addLog(gameState, `Team Rejected. Votes: ${approvals} Approve, ${rejections} Reject. Vote Track is now ${gameState.voteTrack}/5.`, 'vote');
+      this.addLog(
+        gameState,
+        `Team Rejected. Votes: ${approvals} Approve, ${rejections} Reject. Vote Track is now ${gameState.voteTrack}/5.`,
+        "vote"
+      );
       currentQuest.pastVotes.push({
         leader: gameState.leader,
         team: currentQuest.team,
@@ -1388,7 +1692,11 @@ class GameService {
         return;
       }
       this.advanceLeader(gameState);
-      this.addLog(gameState, `${gameState.leader!.name} is the new Quest Leader.`, 'leader');
+      this.addLog(
+        gameState,
+        `${gameState.leader!.name} is the new Quest Leader.`,
+        "leader"
+      );
       gameState.phase = GamePhase.TEAM_SELECTION;
       gameState.pendingTeam = null;
     }
@@ -1435,14 +1743,24 @@ class GameService {
 
   private processQuestResult(gameState: GameState) {
     const currentQuest = gameState.questHistory[gameState.currentQuest - 1];
-    const failVotes = currentQuest.results.filter((r) => r.vote === "FAIL").length;
+    const failVotes = currentQuest.results.filter(
+      (r) => r.vote === "FAIL"
+    ).length;
 
     if (failVotes >= currentQuest.failsRequired) {
       currentQuest.status = "FAILED";
-      this.addLog(gameState, `Quest ${gameState.currentQuest} has Failed with ${failVotes} fail vote(s).`, 'quest');
+      this.addLog(
+        gameState,
+        `Quest ${gameState.currentQuest} has Failed with ${failVotes} fail vote(s).`,
+        "quest"
+      );
     } else {
       currentQuest.status = "PASSED";
-      this.addLog(gameState, `Quest ${gameState.currentQuest} has Succeeded.`, 'quest');
+      this.addLog(
+        gameState,
+        `Quest ${gameState.currentQuest} has Succeeded.`,
+        "quest"
+      );
     }
 
     gameState.phase = GamePhase.QUEST_RESULT;
@@ -1469,7 +1787,11 @@ class GameService {
     }
 
     if (passedQuests >= 3) {
-      this.addLog(gameState, 'Three quests have passed! The Assassin prepares to strike...', 'assassination');
+      this.addLog(
+        gameState,
+        "Three quests have passed! The Assassin prepares to strike...",
+        "assassination"
+      );
       gameState.phase = GamePhase.ASSASSINATION;
       this.io.to(gameState.roomCode).emit("updateGameState", gameState);
       return;
@@ -1478,10 +1800,34 @@ class GameService {
     gameState.currentQuest++;
     gameState.questHistory[gameState.currentQuest - 1].status = "ACTIVE";
     this.advanceLeader(gameState);
-    this.addLog(gameState, `Starting Quest ${gameState.currentQuest}. ${gameState.leader!.name} is the Quest Leader.`, 'leader');
+    this.addLog(
+      gameState,
+      `Starting Quest ${gameState.currentQuest}. ${
+        gameState.leader!.name
+      } is the Quest Leader.`,
+      "leader"
+    );
     gameState.phase = GamePhase.TEAM_SELECTION;
     gameState.players.forEach((p) => (p.hasVoted = false));
     this.io.to(gameState.roomCode).emit("updateGameState", gameState);
+  }
+
+  handleUpdateAssassinationTarget(assassinId: string, targetId: string | null) {
+    const roomCode = this.findRoomByPlayerId(assassinId);
+    if (!roomCode) return;
+    const gameState = this.games.get(roomCode)!;
+    const assassin = this.getPlayer(gameState, assassinId);
+
+    if (
+      !assassin ||
+      assassin.role !== Role.ASSASSIN ||
+      gameState.phase !== GamePhase.ASSASSINATION
+    ) {
+      return;
+    }
+
+    gameState.assassinationTargetId = targetId;
+    this.io.to(roomCode).emit("updateGameState", gameState);
   }
 
   async handleAssassinate(assassinId: string, targetId: string) {
@@ -1491,15 +1837,35 @@ class GameService {
     if (gameState.reconnectingPlayer) return;
 
     const assassin = this.getPlayer(gameState, assassinId);
-    if (!assassin || assassin.role !== Role.ASSASSIN || gameState.phase !== GamePhase.ASSASSINATION) return;
+    if (
+      !assassin ||
+      assassin.role !== Role.ASSASSIN ||
+      gameState.phase !== GamePhase.ASSASSINATION
+    )
+      return;
 
     const target = this.getPlayer(gameState, targetId);
-    this.addLog(gameState, `The Assassin has targeted ${target!.name}.`, 'assassination');
+    this.addLog(
+      gameState,
+      `The Assassin has targeted ${target!.name}.`,
+      "assassination"
+    );
     if (target?.role === Role.MERLIN) {
-      await db.run("UPDATE users SET assassin_kills = assassin_kills + 1 WHERE id = $1", [assassin.userId]);
-      this.endGame(gameState, Alignment.EVIL, `The Assassin has slain Merlin! Evil wins!`);
+      await db.run(
+        "UPDATE users SET assassin_kills = assassin_kills + 1 WHERE id = $1",
+        [assassin.userId]
+      );
+      this.endGame(
+        gameState,
+        Alignment.EVIL,
+        `The Assassin has slain Merlin! Evil wins!`
+      );
     } else {
-      this.endGame(gameState, Alignment.GOOD, `The Assassin chose poorly. Merlin survives! The kingdom is safe.`);
+      this.endGame(
+        gameState,
+        Alignment.GOOD,
+        `The Assassin chose poorly. Merlin survives! The kingdom is safe.`
+      );
     }
   }
 
@@ -1555,7 +1921,10 @@ class GameService {
       return;
     }
     const now = Date.now();
-    if (gameState.lastRestartInitiatedAt && (now - gameState.lastRestartInitiatedAt) < RESTART_COOLDOWN) {
+    if (
+      gameState.lastRestartInitiatedAt &&
+      now - gameState.lastRestartInitiatedAt < RESTART_COOLDOWN
+    ) {
       socket?.emit("error", "Restart can only be initiated every 2 minutes.");
       return;
     }
@@ -1564,18 +1933,25 @@ class GameService {
     gameState.restartVote = {
       initiatorId: player.id,
       initiatorName: player.name,
-      votes: { [player.id]: 'yes' },
-      endsAt: now + RESTART_VOTE_DURATION
+      votes: { [player.id]: "yes" },
+      endsAt: now + RESTART_VOTE_DURATION,
     };
 
-    this.addLog(gameState, `${player.name} has initiated a vote to restart the game.`, 'system');
-    const timer = setTimeout(() => this.processRestartVote(gameState), RESTART_VOTE_DURATION);
+    this.addLog(
+      gameState,
+      `${player.name} has initiated a vote to restart the game.`,
+      "system"
+    );
+    const timer = setTimeout(
+      () => this.processRestartVote(gameState),
+      RESTART_VOTE_DURATION
+    );
     this.restartVoteTimers.set(roomCode, timer);
 
     this.io.to(roomCode).emit("updateGameState", gameState);
   }
 
-  handleVoteOnRestart(playerId: string, vote: 'yes' | 'no') {
+  handleVoteOnRestart(playerId: string, vote: "yes" | "no") {
     const roomCode = this.findRoomByPlayerId(playerId);
     if (!roomCode) return;
     const gameState = this.games.get(roomCode)!;
@@ -1585,9 +1961,14 @@ class GameService {
     }
 
     gameState.restartVote.votes[playerId] = vote;
-    
-    const connectedPlayers = gameState.players.filter(p => p.status === 'CONNECTED');
-    if (Object.keys(gameState.restartVote.votes).length === connectedPlayers.length) {
+
+    const connectedPlayers = gameState.players.filter(
+      (p) => p.status === "CONNECTED"
+    );
+    if (
+      Object.keys(gameState.restartVote.votes).length ===
+      connectedPlayers.length
+    ) {
       const timer = this.restartVoteTimers.get(roomCode);
       if (timer) clearTimeout(timer);
       this.processRestartVote(gameState);
@@ -1598,23 +1979,43 @@ class GameService {
 
   private processRestartVote(gameState: GameState) {
     if (!gameState.restartVote || !gameState.roomCode) return;
-    
+
     const { votes } = gameState.restartVote;
     const roomCode = gameState.roomCode;
-    const connectedPlayersCount = gameState.players.filter(p => p.status === 'CONNECTED').length;
-    const yesVotes = Object.values(votes).filter(v => v === 'yes').length;
+    const connectedPlayersCount = gameState.players.filter(
+      (p) => p.status === "CONNECTED"
+    ).length;
+    const yesVotes = Object.values(votes).filter((v) => v === "yes").length;
 
     if (yesVotes > connectedPlayersCount / 2) {
-      this.addLog(gameState, 'Restart vote passed. The game will return to the lobby.', 'system');
-      this.io.to(roomCode).emit("chatMessage", { senderId: 'system', senderUserId: 0, senderName: 'System', text: 'Vote passed! The game will now restart.' });
+      this.addLog(
+        gameState,
+        "Restart vote passed. The game will return to the lobby.",
+        "system"
+      );
+      this.io.to(roomCode).emit("chatMessage", {
+        senderId: "system",
+        senderUserId: 0,
+        senderName: "System",
+        text: "Vote passed! The game will now restart.",
+      });
       this.restartGameByRoomCode(roomCode);
     } else {
-      this.addLog(gameState, 'Restart vote failed. The game will continue.', 'system');
-      this.io.to(roomCode).emit("chatMessage", { senderId: 'system', senderUserId: 0, senderName: 'System', text: 'Vote failed. The game will continue.' });
+      this.addLog(
+        gameState,
+        "Restart vote failed. The game will continue.",
+        "system"
+      );
+      this.io.to(roomCode).emit("chatMessage", {
+        senderId: "system",
+        senderUserId: 0,
+        senderName: "System",
+        text: "Vote failed. The game will continue.",
+      });
       gameState.restartVote = null;
       this.io.to(roomCode).emit("updateGameState", gameState);
     }
-    
+
     this.restartVoteTimers.delete(roomCode);
   }
 
@@ -1622,41 +2023,41 @@ class GameService {
     const roomCode = this.findRoomByPlayerId(playerId);
     if (!roomCode) return;
     const gameState = this.games.get(roomCode)!;
-    
+
     if (gameState.phase !== GamePhase.LOBBY) {
-        this.handleDisconnect(playerId);
-        return;
+      this.handleDisconnect(playerId);
+      return;
     }
 
     const leavingPlayer = this.getPlayer(gameState, playerId);
     if (!leavingPlayer) return;
 
-    this.io.to(roomCode).emit('voice:user-left', { socketId: playerId });
+    this.io.to(roomCode).emit("voice:user-left", { socketId: playerId });
     const socket = this.io.sockets.sockets.get(playerId);
     if (socket) {
-        // Explicitly tell the leaving client to reset its state.
-        socket.emit("kicked", "You have left the lobby.");
-        socket.leave(roomCode);
+      // Explicitly tell the leaving client to reset its state.
+      socket.emit("kicked", "You have left the lobby.");
+      socket.leave(roomCode);
     }
-    
-    gameState.players = gameState.players.filter(p => p.id !== playerId);
+
+    gameState.players = gameState.players.filter((p) => p.id !== playerId);
 
     if (gameState.players.length === 0) {
-        this.games.delete(roomCode);
-        console.log(`Lobby ${roomCode} is empty, deleting.`);
-        return;
+      this.games.delete(roomCode);
+      console.log(`Lobby ${roomCode} is empty, deleting.`);
+      return;
     }
 
     if (leavingPlayer.isHost) {
-        gameState.players[0].isHost = true;
+      gameState.players[0].isHost = true;
     }
 
     this.io.to(roomCode).emit("updateGameState", gameState);
     this.io.to(roomCode).emit("chatMessage", {
-        senderId: 'system',
-        senderUserId: 0,
-        senderName: 'System',
-        text: `${leavingPlayer.name} has left the lobby.`
+      senderId: "system",
+      senderUserId: 0,
+      senderName: "System",
+      text: `${leavingPlayer.name} has left the lobby.`,
     });
   }
 
@@ -1669,57 +2070,85 @@ class GameService {
     const playerToKick = this.getPlayer(gameState, playerIdToKick);
 
     if (!host || !host.isHost) {
-      this.io.sockets.sockets.get(hostId)?.emit("error", "Only the host can kick players.");
+      this.io.sockets.sockets
+        .get(hostId)
+        ?.emit("error", "Only the host can kick players.");
       return;
     }
     if (!playerToKick) {
-      this.io.sockets.sockets.get(hostId)?.emit("error", "Player to kick not found.");
+      this.io.sockets.sockets
+        .get(hostId)
+        ?.emit("error", "Player to kick not found.");
       return;
     }
-     if (hostId === playerIdToKick) {
-      this.io.sockets.sockets.get(hostId)?.emit("error", "You cannot kick yourself.");
+    if (hostId === playerIdToKick) {
+      this.io.sockets.sockets
+        .get(hostId)
+        ?.emit("error", "You cannot kick yourself.");
       return;
     }
 
     const kickedPlayerName = playerToKick.name;
     const kickedSocket = this.io.sockets.sockets.get(playerIdToKick);
-    
-    this.io.to(roomCode).emit('voice:user-left', { socketId: playerIdToKick });
+
+    this.io.to(roomCode).emit("voice:user-left", { socketId: playerIdToKick });
 
     if (kickedSocket) {
-        // Let the kicked player know they were kicked and should reset state
-        kickedSocket.emit("kicked", "You have been kicked from the game by the host.");
-        kickedSocket.leave(roomCode);
+      // Let the kicked player know they were kicked and should reset state
+      kickedSocket.emit(
+        "kicked",
+        "You have been kicked from the game by the host."
+      );
+      kickedSocket.leave(roomCode);
     }
-    
 
     if (gameState.phase === GamePhase.LOBBY) {
-        gameState.players = gameState.players.filter(p => p.id !== playerIdToKick);
-        this.addLog(gameState, `${kickedPlayerName} was kicked by the host.`, 'system');
-        this.io.to(roomCode).emit("chatMessage", { senderId: 'system', senderUserId: 0, senderName: 'System', text: `${kickedPlayerName} was kicked by the host.` });
-        this.io.to(roomCode).emit("updateGameState", gameState);
+      gameState.players = gameState.players.filter(
+        (p) => p.id !== playerIdToKick
+      );
+      this.addLog(
+        gameState,
+        `${kickedPlayerName} was kicked by the host.`,
+        "system"
+      );
+      this.io.to(roomCode).emit("chatMessage", {
+        senderId: "system",
+        senderUserId: 0,
+        senderName: "System",
+        text: `${kickedPlayerName} was kicked by the host.`,
+      });
+      this.io.to(roomCode).emit("updateGameState", gameState);
     } else {
-        // In game, kicking aborts the game
-        playerToKick.status = 'DISCONNECTED';
-        this.endGame(
-            gameState,
-            null,
-            `${kickedPlayerName} was kicked by the host. The game has been aborted.`
-        );
+      // In game, kicking aborts the game
+      playerToKick.status = "DISCONNECTED";
+      this.endGame(
+        gameState,
+        null,
+        `${kickedPlayerName} was kicked by the host. The game has been aborted.`
+      );
     }
   }
 
-  updatePlayerCustomization(userId: number, customizations: { title: string | null; border: string | null; icon: string | null; }) {
+  updatePlayerCustomization(
+    userId: number,
+    customizations: {
+      title: string | null;
+      border: string | null;
+      icon: string | null;
+    }
+  ) {
     const gameInfo = this.findGameByPlayerUserId(userId);
     if (gameInfo) {
       const [roomCode, gameState] = gameInfo;
-      const playerInGame = gameState.players.find(p => p.userId === userId);
+      const playerInGame = gameState.players.find((p) => p.userId === userId);
       if (playerInGame) {
         playerInGame.selectedTitle = customizations.title;
         playerInGame.selectedBorder = customizations.border;
         playerInGame.selectedIcon = customizations.icon;
         this.io.to(roomCode).emit("updateGameState", gameState);
-        console.log(`Pushed real-time customization update for ${playerInGame.name} to room ${roomCode}.`);
+        console.log(
+          `Pushed real-time customization update for ${playerInGame.name} to room ${roomCode}.`
+        );
       }
     }
   }
@@ -1728,28 +2157,30 @@ class GameService {
     const gameInfo = this.findGameByPlayerUserId(userId);
     if (gameInfo) {
       const [roomCode, gameState] = gameInfo;
-      const playerInGame = gameState.players.find(p => p.userId === userId);
+      const playerInGame = gameState.players.find((p) => p.userId === userId);
       const oldUsername = playerInGame?.name;
       if (playerInGame) {
         playerInGame.name = newUsername;
-        
+
         // Update leader name if it was this player
         if (gameState.leader?.userId === userId) {
-            gameState.leader.name = newUsername;
+          gameState.leader.name = newUsername;
         }
 
         this.io.to(roomCode).emit("updateGameState", gameState);
         this.io.to(roomCode).emit("chatMessage", {
-            senderId: 'system',
-            senderUserId: 0,
-            senderName: 'System',
-            text: `${oldUsername} is now known as ${newUsername}.`
+          senderId: "system",
+          senderUserId: 0,
+          senderName: "System",
+          text: `${oldUsername} is now known as ${newUsername}.`,
         });
-        console.log(`Pushed real-time username update for ${userId} to ${newUsername} in room ${roomCode}.`);
+        console.log(
+          `Pushed real-time username update for ${userId} to ${newUsername} in room ${roomCode}.`
+        );
       }
     }
   }
-  
+
   // --- Dragon's Breath Mini-game Logic ---
 
   private _createDragonsBreathGame(gameState: GameState) {
@@ -1757,76 +2188,98 @@ class GameService {
 
     // Add Defuse cards to the base deck
     const baseDeck: DragonCardType[] = [
-        DragonCardType.ATTACK, DragonCardType.ATTACK,
-        DragonCardType.SKIP, DragonCardType.SKIP,
-        DragonCardType.SEE_THE_FUTURE, DragonCardType.SEE_THE_FUTURE,
-        DragonCardType.SHUFFLE,
-        DragonCardType.EMBERDRAKE_HATCHLING, DragonCardType.GLIMMERING_WHELP, DragonCardType.SUNSTONE_DRAKE,
-        DragonCardType.EMBERDRAKE_HATCHLING, DragonCardType.GLIMMERING_WHELP, DragonCardType.SUNSTONE_DRAKE,
-        DragonCardType.DEFUSE, DragonCardType.DEFUSE,
+      DragonCardType.ATTACK,
+      DragonCardType.ATTACK,
+      DragonCardType.SKIP,
+      DragonCardType.SKIP,
+      DragonCardType.SEE_THE_FUTURE,
+      DragonCardType.SEE_THE_FUTURE,
+      DragonCardType.SHUFFLE,
+      DragonCardType.EMBERDRAKE_HATCHLING,
+      DragonCardType.GLIMMERING_WHELP,
+      DragonCardType.SUNSTONE_DRAKE,
+      DragonCardType.EMBERDRAKE_HATCHLING,
+      DragonCardType.GLIMMERING_WHELP,
+      DragonCardType.SUNSTONE_DRAKE,
+      DragonCardType.DEFUSE,
+      DragonCardType.DEFUSE,
     ];
-    
+
     // Initialize empty hands
-    const hands: { [playerId: string]: DragonCard[] } = { 
-        [player1.id]: [], 
-        [player2.id]: [] 
+    const hands: { [playerId: string]: DragonCard[] } = {
+      [player1.id]: [],
+      [player2.id]: [],
     };
 
-    const fullDeck: DragonCard[] = baseDeck.map(type => ({ id: `${type}-${Math.random()}`, type }));
+    const fullDeck: DragonCard[] = baseDeck.map((type) => ({
+      id: `${type}-${Math.random()}`,
+      type,
+    }));
     this._shuffleArray(fullDeck);
-    
+
     // Deal 5 cards to each player
     for (let i = 0; i < 5; i++) {
-        if(fullDeck.length > 0) hands[player1.id].push(fullDeck.pop()!);
-        if(fullDeck.length > 0) hands[player2.id].push(fullDeck.pop()!);
+      if (fullDeck.length > 0) hands[player1.id].push(fullDeck.pop()!);
+      if (fullDeck.length > 0) hands[player2.id].push(fullDeck.pop()!);
     }
-    
+
     // Add Dragon's Breath to the remaining deck
-    fullDeck.push({ id: 'dragon-breath', type: DragonCardType.DRAGON_BREATH });
+    fullDeck.push({ id: "dragon-breath", type: DragonCardType.DRAGON_BREATH });
     this._shuffleArray(fullDeck);
 
     const startingPlayer = Math.random() < 0.5 ? player1 : player2;
 
     gameState.dragonsBreathState = {
-        deck: fullDeck,
-        hands: hands,
-        discardPile: [],
-        currentPlayerId: startingPlayer.id,
-        turnsToTake: 1,
-        isViewingFuture: null,
-        futureCards: [],
-        isPlacingDragon: null,
-        winner: null,
-        loser: null,
+      deck: fullDeck,
+      hands: hands,
+      discardPile: [],
+      currentPlayerId: startingPlayer.id,
+      turnsToTake: 1,
+      isViewingFuture: null,
+      futureCards: [],
+      isPlacingDragon: null,
+      winner: null,
+      loser: null,
     };
   }
-  
+
   private _shuffleArray<T>(array: T[]): T[] {
     for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
     }
     return array;
   }
-  
+
   private _advanceDBTurn(gameState: GameState) {
     const dbState = gameState.dragonsBreathState!;
-    const currentPlayerIndex = gameState.players.findIndex(p => p.id === dbState.currentPlayerId);
+    const currentPlayerIndex = gameState.players.findIndex(
+      (p) => p.id === dbState.currentPlayerId
+    );
     const nextPlayerIndex = (currentPlayerIndex + 1) % gameState.players.length;
     dbState.currentPlayerId = gameState.players[nextPlayerIndex].id;
     dbState.turnsToTake = 1;
-    this.addLog(gameState, `${gameState.players[nextPlayerIndex].name}'s turn.`, 'dragonsBreath');
+    this.addLog(
+      gameState,
+      `${gameState.players[nextPlayerIndex].name}'s turn.`,
+      "dragonsBreath"
+    );
   }
 
-  private async _saveDragonsBreathResult(winnerUserId: number, loserUserId: number) {
+  private async _saveDragonsBreathResult(
+    winnerUserId: number,
+    loserUserId: number
+  ) {
     try {
-        await db.run(
-            "INSERT INTO dragons_breath_matches (winner_user_id, loser_user_id) VALUES ($1, $2)",
-            [winnerUserId, loserUserId]
-        );
-        console.log(`Dragon's Breath match saved: Winner ${winnerUserId}, Loser ${loserUserId}`);
+      await db.run(
+        "INSERT INTO dragons_breath_matches (winner_user_id, loser_user_id) VALUES ($1, $2)",
+        [winnerUserId, loserUserId]
+      );
+      console.log(
+        `Dragon's Breath match saved: Winner ${winnerUserId}, Loser ${loserUserId}`
+      );
     } catch (error) {
-        console.error("Failed to save Dragon's Breath match result:", error);
+      console.error("Failed to save Dragon's Breath match result:", error);
     }
   }
 
@@ -1837,14 +2290,27 @@ class GameService {
     const player = this.getPlayer(gameState, playerId);
 
     if (!player?.isHost || gameState.players.length !== 2) {
-      return this.io.to(playerId).emit('error', "Dragon's Breath can only be started by the host in a 2-player lobby.");
+      return this.io
+        .to(playerId)
+        .emit(
+          "error",
+          "Dragon's Breath can only be started by the host in a 2-player lobby."
+        );
     }
-    
+
     this._createDragonsBreathGame(gameState);
     gameState.phase = GamePhase.DRAGONS_BREATH;
-    const startingPlayer = gameState.players.find(p => p.id === gameState.dragonsBreathState!.currentPlayerId);
-    this.addLog(gameState, `A game of Dragon's Breath has begun! ${startingPlayer?.name || 'A player'} starts.`, 'dragonsBreath');
-    this.io.to(roomCode).emit('updateGameState', gameState);
+    const startingPlayer = gameState.players.find(
+      (p) => p.id === gameState.dragonsBreathState!.currentPlayerId
+    );
+    this.addLog(
+      gameState,
+      `A game of Dragon's Breath has begun! ${
+        startingPlayer?.name || "A player"
+      } starts.`,
+      "dragonsBreath"
+    );
+    this.io.to(roomCode).emit("updateGameState", gameState);
   }
 
   handleDrawCard(playerId: string) {
@@ -1853,47 +2319,64 @@ class GameService {
     const gameState = this.games.get(roomCode)!;
     const dbState = gameState.dragonsBreathState;
     const player = this.getPlayer(gameState, playerId);
-    
-    if (!dbState || !player || dbState.currentPlayerId !== playerId || dbState.isPlacingDragon || dbState.isViewingFuture) return;
+
+    if (
+      !dbState ||
+      !player ||
+      dbState.currentPlayerId !== playerId ||
+      dbState.isPlacingDragon ||
+      dbState.isViewingFuture
+    )
+      return;
 
     if (dbState.deck.length === 0) {
-        this.io.to(playerId).emit('error', 'The deck is empty!');
-        return;
+      this.io.to(playerId).emit("error", "The deck is empty!");
+      return;
     }
 
     const drawnCard = dbState.deck.pop()!;
-    this.addLog(gameState, `${player.name} draws a card...`, 'dragonsBreath');
-    
+    this.addLog(gameState, `${player.name} draws a card...`, "dragonsBreath");
+
     if (drawnCard.type === DragonCardType.DRAGON_BREATH) {
-        const defuseIndex = dbState.hands[playerId].findIndex(c => c.type === DragonCardType.DEFUSE);
-        if (defuseIndex !== -1) {
-            const defuseCard = dbState.hands[playerId].splice(defuseIndex, 1)[0];
-            dbState.discardPile.push(defuseCard);
-            dbState.isPlacingDragon = playerId;
-            this.addLog(gameState, `...it's the Dragon's Breath! But ${player.name} defuses it!`, 'dragonsBreath');
-        } else {
-            dbState.loser = playerId;
-            const winner = gameState.players.find(p => p.id !== playerId)!;
-            dbState.winner = winner.id;
-            this.addLog(gameState, `...it's the Dragon's Breath! ${player.name} is eliminated! ${winner.name} wins!`, 'dragonsBreath');
-            
-            // Save match result
-            if (winner.userId && player.userId) {
-                this._saveDragonsBreathResult(winner.userId, player.userId);
-            }
+      const defuseIndex = dbState.hands[playerId].findIndex(
+        (c) => c.type === DragonCardType.DEFUSE
+      );
+      if (defuseIndex !== -1) {
+        const defuseCard = dbState.hands[playerId].splice(defuseIndex, 1)[0];
+        dbState.discardPile.push(defuseCard);
+        dbState.isPlacingDragon = playerId;
+        this.addLog(
+          gameState,
+          `...it's the Dragon's Breath! But ${player.name} defuses it!`,
+          "dragonsBreath"
+        );
+      } else {
+        dbState.loser = playerId;
+        const winner = gameState.players.find((p) => p.id !== playerId)!;
+        dbState.winner = winner.id;
+        this.addLog(
+          gameState,
+          `...it's the Dragon's Breath! ${player.name} is eliminated! ${winner.name} wins!`,
+          "dragonsBreath"
+        );
+
+        // Save match result
+        if (winner.userId && player.userId) {
+          this._saveDragonsBreathResult(winner.userId, player.userId);
         }
+      }
     } else {
-        dbState.hands[playerId].push(drawnCard);
-    }
-    
-    dbState.turnsToTake--;
-    if(dbState.turnsToTake <= 0) {
-        if (!dbState.isPlacingDragon && !dbState.winner) {
-            this._advanceDBTurn(gameState);
-        }
+      dbState.hands[playerId].push(drawnCard);
     }
 
-    this.io.to(roomCode).emit('updateGameState', gameState);
+    dbState.turnsToTake--;
+    if (dbState.turnsToTake <= 0) {
+      if (!dbState.isPlacingDragon && !dbState.winner) {
+        this._advanceDBTurn(gameState);
+      }
+    }
+
+    this.io.to(roomCode).emit("updateGameState", gameState);
   }
 
   handlePlayCard(playerId: string, cardId: string) {
@@ -1905,77 +2388,96 @@ class GameService {
 
     if (!dbState || !player || dbState.currentPlayerId !== playerId) return;
 
-    const cardIndex = dbState.hands[playerId].findIndex(c => c.id === cardId);
+    const cardIndex = dbState.hands[playerId].findIndex((c) => c.id === cardId);
     if (cardIndex === -1) return;
 
     const card = dbState.hands[playerId].splice(cardIndex, 1)[0];
     dbState.discardPile.push(card);
-    this.addLog(gameState, `${player.name} played ${card.type}.`, 'dragonsBreath');
+    this.addLog(
+      gameState,
+      `${player.name} played ${card.type}.`,
+      "dragonsBreath"
+    );
 
     switch (card.type) {
-        case DragonCardType.ATTACK:
-            this._advanceDBTurn(gameState);
-            dbState.turnsToTake = 2;
-            const attackedPlayer = gameState.players.find(p => p.id === dbState.currentPlayerId);
-            if (attackedPlayer) {
-              this.addLog(gameState, `${attackedPlayer.name} must now take 2 turns.`, 'dragonsBreath');
-            }
-            break;
-        case DragonCardType.SKIP:
-            this._advanceDBTurn(gameState);
-            break;
-        case DragonCardType.SEE_THE_FUTURE:
-            dbState.isViewingFuture = playerId;
-            dbState.futureCards = dbState.deck.slice(-3).reverse();
-            break;
-        case DragonCardType.SHUFFLE:
-            this._shuffleArray(dbState.deck);
-            this.addLog(gameState, `The deck has been shuffled.`, 'dragonsBreath');
-            break;
+      case DragonCardType.ATTACK:
+        this._advanceDBTurn(gameState);
+        dbState.turnsToTake = 2;
+        const attackedPlayer = gameState.players.find(
+          (p) => p.id === dbState.currentPlayerId
+        );
+        if (attackedPlayer) {
+          this.addLog(
+            gameState,
+            `${attackedPlayer.name} must now take 2 turns.`,
+            "dragonsBreath"
+          );
+        }
+        break;
+      case DragonCardType.SKIP:
+        this._advanceDBTurn(gameState);
+        break;
+      case DragonCardType.SEE_THE_FUTURE:
+        dbState.isViewingFuture = playerId;
+        dbState.futureCards = dbState.deck.slice(-3).reverse();
+        break;
+      case DragonCardType.SHUFFLE:
+        this._shuffleArray(dbState.deck);
+        this.addLog(gameState, `The deck has been shuffled.`, "dragonsBreath");
+        break;
     }
-    
-    this.io.to(roomCode).emit('updateGameState', gameState);
+
+    this.io.to(roomCode).emit("updateGameState", gameState);
   }
 
   handlePlaceDragonCard(playerId: string, index: number) {
-      const roomCode = this.findRoomByPlayerId(playerId);
-      if (!roomCode) return;
-      const gameState = this.games.get(roomCode)!;
-      const dbState = gameState.dragonsBreathState;
+    const roomCode = this.findRoomByPlayerId(playerId);
+    if (!roomCode) return;
+    const gameState = this.games.get(roomCode)!;
+    const dbState = gameState.dragonsBreathState;
 
-      if (!dbState || dbState.isPlacingDragon !== playerId) return;
+    if (!dbState || dbState.isPlacingDragon !== playerId) return;
 
-      const deckSizeBeforePlacing = dbState.deck.length;
-      if (index < 0 || index > deckSizeBeforePlacing) {
-          this.io.to(playerId).emit('error', 'Invalid placement index.');
-          return;
-      }
-      
-      // The user sees "position 0" as the top of the deck (drawn next).
-      // The deck is drawn from the end using .pop().
-      // So, "position 0" from the user means we should place it at the end of the array.
-      // "position deck.length" means we should place it at the beginning.
-      const placementIndex = deckSizeBeforePlacing - index;
-      
-      dbState.deck.splice(placementIndex, 0, { id: 'dragon-breath', type: DragonCardType.DRAGON_BREATH });
-      
-      dbState.isPlacingDragon = null;
-      this._advanceDBTurn(gameState);
-      
-      this.addLog(gameState, `${this.getPlayer(gameState, playerId)!.name} placed the Dragon's Breath back in the deck...`, 'dragonsBreath');
-      this.io.to(roomCode).emit('updateGameState', gameState);
+    const deckSizeBeforePlacing = dbState.deck.length;
+    if (index < 0 || index > deckSizeBeforePlacing) {
+      this.io.to(playerId).emit("error", "Invalid placement index.");
+      return;
+    }
+
+    // The user sees "position 0" as the top of the deck (drawn next).
+    // The deck is drawn from the end using .pop().
+    // So, "position 0" from the user means we should place it at the end of the array.
+    // "position deck.length" means we should place it at the beginning.
+    const placementIndex = deckSizeBeforePlacing - index;
+
+    dbState.deck.splice(placementIndex, 0, {
+      id: "dragon-breath",
+      type: DragonCardType.DRAGON_BREATH,
+    });
+
+    dbState.isPlacingDragon = null;
+    this._advanceDBTurn(gameState);
+
+    this.addLog(
+      gameState,
+      `${
+        this.getPlayer(gameState, playerId)!.name
+      } placed the Dragon's Breath back in the deck...`,
+      "dragonsBreath"
+    );
+    this.io.to(roomCode).emit("updateGameState", gameState);
   }
 
   handleEndFutureView(playerId: string) {
-      const roomCode = this.findRoomByPlayerId(playerId);
-      if (!roomCode) return;
-      const gameState = this.games.get(roomCode)!;
-      const dbState = gameState.dragonsBreathState;
-      if (!dbState || dbState.isViewingFuture !== playerId) return;
+    const roomCode = this.findRoomByPlayerId(playerId);
+    if (!roomCode) return;
+    const gameState = this.games.get(roomCode)!;
+    const dbState = gameState.dragonsBreathState;
+    if (!dbState || dbState.isViewingFuture !== playerId) return;
 
-      dbState.isViewingFuture = null;
-      dbState.futureCards = [];
-      this.io.to(roomCode).emit('updateGameState', gameState);
+    dbState.isViewingFuture = null;
+    dbState.futureCards = [];
+    this.io.to(roomCode).emit("updateGameState", gameState);
   }
 
   handleReturnToLobby(playerId: string) {
@@ -1988,41 +2490,48 @@ class GameService {
   getRoomCount() {
     return this.games.size;
   }
-  
+
   getAllRooms() {
-    return Array.from(this.games.values()).map(state => ({
-        roomCode: state.roomCode,
-        playerCount: state.players.length,
-        phase: state.phase,
-        players: state.players.map(p => ({ name: p.name, status: p.status }))
+    return Array.from(this.games.values()).map((state) => ({
+      roomCode: state.roomCode,
+      playerCount: state.players.length,
+      phase: state.phase,
+      players: state.players.map((p) => ({ name: p.name, status: p.status })),
     }));
   }
-  
+
   forceCloseRoom(roomCode: string) {
     const gameState = this.games.get(roomCode.toUpperCase());
     if (gameState) {
-      this.io.to(roomCode).emit("kicked", "This room has been closed by an administrator.");
+      this.io
+        .to(roomCode)
+        .emit("kicked", "This room has been closed by an administrator.");
       this.io.in(roomCode).disconnectSockets(true);
       this.games.delete(roomCode.toUpperCase());
       console.log(`Admin forced closed room: ${roomCode}`);
     }
   }
-  
+
   forceRemoveUserByUserId(userId: number) {
     const gameInfo = this.findGameByPlayerUserId(userId);
     if (gameInfo) {
       const [roomCode, gameState] = gameInfo;
-      const player = gameState.players.find(p => p.userId === userId);
+      const player = gameState.players.find((p) => p.userId === userId);
       if (player) {
         const socket = this.io.sockets.sockets.get(player.id);
         if (socket) {
-          socket.emit("kicked", "You have been removed from the game by an administrator.");
+          socket.emit(
+            "kicked",
+            "You have been removed from the game by an administrator."
+          );
           socket.leave(roomCode);
           socket.disconnect(true);
         }
         // Proceed to disconnect, which will handle player removal from state
         this.handleDisconnect(player.id);
-        console.log(`Admin forced removal of user ${userId} from room ${roomCode}`);
+        console.log(
+          `Admin forced removal of user ${userId} from room ${roomCode}`
+        );
       }
     }
   }
@@ -2033,45 +2542,82 @@ const gameService = new GameService(io);
 io.use(authMiddlewareSocket);
 
 io.on("connection", (socket: any) => {
-  console.log(`A user connected: ${socket.id}, username: ${socket.user.username}`);
+  console.log(
+    `A user connected: ${socket.id}, username: ${socket.user.username}`
+  );
 
   const gameToRejoin = gameService.findGameByPlayerUserId(socket.user.id);
   if (gameToRejoin) {
     gameService.handleReconnect(socket, socket.user, gameToRejoin);
   }
 
-  socket.on("joinRoom", ({ roomCode }) => gameService.handleJoinRoom(socket, socket.user, roomCode));
+  socket.on("joinRoom", ({ roomCode }) =>
+    gameService.handleJoinRoom(socket, socket.user, roomCode)
+  );
   socket.on("leaveRoom", () => gameService.handleLeaveRoom(socket.id));
-  socket.on("startGame", (data) => gameService.handleStartGame(socket.id, data.selectedRoles));
+  socket.on("startGame", (data) =>
+    gameService.handleStartGame(socket.id, data.selectedRoles)
+  );
   socket.on("playerReady", () => gameService.handlePlayerReady(socket.id));
-  socket.on("playerReadyForNextGame", () => gameService.handlePlayerReadyForNextGame(socket.id));
-  socket.on("selectTeam", (teamPlayerIds) => gameService.handleSelectTeam(socket.id, teamPlayerIds));
-  socket.on("updatePendingTeam", (teamPlayerIds) => gameService.handleUpdatePendingTeam(socket.id, teamPlayerIds));
-  socket.on("voteOnTeam", (vote) => gameService.handleVoteOnTeam(socket.id, vote));
-  socket.on("voteOnQuest", (vote) => gameService.handleVoteOnQuest(socket.id, vote));
-  socket.on("assassinate", (targetId) => gameService.handleAssassinate(socket.id, targetId));
-  socket.on("sendMessage", (message) => gameService.handleSendMessage(socket.id, message));
-  socket.on("initiateRestart", () => gameService.handleInitiateRestart(socket.id));
-  socket.on("voteOnRestart", (vote) => gameService.handleVoteOnRestart(socket.id, vote));
-  socket.on("kickPlayer", (playerIdToKick) => gameService.handleKickPlayer(socket.id, playerIdToKick));
+  socket.on("playerReadyForNextGame", () =>
+    gameService.handlePlayerReadyForNextGame(socket.id)
+  );
+  socket.on("selectTeam", (teamPlayerIds) =>
+    gameService.handleSelectTeam(socket.id, teamPlayerIds)
+  );
+  socket.on("updatePendingTeam", (teamPlayerIds) =>
+    gameService.handleUpdatePendingTeam(socket.id, teamPlayerIds)
+  );
+  socket.on("updateAssassinationTarget", (targetId) =>
+    gameService.handleUpdateAssassinationTarget(socket.id, targetId)
+  );
+  socket.on("voteOnTeam", (vote) =>
+    gameService.handleVoteOnTeam(socket.id, vote)
+  );
+  socket.on("voteOnQuest", (vote) =>
+    gameService.handleVoteOnQuest(socket.id, vote)
+  );
+  socket.on("assassinate", (targetId) =>
+    gameService.handleAssassinate(socket.id, targetId)
+  );
+  socket.on("sendMessage", (message) =>
+    gameService.handleSendMessage(socket.id, message)
+  );
+  socket.on("initiateRestart", () =>
+    gameService.handleInitiateRestart(socket.id)
+  );
+  socket.on("voteOnRestart", (vote) =>
+    gameService.handleVoteOnRestart(socket.id, vote)
+  );
+  socket.on("kickPlayer", (playerIdToKick) =>
+    gameService.handleKickPlayer(socket.id, playerIdToKick)
+  );
 
   // --- Dragon's Breath Events ---
-  socket.on('startDragonsBreath', () => gameService.handleStartDragonsBreath(socket.id));
-  socket.on('drawCard', () => gameService.handleDrawCard(socket.id));
-  socket.on('playCard', (cardId) => gameService.handlePlayCard(socket.id, cardId));
-  socket.on('placeDragonCard', (index) => gameService.handlePlaceDragonCard(socket.id, index));
-  socket.on('endFutureView', () => gameService.handleEndFutureView(socket.id));
-  socket.on('returnToLobby', () => gameService.handleReturnToLobby(socket.id));
+  socket.on("startDragonsBreath", () =>
+    gameService.handleStartDragonsBreath(socket.id)
+  );
+  socket.on("drawCard", () => gameService.handleDrawCard(socket.id));
+  socket.on("playCard", (cardId) =>
+    gameService.handlePlayCard(socket.id, cardId)
+  );
+  socket.on("placeDragonCard", (index) =>
+    gameService.handlePlaceDragonCard(socket.id, index)
+  );
+  socket.on("endFutureView", () => gameService.handleEndFutureView(socket.id));
+  socket.on("returnToLobby", () => gameService.handleReturnToLobby(socket.id));
 
   // --- Voice Chat Signaling ---
-  socket.on('voice:offer', ({ targetId, sdp }) => {
-    socket.to(targetId).emit('voice:offer', { fromId: socket.id, sdp });
+  socket.on("voice:offer", ({ targetId, sdp }) => {
+    socket.to(targetId).emit("voice:offer", { fromId: socket.id, sdp });
   });
-  socket.on('voice:answer', ({ targetId, sdp }) => {
-    socket.to(targetId).emit('voice:answer', { fromId: socket.id, sdp });
+  socket.on("voice:answer", ({ targetId, sdp }) => {
+    socket.to(targetId).emit("voice:answer", { fromId: socket.id, sdp });
   });
-  socket.on('voice:ice-candidate', ({ targetId, candidate }) => {
-    socket.to(targetId).emit('voice:ice-candidate', { fromId: socket.id, candidate });
+  socket.on("voice:ice-candidate", ({ targetId, candidate }) => {
+    socket
+      .to(targetId)
+      .emit("voice:ice-candidate", { fromId: socket.id, candidate });
   });
 
   socket.on("disconnect", () => {

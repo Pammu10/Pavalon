@@ -9,6 +9,8 @@ import QuestResultOverlay from "@/components/ui/QuestResultOverlay";
 import PlayerTile from "../ui/PlayerTile";
 import { GamePhaseHeader } from "../ui/GamePhaseHeader";
 import { usePlayerVisionMap } from "@/hooks/usePlayerVision";
+import { motion } from "framer-motion";
+import { ROLES } from "@/constants";
 
 // --- Reusable UI Components ---
 
@@ -313,45 +315,98 @@ const QuestResult: React.FC = () => {
 
 
 const Assassination: React.FC = () => {
-  const { gameState, playerId, assassinate } = useGame();
+  const { gameState, playerId, assassinate, updateAssassinationTarget } = useGame();
   const player = gameState.players.find((p) => p.id === playerId);
+
   const isAssassin = player?.role === Role.ASSASSIN;
-  const potentialTargets = gameState.players.filter(
-    (p) => p.alignment === Alignment.GOOD
-  );
+  const isEvilTeam = player?.alignment === Alignment.EVIL && player?.role !== Role.OBERON;
+  const potentialTargets = gameState.players.filter(p => p.alignment === Alignment.GOOD);
+  const selectedTargetId = gameState.assassinationTargetId;
   const isPaused = !!gameState.reconnectingPlayer;
   const visiblePlayerMap = usePlayerVisionMap();
 
+  const handlePlayerClick = (targetId: string) => {
+    if (isPaused || !isAssassin) return;
+
+    const newTargetId = selectedTargetId === targetId ? null : targetId;
+    updateAssassinationTarget(newTargetId);
+  };
+
+  const handleConfirmClick = () => {
+    if (isPaused || !isAssassin || !selectedTargetId) return;
+    assassinate(selectedTargetId);
+  };
+
+  // View for Good players and Oberon
+  if (!isEvilTeam) {
+    return (
+        <Card className="flex flex-col items-center justify-center p-6 md:p-10">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
+                className="relative w-48 h-48 md:w-64 md:h-64"
+            >
+                <div className="absolute inset-0 bg-red-600 rounded-full blur-2xl animate-pulse-slow opacity-60"></div>
+                <img src={ROLES[Role.ASSASSIN].img} alt="Assassin" className="relative w-full h-full object-cover rounded-full border-4 border-red-800 shadow-2xl shadow-black"/>
+            </motion.div>
+            <h3 className="font-eaglelake text-2xl md:text-4xl mt-6 text-red-400 animate-glow">A Fateful Choice</h3>
+            <p className="text-center mt-2 text-slate-300">
+              The Assassin is making their move... Pray for Merlin.
+            </p>
+        </Card>
+    );
+  }
+
+  // View for Assassin and their evil teammates
   return (
     <Card>
       {isAssassin ? (
         <>
-          <p className="text-center mt-2 mb-4 text-slate-300">
-            You have one chance. Find and eliminate Merlin.
-          </p>
-          <div
-            id="assassination-grid"
-            className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] md:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2 sm:gap-4 my-6 justify-center"
-          >
-            {potentialTargets.map((p) => (
-              <PlayerTile
-                key={p.id}
-                player={p}
-                onClick={() => !isPaused && assassinate(p.id)}
-                isKnownAs={visiblePlayerMap.get(p.id)}
-                className="hover:ring-4 hover:ring-red-500/70"
-              />
-            ))}
-          </div>
+            <h3 className="text-center font-eaglelake text-xl text-yellow-500">Your Target</h3>
+            <p className="text-center mt-1 mb-4 text-slate-300 text-sm">
+                You have one chance. Find and eliminate Merlin. Your allies can see your choice.
+            </p>
         </>
       ) : (
-        <p className="text-center mt-4 text-xl text-slate-300">
-          The Assassin is making their choice...
-        </p>
+        <>
+            <h3 className="text-center font-eaglelake text-xl text-yellow-500">The Target</h3>
+            <p className="text-center mt-1 mb-4 text-slate-300 text-sm">
+              The Assassin is choosing their target. Discuss and guide them to victory.
+            </p>
+        </>
       )}
+      <div
+        id="assassination-grid"
+        className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] md:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2 sm:gap-4 my-6 justify-center"
+      >
+        {potentialTargets.map((p) => (
+          <PlayerTile
+            key={p.id}
+            player={p}
+            isSelected={p.id === selectedTargetId}
+            onClick={isAssassin ? () => handlePlayerClick(p.id) : undefined}
+            isKnownAs={visiblePlayerMap.get(p.id)}
+            className={!isAssassin ? "cursor-default" : ""}
+          />
+        ))}
+      </div>
+       {isAssassin && (
+            <div className="text-center mt-6">
+                <Button 
+                    onClick={handleConfirmClick}
+                    disabled={isPaused || !selectedTargetId}
+                    variant="fail"
+                    className="py-4 text-xl"
+                >
+                    Confirm Assassination
+                </Button>
+            </div>
+       )}
     </Card>
   );
 };
+
 
 // -- Main Game Screen Component --
 

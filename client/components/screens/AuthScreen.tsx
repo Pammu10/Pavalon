@@ -1,10 +1,16 @@
+
 import React, { useState } from "react";
 import { useGame } from "@/components/context/GameContext";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Spinner from "@/components/ui/Spinner";
 
-const AuthScreen: React.FC = () => {
+interface AuthScreenProps {
+  onLoginSuccess?: () => void;
+  onRegisterSuccess?: () => void;
+}
+
+const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -14,9 +20,9 @@ const AuthScreen: React.FC = () => {
     e.preventDefault();
     if (username.trim() && password.trim()) {
       if (isLogin) {
-        login({ username, password });
+        login({ username, password }, onLoginSuccess);
       } else {
-        register({ username, password });
+        register({ username, password }, onRegisterSuccess);
       }
     }
   };

@@ -134,7 +134,7 @@ const AchievementsTab: React.FC = () => {
         }
     }, [user]);
 
-    const { allTitles, allBorders, allIcons } = useMemo(() => {
+    const { allBorders, allIcons } = useMemo(() => {
         const rewards: RewardOption[] = achievements.flatMap(ach =>
             ach.rewards.map(reward => ({
                 ...reward,
@@ -143,7 +143,6 @@ const AchievementsTab: React.FC = () => {
             }))
         );
         return {
-            allTitles: rewards.filter(r => r.type === 'TITLE'),
             allBorders: rewards.filter(r => r.type === 'BORDER'),
             allIcons: rewards.filter(r => r.type === 'ICON'),
         };
@@ -238,14 +237,26 @@ const AchievementsTab: React.FC = () => {
 
                 <div className="space-y-6">
                     <div className="flex flex-col md:flex-row gap-6">
-                        <CustomizationSelect 
-                            label="Title"
-                            icon={<VenetianMask />}
-                            value={selectedTitle || ''}
-                            options={allTitles}
-                            onChange={(e) => setSelectedTitle(e.target.value)}
-                            onLockedItemClick={handleLockedItemClick}
-                        />
+                         <div className="flex-1">
+                            <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
+                                <VenetianMask />
+                                Custom Title
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={selectedTitle}
+                                    onChange={(e) => setSelectedTitle(e.target.value)}
+                                    placeholder="The Brave"
+                                    maxLength={10}
+                                    className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 pr-12 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 pointer-events-none">
+                                    {selectedTitle.length} / 10
+                                </span>
+                            </div>
+                        </div>
+
                         <CustomizationSelect 
                             label="Border"
                             icon={<Palette />}
