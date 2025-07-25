@@ -265,6 +265,14 @@ export interface LeaderboardData {
     bestEvil: LeaderboardEntry[];
 }
 
+export interface DragonsBreathLeaderboardData {
+    mostWins: LeaderboardEntry[];
+    mostDefuses: LeaderboardEntry[];
+    mostSees: LeaderboardEntry[];
+    mostAttacks: LeaderboardEntry[];
+    mostFillers: LeaderboardEntry[];
+}
+
 // Socket Event Types
 export interface ClientToServerEvents {
   joinRoom: (data: { roomCode?: string }) => void;

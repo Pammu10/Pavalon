@@ -25,7 +25,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         description: 'Complete your first game of Pavalon.',
         icon: 'Swords',
         rewards: [{ type: 'ICON', value: 'swords', name: 'Crossed Swords Icon'}],
-        check: (stats) => stats.totalGames >= 1,
+        check: (stats, p) => stats?.totalGames >= 1,
     },
     {
         id: 'first_win',
@@ -35,7 +35,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         rewards: [
             { type: 'ICON', value: 'trophy', name: 'Trophy Icon' }
         ],
-        check: (stats) => stats.totalWins >= 1,
+        check: (stats, p) => stats?.totalWins >= 1,
     },
     {
         id: 'ten_games',
@@ -46,7 +46,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
             { type: 'BORDER', value: 'crimson', name: 'Crimson Border' },
             { type: 'ICON', value: 'shield', name: 'Shield Icon' }
         ],
-        check: (stats) => stats.totalGames >= 10,
+        check: (stats, p) => stats?.totalGames >= 10,
     },
     
     // --- Role Specific Wins ---
@@ -58,7 +58,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         rewards: [
             { type: 'ICON', value: 'eye', name: 'Eye Icon' },
         ],
-        check: (stats, p) => p.role === Role.MERLIN && p.won,
+        check: (stats, p) => p?.role === Role.MERLIN && p.won,
     },
     {
         id: 'win_as_assassin',
@@ -68,7 +68,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         rewards: [
             { type: 'ICON', value: 'skull', name: 'Skull Icon' }
         ],
-        check: (stats, p) => p.role === Role.ASSASSIN && p.won,
+        check: (stats, p) => p?.role === Role.ASSASSIN && p.won,
     },
     {
         id: 'win_as_percival',
@@ -79,7 +79,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
             { type: 'BORDER', value: 'azure', name: 'Azure Border' },
             { type: 'ICON', value: 'star', name: 'Star Icon' },
         ],
-        check: (stats, p) => p.role === Role.PERCIVAL && p.won,
+        check: (stats, p) => p?.role === Role.PERCIVAL && p.won,
     },
     {
         id: 'win_as_morgana',
@@ -89,7 +89,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         rewards: [
             { type: 'ICON', value: 'feather', name: 'Feather Icon' },
         ],
-        check: (stats, p) => p.role === Role.MORGANA && p.won,
+        check: (stats, p) => p?.role === Role.MORGANA && p.won,
     },
 
 
@@ -102,7 +102,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         rewards: [
             { type: 'ICON', value: 'crown', name: 'Crown Icon' }
         ],
-        check: (stats) => stats.totalWins >= 10,
+        check: (stats, p) => stats?.totalWins >= 10,
     },
     {
         id: 'five_good_wins',
@@ -112,7 +112,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         rewards: [
             { type: 'ICON', value: 'shieldcheck', name: 'Shield Check Icon' },
         ],
-        check: (stats) => stats.goodWins >= 5,
+        check: (stats, p) => stats?.goodWins >= 5,
     },
     {
         id: 'five_evil_wins',
@@ -123,7 +123,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
             { type: 'BORDER', value: 'amethyst', name: 'Amethyst Border' },
             { type: 'ICON', value: 'heartcrack', name: 'Heartcrack Icon' },
         ],
-        check: (stats) => stats.evilWins >= 5,
+        check: (stats, p) => stats?.evilWins >= 5,
     },
      {
         id: 'twenty_five_wins',
@@ -134,7 +134,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
             { type: 'BORDER', value: 'golden', name: 'Golden Border' },
             { type: 'ICON', value: 'castle', name: 'Castle Icon' },
         ],
-        check: (stats) => stats.totalWins >= 25,
+        check: (stats, p) => stats?.totalWins >= 25,
     },
     {
         id: 'sakura_blessing',

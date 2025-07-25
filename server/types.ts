@@ -1,3 +1,4 @@
+
 export enum Role {
     MERLIN = 'Merlin',
     PERCIVAL = 'Percival',
@@ -214,6 +215,14 @@ export interface LeaderboardData {
     winStreaks: LeaderboardEntry[];
     bestGood: LeaderboardEntry[];
     bestEvil: LeaderboardEntry[];
+}
+
+export interface DragonsBreathLeaderboardData {
+    mostWins: LeaderboardEntry[];
+    mostDefuses: LeaderboardEntry[];
+    mostSees: LeaderboardEntry[];
+    mostAttacks: LeaderboardEntry[];
+    mostFillers: LeaderboardEntry[];
 }
 
 // Achievement types for socket payload

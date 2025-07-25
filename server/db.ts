@@ -67,6 +67,7 @@ async function initializeDb() {
     // Add columns if they don't exist for graceful migration
     const columnsToAdd = [
         { name: 'win_streak', type: 'INTEGER NOT NULL DEFAULT 0' },
+        { name: 'highest_win_streak', type: 'INTEGER NOT NULL DEFAULT 0' },
         { name: 'assassin_kills', type: 'INTEGER NOT NULL DEFAULT 0' },
         { name: 'selected_title', type: 'TEXT' },
         { name: 'selected_border', type: 'TEXT' },
@@ -78,6 +79,10 @@ async function initializeDb() {
         { name: 'good_wins', type: 'INTEGER NOT NULL DEFAULT 0' },
         { name: 'evil_games', type: 'INTEGER NOT NULL DEFAULT 0' },
         { name: 'evil_wins', type: 'INTEGER NOT NULL DEFAULT 0' },
+        { name: 'db_defuses', type: 'INTEGER NOT NULL DEFAULT 0' },
+        { name: 'db_futures_played', type: 'INTEGER NOT NULL DEFAULT 0' },
+        { name: 'db_attacks_played', type: 'INTEGER NOT NULL DEFAULT 0' },
+        { name: 'db_fillers_played', type: 'INTEGER NOT NULL DEFAULT 0' },
     ];
 
     for (const column of columnsToAdd) {
@@ -121,6 +126,21 @@ const dbInstance = {
     exec: async (sql: string): Promise<QueryResult> => {
         const pool = await dbPromise;
         return pool.query(sql);
+    },
+    transaction: async (callback: (client: { query: (sql: string, params?: any[]) => Promise<QueryResult> }) => Promise<void>) => {
+        const pool = await dbPromise;
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await callback(client);
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            console.error('Transaction failed, rolled back:', e);
+            throw e;
+        } finally {
+            client.release();
+        }
     },
 };
 

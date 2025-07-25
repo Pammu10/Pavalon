@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGame } from '@/components/context/GameContext';
@@ -10,7 +11,7 @@ import Card from '@/components/ui/Card';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Swords, BarChart2, Gamepad2, Trash2, Edit, Award, ShieldCheck, ShieldAlert, KeyRound } from 'lucide-react';
+import { Users, Swords, BarChart2, Gamepad2, Trash2, Edit, Award, ShieldCheck, ShieldAlert, KeyRound, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 
 // --- Types for Admin Panel ---
 type AdminUser = { id: number; username: string; created_at: string; is_admin: boolean; };
@@ -18,6 +19,7 @@ type AdminRoom = { roomCode: string; playerCount: number; phase: string; players
 type AllAchievement = { id: string; name: string; };
 type UserStat = { 
     win_streak: number; 
+    highest_win_streak: number;
     assassin_kills: number; 
     total_games: number;
     total_wins: number;
@@ -25,7 +27,95 @@ type UserStat = {
     good_wins: number;
     evil_games: number;
     evil_wins: number;
+    db_defuses: number;
+    db_futures_played: number;
+    db_attacks_played: number;
+    db_fillers_played: number;
 };
+type AdminMatch = { id: number; winner: string; played_at: string; players: string[] | null; };
+
+// --- Sub-components for Admin Panel ---
+
+const GameManagementTab: React.FC = () => {
+    const [data, setData] = useState<{ matches: AdminMatch[], totalPages: number, currentPage: number }>({ matches: [], totalPages: 1, currentPage: 1 });
+    const [loading, setLoading] = useState(true);
+
+    const fetchMatches = useCallback(async (page = 1) => {
+        setLoading(true);
+        try {
+            const res = await api.get(`/admin/matches?page=${page}&limit=10`);
+            setData(res.data);
+        } catch (error) {
+            toast.error("Failed to fetch matches.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchMatches();
+    }, [fetchMatches]);
+
+    const handleDeleteMatch = async (matchId: number) => {
+        if (window.confirm(`Are you sure you want to PERMANENTLY delete Match ID ${matchId}? This will resync all player stats and achievements involved.`)) {
+            try {
+                await api.delete(`/admin/matches/${matchId}`);
+                toast.success(`Match ${matchId} deleted successfully.`);
+                fetchMatches(data.currentPage);
+            } catch (error) {
+                toast.error("Failed to delete match.");
+            }
+        }
+    };
+
+    const PaginationControls = () => (
+        <div className="flex items-center justify-center gap-2 mt-4">
+            <Button onClick={() => fetchMatches(1)} disabled={data.currentPage === 1} className="p-2 h-auto"><ChevronsLeft size={16}/></Button>
+            <Button onClick={() => fetchMatches(data.currentPage - 1)} disabled={data.currentPage === 1} className="p-2 h-auto"><ChevronLeft size={16}/></Button>
+            <span className="font-bold text-lg">Page {data.currentPage} of {data.totalPages}</span>
+            <Button onClick={() => fetchMatches(data.currentPage + 1)} disabled={data.currentPage === data.totalPages} className="p-2 h-auto"><ChevronRight size={16}/></Button>
+            <Button onClick={() => fetchMatches(data.totalPages)} disabled={data.currentPage === data.totalPages} className="p-2 h-auto"><ChevronsRight size={16}/></Button>
+        </div>
+    );
+    
+    return (
+        <Card>
+            <h2 className="text-2xl font-bold mb-4">Game Management</h2>
+            <div className="overflow-x-auto">
+                {loading ? <div className="h-64 flex items-center justify-center"><Spinner /></div> : (
+                    <>
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-slate-700">
+                                    <th className="p-2">Match ID</th>
+                                    <th className="p-2">Winner</th>
+                                    <th className="p-2">Played At</th>
+                                    <th className="p-2">Players</th>
+                                    <th className="p-2 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.matches.map(m => (
+                                    <tr key={m.id} className="border-b border-slate-800 hover:bg-slate-800/50">
+                                        <td className="p-2 font-mono">#{m.id}</td>
+                                        <td className={`p-2 font-bold ${m.winner === 'Good' ? 'text-blue-400' : 'text-red-400'}`}>{m.winner}</td>
+                                        <td className="p-2">{new Date(m.played_at).toLocaleString()}</td>
+                                        <td className="p-2 text-xs max-w-xs truncate">{m.players?.join(', ') || 'N/A'}</td>
+                                        <td className="p-2 text-right">
+                                            <Button variant="danger" className="p-2 h-auto" onClick={() => handleDeleteMatch(m.id)}><Trash2 size={16}/></Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {data.totalPages > 1 && <PaginationControls />}
+                    </>
+                )}
+            </div>
+        </Card>
+    );
+};
+
 
 // --- Main Admin Panel Component ---
 const AdminPageContent: React.FC = () => {
@@ -165,7 +255,7 @@ const AdminPageContent: React.FC = () => {
                                 <div className="space-y-4 max-h-[70vh] overflow-y-auto p-1 pr-2">
                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="md:col-span-2 p-3 bg-slate-800/50 rounded-lg">
-                                            <h4 className="font-bold text-yellow-400 mb-2">Overall Stats</h4>
+                                            <h4 className="font-bold text-yellow-400 mb-2">Overall Pavalon Stats</h4>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <StatInput label="Total Games" name="total_games" />
                                                 <StatInput label="Total Wins" name="total_wins" />
@@ -186,10 +276,20 @@ const AdminPageContent: React.FC = () => {
                                              </div>
                                         </div>
                                         <div className="md:col-span-2 p-3 bg-slate-800/50 rounded-lg">
-                                            <h4 className="font-bold text-yellow-400 mb-2">Special Stats</h4>
+                                            <h4 className="font-bold text-yellow-400 mb-2">Special Pavalon Stats</h4>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <StatInput label="Current Win Streak" name="win_streak" />
+                                                <StatInput label="Highest Win Streak" name="highest_win_streak" />
                                                 <StatInput label="Assassin Kills" name="assassin_kills" />
+                                            </div>
+                                        </div>
+                                        <div className="md:col-span-2 p-3 bg-orange-900/20 rounded-lg border border-orange-800">
+                                            <h4 className="font-bold text-orange-400 mb-2">Dragon's Breath Stats</h4>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <StatInput label="Defuses" name="db_defuses" />
+                                                <StatInput label="Futures Played" name="db_futures_played" />
+                                                <StatInput label="Attacks Played" name="db_attacks_played" />
+                                                <StatInput label="Fillers Played" name="db_fillers_played" />
                                             </div>
                                         </div>
                                     </div>
@@ -246,7 +346,7 @@ const AdminPageContent: React.FC = () => {
             {renderModals()}
             <h1 className="font-eagleLake text-5xl text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Admin Panel</h1>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 p-1 h-auto">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 bg-slate-800/50 p-1 h-auto">
                     <TabsTrigger value="dashboard" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
                         <BarChart2 size={16}/> Dashboard
                     </TabsTrigger>
@@ -255,6 +355,9 @@ const AdminPageContent: React.FC = () => {
                     </TabsTrigger>
                     <TabsTrigger value="rooms" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
                         <Gamepad2 size={16}/> Room Management
+                    </TabsTrigger>
+                     <TabsTrigger value="games" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
+                        <Swords size={16}/> Game Management
                     </TabsTrigger>
                 </TabsList>
 
@@ -336,6 +439,9 @@ const AdminPageContent: React.FC = () => {
                             )}
                         </div>
                     </Card>
+                </TabsContent>
+                <TabsContent value="games" className="mt-6">
+                    <GameManagementTab />
                 </TabsContent>
             </Tabs>
         </div>

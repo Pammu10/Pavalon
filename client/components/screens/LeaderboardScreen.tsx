@@ -1,12 +1,13 @@
 
 
+
 import React, { useState, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import api from "@/services/api";
-import { LeaderboardData, LeaderboardEntry, PlayerStats, Match, Alignment, DragonsBreathStats, DragonsBreathOpponentStats } from "@/types";
+import { LeaderboardData, LeaderboardEntry, PlayerStats, Match, Alignment, DragonsBreathStats, DragonsBreathOpponentStats, DragonsBreathLeaderboardData } from "@/types";
 import Card from "@/components/ui/Card";
 import Spinner from "@/components/ui/Spinner";
-import { Crown, Trophy, Target, TrendingUp, ShieldCheck, Skull, User, Download, Swords, Star, Flame } from 'lucide-react';
+import { Crown, Trophy, Target, TrendingUp, ShieldCheck, Skull, User, Download, Swords, Star, Flame, Eye, Heart, Shield } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Button from "../ui/Button";
 import MatchDetailsModal from "../ui/MatchDetailsModal";
@@ -307,6 +308,45 @@ const LeaderboardTab: React.FC<{ data: LeaderboardData | null }> = ({ data }) =>
     );
 };
 
+const DragonsBreathRanksTab: React.FC = () => {
+    const [data, setData] = useState<DragonsBreathLeaderboardData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchRanks = async () => {
+            try {
+                const res = await api.get('/leaderboard/dragons-breath');
+                setData(res.data);
+            } catch (err) {
+                setError("Failed to load Dragon's Breath ranks.");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchRanks();
+    }, []);
+
+    if (loading) return <div className="flex justify-center items-center h-full min-h-[50vh]"><Spinner /></div>;
+    if (error || !data) return <Card><p className="text-center text-red-500">{error || "Could not load ranks."}</p></Card>;
+    
+    const leaderboards = [
+        { title: "Most Wins", icon: <Trophy size={24} className="text-yellow-400"/>, entries: data.mostWins },
+        { title: "Master of Defusal", icon: <Shield size={24} className="text-green-400"/>, entries: data.mostDefuses },
+        { title: "The Oracle", icon: <Eye size={24} className="text-purple-400"/>, entries: data.mostSees },
+        { title: "Chief Aggressor", icon: <Swords size={24} className="text-orange-400"/>, entries: data.mostAttacks },
+        { title: "Dragon Hoarder", icon: <Heart size={24} className="text-pink-400"/>, entries: data.mostFillers },
+    ];
+    
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 place-items-start">
+            {leaderboards.map(lb => (
+                <LeaderboardList key={lb.title} title={lb.title} icon={lb.icon} entries={lb.entries} />
+            ))}
+        </div>
+    );
+};
+
 
 const LeaderboardScreen: React.FC = () => {
     const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
@@ -329,46 +369,28 @@ const LeaderboardScreen: React.FC = () => {
 
     const TABS_CONFIG = [
         { value: "my-stats", label: "Pavalon Stats", icon: <User size={18} /> },
-        { value: "dragons-breath", label: "Dragon's Breath", icon: <Flame size={18} /> },
-        { value: "leaderboard", label: "Global Ranks", icon: <Trophy size={18} /> },
+        { value: "dragons-breath", label: "Dragon Breath", icon: <Flame size={18} /> },
+        { value: "leaderboard", label: "Pavalon Ranks", icon: <Trophy size={18} /> },
+        { value: "db-ranks", label: "Dragon Ranks", icon: <Trophy size={18} /> },
     ];
 
     return (
         <div className="animate-fadeIn max-w-7xl mx-auto space-y-6">
             <h1 className="font-eagleLake text-5xl text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Hall of Heroes</h1>
             <Tabs defaultValue="my-stats" className="w-full">
-                <TabsList className="w-full max-w-xl mx-auto flex flex-col sm:flex-row bg-slate-800/50 p-1 h-auto gap-1 rounded-lg">
-                    <div className="w-full flex flex-row gap-1">
+                <TabsList className="w-full max-w-2xl mx-auto grid grid-cols-2 md:grid-cols-4 bg-slate-800/50 p-1 h-auto gap-1 rounded-lg">
+                    {TABS_CONFIG.map(tab => (
                         <TabsTrigger
-                            value="my-stats"
+                            key={tab.value}
+                            value={tab.value}
                             className={cn(
                                 "flex-1 flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold rounded-md"
                             )}
                         >
-                            {TABS_CONFIG[0].icon}
-                            {TABS_CONFIG[0].label}
+                            {tab.icon}
+                            {tab.label}
                         </TabsTrigger>
-                         <TabsTrigger
-                            value="dragons-breath"
-                            className={cn(
-                                "flex-1 flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold rounded-md"
-                            )}
-                        >
-                            {TABS_CONFIG[1].icon}
-                            {TABS_CONFIG[1].label}
-                        </TabsTrigger>
-                    </div>
-                    <div className="w-full flex flex-row gap-1">
-                        <TabsTrigger
-                            value="leaderboard"
-                            className={cn(
-                                "flex-1 flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold rounded-md"
-                            )}
-                        >
-                            {TABS_CONFIG[2].icon}
-                            {TABS_CONFIG[2].label}
-                        </TabsTrigger>
-                    </div>
+                    ))}
                 </TabsList>
                 <TabsContent value="my-stats" className="mt-6">
                      {loading ? (
@@ -390,6 +412,9 @@ const LeaderboardScreen: React.FC = () => {
                     ) : (
                         <LeaderboardTab data={leaderboard} />
                     )}
+                </TabsContent>
+                 <TabsContent value="db-ranks" className="mt-6">
+                    <DragonsBreathRanksTab />
                 </TabsContent>
             </Tabs>
         </div>
