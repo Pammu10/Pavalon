@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useGame } from "@/components/context/GameContext";
 import { GamePhase, Player, Alignment, Role, Quest } from "@/types";
 import Card from "@/components/ui/Card";
@@ -11,45 +11,31 @@ import { GamePhaseHeader } from "../ui/GamePhaseHeader";
 import { usePlayerVisionMap } from "@/hooks/usePlayerVision";
 import { motion } from "framer-motion";
 import { ROLES } from "@/constants";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 // --- Reusable UI Components ---
 
-const VoteResultDisplay: React.FC<{
+const VoteResultDetails: React.FC<{
   vote: Quest["pastVotes"][0] | Quest["approvedVote"];
   players: Player[];
-  isApproved: boolean;
-}> = ({ vote, players, isApproved }) => {
+}> = ({ vote, players }) => {
   if (!vote) return null;
   const visiblePlayerMap = usePlayerVisionMap();
 
   const approvals = vote.votes.filter((v) => v.vote === "APPROVE");
   const rejections = vote.votes.filter((v) => v.vote === "REJECT");
 
-  const title = isApproved
-    ? `Team Approved (${approvals.length} - ${rejections.length})`
-    : `Team Rejected (${rejections.length} - ${approvals.length})`;
-  const titleColor = isApproved ? "text-blue-400" : "text-red-400";
-  const borderColor = isApproved ? "border-blue-700/50" : "border-red-700/50";
-  const bgColor = isApproved ? "bg-blue-900/20" : "bg-red-900/20";
-
   return (
-    <div className={`p-4 sm:p-5 rounded-xl border-2 ${borderColor} ${bgColor}`}>
-      <h4
-        className={`font-eaglelake text-center text-lg ${titleColor} mb-4 pb-3 border-b ${borderColor}`}
-      >
-        {title}
-      </h4>
-      <div className="flex justify-center flex-wrap gap-2 mb-5">
+    <div className="pt-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 mb-4">
         {vote.team.map((p) => (
-           <div key={p.id} className="w-28 md:w-36">
-            <PlayerTile player={p} isKnownAs={visiblePlayerMap.get(p.id)} />
-          </div>
+          <PlayerTile key={p.id} player={p} isKnownAs={visiblePlayerMap.get(p.id)} />
         ))}
       </div>
       <div className="grid grid-cols-2 gap-x-4 sm:gap-x-6 text-xs sm:text-sm">
         <div>
           <h5 className="font-bold text-blue-400 mb-2 text-center">Approved By:</h5>
-          <ul className="list-none pl-0 mt-1 space-y-1.5 text-slate-200">
+          <ul className="list-none pl-0 mt-1 space-y-1.5 text-slate-200 text-center">
             {approvals.map((v) => (
               <li key={v.playerId}>
                 {players.find((p) => p.id === v.playerId)?.name || "Unknown"}
@@ -61,8 +47,8 @@ const VoteResultDisplay: React.FC<{
           </ul>
         </div>
         <div>
-          <h5 className="font-bold text-red-400 mb-2">Rejected By:</h5>
-          <ul className="list-none pl-0 mt-1 space-y-1.5 text-slate-200">
+          <h5 className="font-bold text-red-400 mb-2 text-center">Rejected By:</h5>
+          <ul className="list-none pl-0 mt-1 space-y-1.5 text-slate-200 text-center">
             {rejections.map((v) => (
               <li key={v.playerId}>
                 {players.find((p) => p.id === v.playerId)?.name || "Unknown"}
@@ -77,6 +63,7 @@ const VoteResultDisplay: React.FC<{
     </div>
   );
 };
+
 
 // --- Game Phase Components ---
 
@@ -114,16 +101,25 @@ const TeamSelection: React.FC = () => {
           <h3 className="font-eaglelake text-lg text-center mb-2">
             Rejected Team Votes
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {currentQuest.pastVotes.map((vote, index) => (
-              <VoteResultDisplay
-                key={`past-${index}`}
-                vote={vote}
-                players={gameState.players}
-                isApproved={false}
-              />
-            ))}
-          </div>
+          <Accordion type="single" collapsible className="w-full space-y-2">
+            {currentQuest.pastVotes.map((vote, index) => {
+              const approvals = vote.votes.filter(v => v.vote === 'APPROVE').length;
+              const rejections = vote.votes.filter(v => v.vote === 'REJECT').length;
+              return (
+                 <AccordionItem value={`past-${index}`} key={`past-${index}`} className="bg-red-900/20 border-2 border-red-700/50 rounded-lg overflow-hidden">
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline font-bold text-red-400 data-[state=open]:border-b data-[state=open]:border-red-700/50">
+                    <span>Vote {index + 1}: Team Rejected ({rejections} - {approvals})</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4">
+                    <VoteResultDetails
+                      vote={vote}
+                      players={gameState.players}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+              )
+            })}
+          </Accordion>
         </div>
       )}
 
@@ -222,11 +218,23 @@ const QuestVote: React.FC = () => {
         <h3 className="font-eaglelake text-lg text-center mb-2">
           Approved Team
         </h3>
-        <VoteResultDisplay
-          vote={currentQuest.approvedVote}
-          players={gameState.players}
-          isApproved={true}
-        />
+        {currentQuest.approvedVote && (
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="approved-vote" className="bg-blue-900/20 border-2 border-blue-700/50 rounded-lg overflow-hidden">
+              <AccordionTrigger className="px-4 py-3 hover:no-underline font-bold text-blue-400 data-[state=open]:border-b data-[state=open]:border-blue-700/50">
+                <span>
+                  Team Approved ({currentQuest.approvedVote.votes.filter(v => v.vote === 'APPROVE').length} - {currentQuest.approvedVote.votes.filter(v => v.vote === 'REJECT').length})
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="px-4">
+                <VoteResultDetails
+                  vote={currentQuest.approvedVote}
+                  players={gameState.players}
+                />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
       </div>
 
       {currentQuest.pastVotes.length > 0 && (
@@ -234,28 +242,38 @@ const QuestVote: React.FC = () => {
           <h3 className="font-eaglelake text-lg text-center mb-2 text-slate-400">
             Rejected Votes this Quest
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-70">
-            {currentQuest.pastVotes.map((vote, index) => (
-              <VoteResultDisplay
-                key={`past-${index}`}
-                vote={vote}
-                players={gameState.players}
-                isApproved={false}
-              />
-            ))}
-          </div>
+          <Accordion type="single" collapsible className="w-full space-y-2 opacity-80">
+             {currentQuest.pastVotes.map((vote, index) => {
+              const approvals = vote.votes.filter(v => v.vote === 'APPROVE').length;
+              const rejections = vote.votes.filter(v => v.vote === 'REJECT').length;
+              return (
+                <AccordionItem value={`past-${index}`} key={`past-${index}`} className="bg-red-900/20 border-2 border-red-700/50 rounded-lg overflow-hidden">
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline font-bold text-red-400 data-[state=open]:border-b data-[state=open]:border-red-700/50">
+                    <span>Vote {index + 1}: Team Rejected ({rejections} - {approvals})</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4">
+                    <VoteResultDetails
+                      vote={vote}
+                      players={gameState.players}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
         </div>
       )}
 
+      <div className="my-6">
+        <PlayerStatusList 
+          title="Mission Team Status"
+          players={currentQuest.team}
+          readyPlayerIds={votedPlayerIds}
+        />
+      </div>
+
       {isOnTeam ? (
         <>
-          <div className="my-6">
-            <PlayerStatusList 
-              title="Mission Team Status"
-              players={currentQuest.team}
-              readyPlayerIds={votedPlayerIds}
-            />
-          </div>
           {player && !player.hasVoted ? (
             <div id="quest-vote-buttons" className="flex justify-center gap-4 sm:gap-8 mt-6">
               <Button
@@ -442,19 +460,10 @@ const GameScreen: React.FC = () => {
       status: finalStatus,
       successVotes: quest.results.filter((r) => r.vote === "SUCCESS").length,
       failVotes: quest.results.filter((r) => r.vote === "FAIL").length,
+      failsRequired: quest.failsRequired,
+      teamSize: quest.teamSize,
     };
   });
-
-  const questConfig = {
-    quests: gameState.questHistory.map((q) => q.teamSize),
-  };
-
-  const goodScore = gameState.questHistory.filter(
-    (q) => q.status === "PASSED"
-  ).length;
-  const evilScore = gameState.questHistory.filter(
-    (q) => q.status === "FAILED"
-  ).length;
 
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col items-center">
@@ -463,7 +472,6 @@ const GameScreen: React.FC = () => {
           <QuestProgressWithPopover
             currentQuest={gameState.currentQuest}
             questResults={questProgressData}
-            config={questConfig}
           />
         </div>
       )}

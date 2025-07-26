@@ -48,7 +48,7 @@ const QuestResultOverlay: React.FC<QuestResultOverlayProps> = ({
   // Suspense view
   if (!isRevealing) {
     return createPortal(
-      <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black animate-fadeIn px-4 text-center">
+      <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/90 animate-fadeIn px-4 text-center">
         <motion.h1
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -84,7 +84,7 @@ const QuestResultOverlay: React.FC<QuestResultOverlayProps> = ({
   ].sort();
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black animate-fadeIn px-4 text-center">
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/90 animate-fadeIn px-4 text-center">
        <div className="relative w-28 h-28 sm:w-40 sm:h-40 mx-auto mb-6">
         <div className={`absolute inset-0 rounded-full animate-pulse-slow blur-xl ${bgPulse}`} />
         <div className={`w-full h-full rounded-full border-4 ${borderColor} border-t-transparent animate-spin`} />
@@ -135,14 +135,6 @@ const QuestResultOverlay: React.FC<QuestResultOverlayProps> = ({
       >
         <span className="font-bold text-red-400">{failVotes}</span> Fail
         vote{failVotes !== 1 ? "s" : ""} submitted.
-      </motion.p>
-      <motion.p
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5, delay: 1.2 }}
-        className="text-slate-400 text-sm md:text-base"
-      >
-        ({failsRequired} required to Fail Quest)
       </motion.p>
     </div>,
     document.body

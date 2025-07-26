@@ -1,5 +1,3 @@
-
-
 import React, { useEffect, useState, useRef } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { useAudio } from "@/components/context/AudiContext";
@@ -9,13 +7,14 @@ import Button from "@/components/ui/Button";
 import PlayerStatusList from "../ui/PlayerStatusList";
 import GameEndOverlay from "../ui/GameEndOverlay";
 import { Check, X, Vote, CheckCircle, XCircle } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 // --- Sub-components for After-Action Report ---
 
 const TimelineItem: React.FC<{ children: React.ReactNode; isLast?: boolean }> = ({ children, isLast }) => (
-  <div className="relative pl-8 sm:pl-12 pb-8">
-    {!isLast && <div className="absolute top-5 -left-1 sm:left-[-1px] w-0.5 h-full bg-slate-700"></div>}
-    <div className="absolute top-4 -left-1 sm:left-[-3px] w-5 h-5 bg-slate-800 rounded-full flex items-center justify-center ring-4 ring-slate-900">
+  <div className="relative pl-8 pb-8">
+    {!isLast && <div className="absolute top-5 -left-1 w-0.5 h-full bg-slate-700"></div>}
+    <div className="absolute top-4 -left-1 w-5 h-5 bg-slate-800 rounded-full flex items-center justify-center ring-4 ring-slate-900">
         <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
     </div>
     {children}
@@ -145,7 +144,7 @@ const ReadyForNextGame: React.FC<{
     const isReady = !!(currentPlayerId && readyPlayers.includes(currentPlayerId));
     
     return (
-        <div className="mt-8">
+        <div>
             <div className="mb-4">
                <PlayerStatusList
                     title="Next Game Status"
@@ -195,76 +194,82 @@ const EndGameScreen: React.FC = () => {
     )
   }
   
-  const gameReport = (
-    <>
-      <div className="my-8">
-          <h2 className="font-eaglelake text-3xl text-yellow-500 mb-6 border-b-2 border-slate-700 pb-3 text-center">After-Action Report</h2>
-          <div className="text-left">
-              {questHistory.filter(q => q.status === "PASSED" || q.status === "FAILED").map((quest, index, arr) => (
-                  <TimelineItem key={quest.questNumber} isLast={index === arr.length - 1}>
-                      <h3 className="font-eaglelake text-xl sm:text-2xl mb-2 flex flex-wrap items-center gap-x-4 gap-y-2">
-                          Quest {quest.questNumber}
-                          <span className={`text-sm px-3 py-1 rounded-full font-bold tracking-wider ${quest.status === 'PASSED' ? 'bg-blue-600/40 text-blue-300' : 'bg-red-600/40 text-red-300'}`}>{quest.status}</span>
-                      </h3>
-                      <p className="text-slate-400 mb-4 ml-1">Team of {quest.teamSize} | {quest.failsRequired} Fail vote{quest.failsRequired > 1 ? 's' : ''} needed</p>
+  const gameReportAccordion = (
+    <Accordion type="single" collapsible className="w-full my-8">
+      <AccordionItem value="report" className="rounded-lg overflow-hidden bg-slate-800/20">
+        <AccordionTrigger className="px-4 py-4 text-2xl sm:text-3xl font-eaglelake text-yellow-500 hover:no-underline data-[state=open]:border-b ">
+            End of Game Report
+        </AccordionTrigger>
+        <AccordionContent className="px-4">
+          <div className="pt-4">
+              <div className="text-left">
+                  {questHistory.filter(q => q.status === "PASSED" || q.status === "FAILED").map((quest, index, arr) => (
+                      <TimelineItem key={quest.questNumber} isLast={index === arr.length - 1}>
+                          <h3 className="font-eaglelake text-xl sm:text-2xl mb-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                              Quest {quest.questNumber}
+                              <span className={`text-sm px-3 py-1 rounded-full font-bold tracking-wider ${quest.status === 'PASSED' ? 'bg-blue-600/40 text-blue-300' : 'bg-red-600/40 text-red-300'}`}>{quest.status}</span>
+                          </h3>
+                          <p className="text-slate-400 mb-4 ml-1">Team of {quest.teamSize} | {quest.failsRequired} Fail vote{quest.failsRequired > 1 ? 's' : ''} needed</p>
 
-                      <div className="space-y-4">
-                          {quest.pastVotes.map((vote, vIndex) => (
-                              <TeamVoteDetails key={`past-${vIndex}`} vote={vote} players={players} isApproved={false} leader={vote.leader} />
-                          ))}
-                          {quest.approvedVote && (
-                              <TeamVoteDetails vote={quest.approvedVote} players={players} isApproved={true} leader={quest.questLeader} />
-                          )}
-                      </div>
-                      
-                      {quest.approvedVote && <QuestMissionDetails quest={quest} players={players} />}
-                  </TimelineItem>
-              ))}
+                          <div className="space-y-4">
+                              {quest.pastVotes.map((vote, vIndex) => (
+                                  <TeamVoteDetails key={`past-${vIndex}`} vote={vote} players={players} isApproved={false} leader={vote.leader} />
+                              ))}
+                              {quest.approvedVote && (
+                                  <TeamVoteDetails vote={quest.approvedVote} players={players} isApproved={true} leader={quest.questLeader} />
+                              )}
+                          </div>
+                          
+                          {quest.approvedVote && <QuestMissionDetails quest={quest} players={players} />}
+                      </TimelineItem>
+                  ))}
+              </div>
           </div>
-      </div>
-      <div className="my-8">
-          <FinalRolesDisplay players={players} />
-      </div>
-      <ReadyForNextGame players={players} readyPlayers={endGameReadyPlayers} currentPlayerId={playerId} onReady={handlePlayAgain} />
-    </>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 
-  if (!winner) {
-    return (
-      <div className="animate-fadeIn text-center">
-        <Card className="max-w-4xl mx-auto">
-          <h1 className="font-eaglelake text-4xl md:text-6xl font-bold text-slate-400">
-            Game Over
-          </h1>
-          <p className="text-slate-300 mt-2 text-base md:text-lg">
-            {endGameReason}
-          </p>
-          {gameReport}
-        </Card>
-      </div>
-    );
-  }
-
-  const winnerColor =
-    winner === Alignment.GOOD ? "text-blue-400" : "text-red-500";
-  const winnerShadow =
-    winner === Alignment.GOOD ? "shadow-blue-500/20" : "shadow-red-500/20";
+  const winnerColor = winner === Alignment.GOOD ? "text-blue-400" : "text-red-500";
+  const winnerShadow = winner === Alignment.GOOD ? "shadow-blue-500/20" : "shadow-red-500/20";
 
   return (
     <div className="animate-fadeIn text-center">
-      <Card className={`max-w-4xl mx-auto shadow-2xl ${winnerShadow}`}>
-        <h1
-          className={`font-eaglelake text-4xl md:text-6xl font-bold ${winnerColor}`}
-          style={{ textShadow: "0 0 20px currentColor" }}
-        >
-          {winner} Wins!
-        </h1>
-        <p className="text-slate-300 mt-2 text-base md:text-lg font-eaglelake">
-          {endGameReason}
-        </p>
+      <Card className={`max-w-4xl mx-auto shadow-2xl ${winner ? winnerShadow : ''}`}>
+        {winner ? (
+          <>
+            <h1
+              className={`font-eaglelake text-4xl md:text-6xl font-bold ${winnerColor}`}
+              style={{ textShadow: "0 0 20px currentColor" }}
+            >
+              {winner} Wins!
+            </h1>
+            <p className="text-slate-300 mt-2 text-base md:text-lg font-eaglelake">
+              {endGameReason}
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="font-eaglelake text-4xl md:text-6xl font-bold text-slate-400">
+              Game Over
+            </h1>
+            <p className="text-slate-300 mt-2 text-base md:text-lg">
+              {endGameReason}
+            </p>
+          </>
+        )}
         
-        {gameReport}
+        {gameReportAccordion}
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4 border-slate-700 pt-4">
+            <FinalRolesDisplay players={players} />
+            <ReadyForNextGame 
+                players={players} 
+                readyPlayers={endGameReadyPlayers} 
+                currentPlayerId={playerId} 
+                onReady={handlePlayAgain} 
+            />
+        </div>
       </Card>
     </div>
   );

@@ -10,6 +10,7 @@ import { ICON_MAP, DEFAULT_ICONS, ACHIEVEMENT_ICONS } from './AvailableIcons';
 import { CheckCircle, Lock, Trophy, Star, Shield, Eye, Skull, Crown, Swords, Palette, VenetianMask, ShieldCheck, UserRound, Feather, HeartCrack, Castle, Spade, Cherry } from 'lucide-react';
 import PlayerTile from './PlayerTile';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 const icons: { [key: string]: React.ReactNode } = {
     Trophy: <Trophy className="w-8 h-8" />,
@@ -29,48 +30,30 @@ const icons: { [key: string]: React.ReactNode } = {
 
 type RewardOption = AchievementReward & { unlocked: boolean, achievementName: string };
 
-const CustomizationSelect: React.FC<{
-    label: string;
-    icon: React.ReactNode;
-    value: string;
-    options: RewardOption[];
-    onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
-    onLockedItemClick: (option: RewardOption) => void;
-}> = ({ label, icon, value, options, onChange, onLockedItemClick }) => {
-    
-    const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const selectedValue = e.target.value;
-        if (selectedValue === '') {
-            onChange(e);
-            return;
-        }
-        const selectedOption = options.find(opt => opt.value === selectedValue);
-        if (selectedOption && !selectedOption.unlocked) {
-            onLockedItemClick(selectedOption);
-            e.target.value = value; // Revert selection
-        } else {
-            onChange(e);
-        }
-    };
+
+const BorderOption: React.FC<{
+    option: RewardOption | { name: string, value: string, unlocked: boolean, achievementName?: string };
+    isSelected: boolean;
+    onClick: () => void;
+}> = ({ option, isSelected, onClick }) => {
+    const borderStyleClass = option.value ? `border-style-${option.value}` : 'border-slate-600';
+    const displayName = option.name === 'None' ? 'Default' : option.name.replace(' Border', '');
 
     return (
-        <div className="flex-1">
-            <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
-                {icon}
-                {label}
-            </label>
-            <select
-                value={value}
-                onChange={handleChange}
-                className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
+        <div className="flex flex-col items-center gap-2">
+            <button
+                onClick={onClick}
+                className={cn(
+                    'relative w-20 h-20 rounded-lg border-4 transition-all duration-200 flex items-center justify-center bg-slate-900/50',
+                    borderStyleClass,
+                    isSelected ? 'scale-110 ring-2 ring-offset-2 ring-offset-slate-900 ring-yellow-400 shadow-lg' : 'hover:scale-105',
+                    !option.unlocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                )}
+                title={displayName}
             >
-                <option value="">None</option>
-                {options.map(opt => (
-                    <option key={opt.value} value={opt.value} className={!opt.unlocked ? 'text-slate-500' : 'text-white'}>
-                        {opt.name} {!opt.unlocked ? '(Locked)' : ''}
-                    </option>
-                ))}
-            </select>
+                {!option.unlocked && <Lock className="absolute bottom-1 right-1 w-4 h-4 text-slate-200 bg-slate-800 rounded-full p-0.5" />}
+            </button>
+            <span className="text-xs text-slate-300 text-center w-20 truncate">{displayName}</span>
         </div>
     );
 };
@@ -223,7 +206,7 @@ const AchievementsTab: React.FC = () => {
 
     return (
         <div className="space-y-8">
-            <Card>
+            <Card id="profile-customization-card">
                 <h2 className="font-eagleLake text-3xl mb-4 text-center text-yellow-500">Profile Customization</h2>
                 
                 <div className="mb-8">
@@ -236,36 +219,54 @@ const AchievementsTab: React.FC = () => {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="flex flex-col md:flex-row gap-6">
-                         <div className="flex-1">
-                            <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
-                                <VenetianMask />
-                                Custom Title
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    value={selectedTitle}
-                                    onChange={(e) => setSelectedTitle(e.target.value)}
-                                    placeholder="The Brave"
-                                    maxLength={10}
-                                    className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 pr-12 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 pointer-events-none">
-                                    {selectedTitle.length} / 10
-                                </span>
-                            </div>
+                    <div className="flex-1">
+                        <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
+                            <VenetianMask />
+                            Custom Title
+                        </label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={selectedTitle}
+                                onChange={(e) => setSelectedTitle(e.target.value)}
+                                placeholder="The Brave"
+                                maxLength={10}
+                                className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 pr-12 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 pointer-events-none">
+                                {selectedTitle.length} / 10
+                            </span>
                         </div>
-
-                        <CustomizationSelect 
-                            label="Border"
-                            icon={<Palette />}
-                            value={selectedBorder || ''}
-                            options={allBorders}
-                            onChange={(e) => setSelectedBorder(e.target.value)}
-                            onLockedItemClick={handleLockedItemClick}
-                        />
                     </div>
+
+                    <div>
+                        <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
+                            <Palette />
+                            Border
+                        </label>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 bg-slate-900/40 border-2 border-slate-700 rounded-md p-4">
+                            <BorderOption
+                                option={{ name: 'None', value: '', unlocked: true }}
+                                isSelected={selectedBorder === ''}
+                                onClick={() => setSelectedBorder('')}
+                            />
+                            {allBorders.map(border => (
+                                <BorderOption
+                                    key={border.value}
+                                    option={border}
+                                    isSelected={selectedBorder === border.value}
+                                    onClick={() => {
+                                        if (border.unlocked) {
+                                            setSelectedBorder(border.value);
+                                        } else {
+                                            handleLockedItemClick(border);
+                                        }
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                    
                      <div>
                         <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
                             <UserRound/>

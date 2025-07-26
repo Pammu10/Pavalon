@@ -1,5 +1,4 @@
-
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -15,16 +14,29 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const { login, register, authError, isLoading } = useGame();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const formRef = useRef<HTMLFormElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+  const prevAuthError = useRef(authError);
+  
+  useEffect(() => {
+    // If authError appears or changes, we know the submission failed.
+    if (authError && prevAuthError.current !== authError) {
+        setIsSubmitting(false);
+    }
+    prevAuthError.current = authError;
+  }, [authError]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username.trim() && password.trim()) {
-      if (isLogin) {
-        login({ username, password }, onLoginSuccess);
-      } else {
-        register({ username, password }, onRegisterSuccess);
-      }
+    if (isSubmitting || !username.trim() || !password.trim()) return;
+
+    setIsSubmitting(true);
+    if (isLogin) {
+      login({ username, password }, onLoginSuccess);
+    } else {
+      register({ username, password }, onRegisterSuccess);
     }
   };
 
@@ -32,6 +44,15 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
     if (e.key === 'Enter') {
       e.preventDefault();
       passwordInputRef.current?.focus();
+    }
+  };
+
+  const handlePasswordKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        if (username.trim() && password.trim()) {
+            formRef.current?.requestSubmit();
+        }
     }
   };
 
@@ -44,7 +65,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
   }
 
   return (
-    <div className="animate-fadeIn flex flex-col items-center justify-center space-y-8 min-h-screen">
+    <div className="animate-fadeIn flex flex-col items-center justify-center space-y-8 min-h-screen px-4">
       <h1
         className="font-eaglelake text-5xl sm:text-6xl md:text-8xl font-bold text-yellow-500 text-center tracking-wider"
         style={{ textShadow: "0 0 25px rgba(234, 179, 8, 0.5)" }}
@@ -53,7 +74,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
       </h1>
 
       <Card className="w-full max-w-md">
-        <form onSubmit={handleSubmit} className="flex flex-col space-y-6">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col space-y-6">
           <h2 className="font-eaglelake text-3xl text-center text-white">
             {isLogin ? "Login" : "Register"}
           </h2>
@@ -74,14 +95,15 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={handlePasswordKeyDown}
             className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
             required
           />
           {authError && (
             <p className="text-red-500 text-center text-sm">{authError}</p>
           )}
-          <Button type="submit" disabled={!username.trim() || !password.trim()}>
-            {isLogin ? "Log In" : "Create Account"}
+          <Button type="submit" disabled={!username.trim() || !password.trim() || isSubmitting}>
+            {isSubmitting ? <Spinner size="sm"/> : (isLogin ? "Log In" : "Create Account")}
           </Button>
           <button
             type="button"

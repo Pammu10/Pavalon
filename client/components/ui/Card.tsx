@@ -1,17 +1,16 @@
 import React from 'react';
 
-interface CardProps {
+// Allow any standard div attributes to be passed, including 'id'.
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
-  className?: string;
-  onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-const Card: React.FC<CardProps> = ({ children, className = '', onClick }) => {
-  const baseClasses = 'bg-slate-900/40 backdrop-blur-lg border border-slate-700/60 rounded-xl shadow-2xl p-6 transition-all duration-300';
+const Card: React.FC<CardProps> = ({ children, className = '', onClick, ...props }) => {
+  const baseClasses = 'bg-slate-900/40 backdrop-blur-lg border border-slate-700/60 rounded-xl shadow-2xl p-4 sm:p-6 transition-all duration-300';
   const clickableClasses = onClick ? 'cursor-pointer hover:border-yellow-500/80 hover:shadow-yellow-500/20' : '';
 
   return (
-    <div className={`${baseClasses} ${clickableClasses} ${className}`} onClick={onClick}>
+    <div className={`${baseClasses} ${clickableClasses} ${className}`} onClick={onClick} {...props}>
       {children}
     </div>
   );

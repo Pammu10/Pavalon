@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useGame } from '@/components/context/GameContext';
 import { ROLES } from '@/constants';
 import { Alignment, Role } from '@/types';
-import { User, Eye, Copy } from 'lucide-react';
+import { User, Eye, Copy, Check } from 'lucide-react';
 import { getVisiblePlayers } from '@/hooks/usePlayerVision';
 import { toast } from 'sonner';
 import VisionModal from './VisionModal';
@@ -18,10 +18,15 @@ const shortenRoleName = (role: Role | null): string => {
     return role || '';
 };
 
-const PlayerInfoBar: React.FC = () => {
+interface PlayerInfoBarProps {
+    onNavigateToProfile?: () => void;
+}
+
+const PlayerInfoBar: React.FC<PlayerInfoBarProps> = ({ onNavigateToProfile }) => {
     const { gameState, playerId } = useGame();
     const player = gameState.players.find((p) => p.id === playerId);
     const [isVisionModalOpen, setIsVisionModalOpen] = useState(false);
+    const [isCopied, setIsCopied] = useState(false);
 
     if (!player || !player.role) {
         return null;
@@ -30,26 +35,15 @@ const PlayerInfoBar: React.FC = () => {
     const handleShare = async () => {
         if (!gameState.roomCode) return;
         const inviteText = `Join my Pavalon game!\nCode: ${gameState.roomCode}\nLink: ${window.location.origin}/join/${gameState.roomCode}`;
-        const shareData = {
-            title: "Join Pavalon Game",
-            text: `Join my game on Pavalon! Code: ${gameState.roomCode}`,
-            url: `${window.location.origin}/join/${gameState.roomCode}`,
-        };
-
-        if (navigator.share) {
-            try {
-                await navigator.share(shareData);
-            } catch (error) {
-                console.log("Web Share API failed, likely user cancellation.", error);
-            }
-        } else {
-            try {
-                await navigator.clipboard.writeText(inviteText);
-                toast.success("Invite copied to clipboard!", { duration: 2000 });
-            } catch (error) {
-                console.error("Failed to copy invite:", error);
-                toast.error("Could not copy invite.");
-            }
+        
+        try {
+            await navigator.clipboard.writeText(inviteText);
+            toast.success("Invite copied to clipboard!", { duration: 2000 });
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2000); // Reset after 2 seconds
+        } catch (error) {
+            console.error("Failed to copy invite:", error);
+            toast.error("Could not copy invite.");
         }
     };
 
@@ -73,13 +67,17 @@ const PlayerInfoBar: React.FC = () => {
                     
                     {/* Left: Player Name & Role */}
                     <div className="flex-1 flex justify-start">
-                        <div className="px-3 py-1.5 flex items-center gap-3 flex-shrink-0 min-w-0 shadow-inner">
+                        <button
+                            onClick={onNavigateToProfile}
+                            className="px-3 py-1.5 flex items-center gap-3 flex-shrink-0 min-w-0 shadow-inner rounded-lg hover:bg-slate-800/50 transition-colors"
+                            title="Customize Profile"
+                        >
                             <User className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500 flex-shrink-0" />
-                            <div className="min-w-0">
+                            <div className="min-w-0 text-left">
                                 <p className="font-bold text-base leading-tight text-white truncate">{player.name}</p>
                                 <p className={`font-semibold text-sm leading-tight ${alignmentColor} truncate`}>{shortenRoleName(player.role)}</p>
                             </div>
-                        </div>
+                        </button>
                     </div>
                     
                     {/* Center: Vision Button */}
@@ -98,10 +96,10 @@ const PlayerInfoBar: React.FC = () => {
                         <button 
                             onClick={handleShare} 
                             className="flex items-center gap-2 flex-shrink-0 cursor-pointer hover:bg-slate-800/50 p-1.5 rounded-lg transition-colors"
-                            title="Share Game Invite"
+                            title="Copy Game Invite"
                         >
                             <p className="font-mono font-bold text-base tracking-widest text-white">{gameState.roomCode}</p>
-                            <Copy className="w-4 h-4 text-yellow-500" />
+                            {isCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-yellow-500" />}
                         </button>
                     </div>
                 </div>

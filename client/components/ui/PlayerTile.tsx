@@ -34,7 +34,7 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
   // const isSpeaking = isLocalPlayer ? isSelfSpeaking : voiceState?.isSpeaking ?? false;
 
   const isDisconnected = player.status === 'DISCONNECTED';
-  const borderClass = player.selectedBorder ? `border-style-${player.selectedBorder}` : 'border-slate-600';
+  const borderClass = player.selectedBorder && player.selectedBorder !== 'default' ? `border-style-${player.selectedBorder}` : 'border-slate-600';
 
   const IconComponent = player.selectedIcon && ICON_MAP[player.selectedIcon] 
     ? ICON_MAP[player.selectedIcon] 

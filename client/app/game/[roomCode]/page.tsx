@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -17,7 +15,14 @@ import { Chat } from "@/components/ui/Chat";
 import PlayerInfoBar from "@/components/ui/PlayerInfoBar";
 import { GamePhase } from "@/types";
 import Spinner from "@/components/ui/Spinner";
-import { Swords, MessageSquare, Settings, Trophy, Star, ShieldAlert } from "lucide-react";
+import {
+  Swords,
+  MessageSquare,
+  Settings,
+  Trophy,
+  Star,
+  ShieldAlert,
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
 import AchievementsTab from "@/components/ui/AchievementsTab";
@@ -25,14 +30,57 @@ import AdminPage from "@/app/admin/page";
 import { useInteraction } from "@/components/context/ClientProviders";
 import DragonsBreathScreen from "@/components/screens/DragonsBreathScreen";
 
-type Tab = "game" | "chat" | "leaderboard" | "achievements" | "settings" | "gamelog" | "admin";
+type Tab =
+  | "game"
+  | "chat"
+  | "leaderboard"
+  | "achievements"
+  | "settings"
+  | "gamelog"
+  | "admin";
 
-const BASE_TABS_CONFIG: { id: Tab; label: string; icon: React.ReactNode; desktop: boolean; mobile: boolean; }[] = [
-  { id: 'game', label: 'Game', icon: <Swords size={24} />, desktop: true, mobile: true },
-  { id: 'chat', label: 'Chat & Log', icon: <MessageSquare size={24} />, desktop: true, mobile: false },
-  { id: 'leaderboard', label: 'Hall of Heroes', icon: <Trophy size={24} />, desktop: true, mobile: true },
-  { id: 'achievements', label: 'Achievements', icon: <Star size={24} />, desktop: true, mobile: false },
-  { id: 'settings', label: 'Settings', icon: <Settings size={24} />, desktop: true, mobile: true },
+const BASE_TABS_CONFIG: {
+  id: Tab;
+  label: string;
+  icon: React.ReactNode;
+  desktop: boolean;
+  mobile: boolean;
+}[] = [
+  {
+    id: "game",
+    label: "Game",
+    icon: <Swords size={24} />,
+    desktop: true,
+    mobile: true,
+  },
+  {
+    id: "chat",
+    label: "Chat & Log",
+    icon: <MessageSquare size={24} />,
+    desktop: true,
+    mobile: false,
+  },
+  {
+    id: "leaderboard",
+    label: "Hall of Heroes",
+    icon: <Trophy size={24} />,
+    desktop: true,
+    mobile: true,
+  },
+  {
+    id: "achievements",
+    label: "Achievements",
+    icon: <Star size={24} />,
+    desktop: true,
+    mobile: false,
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    icon: <Settings size={24} />,
+    desktop: true,
+    mobile: true,
+  },
 ];
 
 const ReconnectionBanner: React.FC<{
@@ -65,29 +113,39 @@ const MainContent: React.FC = () => {
   const { playLobbyMusic, playInGameMusic, stopBackgroundMusic } = useAudio();
   const { hasInteracted } = useInteraction();
   const [activeTab, setActiveTab] = useState<Tab>("game");
-  const [chatActiveTab, setChatActiveTab] = useState('chat');
+  const [chatActiveTab, setChatActiveTab] = useState("chat");
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  
+
   const mainContentRef = useRef<HTMLElement>(null);
   const prevPhase = useRef(gameState.phase);
   const prevTab = useRef(activeTab);
+  const prevMessageCountRef = useRef(messages.length);
+  const isChatVisible = activeTab === "chat" || isChatOpen;
 
   const TABS_CONFIG = useMemo(() => {
     const config = [...BASE_TABS_CONFIG];
     if (user?.is_admin) {
-      config.push({ id: 'admin', label: 'Admin Panel', icon: <ShieldAlert size={24} />, desktop: true, mobile: false });
+      config.push({
+        id: "admin",
+        label: "Admin Panel",
+        icon: <ShieldAlert size={24} />,
+        desktop: true,
+        mobile: false,
+      });
     }
     return config;
   }, [user?.is_admin]);
 
-  const desktopTabs = TABS_CONFIG.filter(t => t.desktop);
-  const mobileTabs = TABS_CONFIG.filter(t => t.mobile);
-
+  const desktopTabs = TABS_CONFIG.filter((t) => t.desktop);
+  const mobileTabs = TABS_CONFIG.filter((t) => t.mobile);
 
   useEffect(() => {
-    if (gameState.phase !== prevPhase.current || activeTab !== prevTab.current) {
-        mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    if (
+      gameState.phase !== prevPhase.current ||
+      activeTab !== prevTab.current
+    ) {
+      mainContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     prevPhase.current = gameState.phase;
@@ -98,50 +156,76 @@ const MainContent: React.FC = () => {
     if (!hasInteracted) return;
 
     const isGamePhase = [
-        GamePhase.ROLE_REVEAL,
-        GamePhase.TEAM_SELECTION,
-        GamePhase.TEAM_VOTE,
-        GamePhase.QUEST_VOTE,
-        GamePhase.QUEST_RESULT,
-        GamePhase.ASSASSINATION,
-        GamePhase.DRAGONS_BREATH,
+      GamePhase.ROLE_REVEAL,
+      GamePhase.TEAM_SELECTION,
+      GamePhase.TEAM_VOTE,
+      GamePhase.QUEST_VOTE,
+      GamePhase.QUEST_RESULT,
+      GamePhase.ASSASSINATION,
+      GamePhase.DRAGONS_BREATH,
     ].includes(gameState.phase);
 
-    const isLobbyPhase = [
-        GamePhase.HOME,
-        GamePhase.LOBBY,
-    ].includes(gameState.phase);
+    const isLobbyPhase = [GamePhase.HOME, GamePhase.LOBBY].includes(
+      gameState.phase
+    );
 
     if (isGamePhase) {
-        playInGameMusic();
+      playInGameMusic();
     } else if (isLobbyPhase) {
-        playLobbyMusic();
-    } else if (gameState.phase !== GamePhase.END_GAME) { 
-        stopBackgroundMusic();
+      playLobbyMusic();
+    } else if (gameState.phase !== GamePhase.END_GAME) {
+      stopBackgroundMusic();
     }
-  }, [gameState.phase, hasInteracted, playInGameMusic, playLobbyMusic, stopBackgroundMusic]);
+  }, [
+    gameState.phase,
+    hasInteracted,
+    playInGameMusic,
+    playLobbyMusic,
+    stopBackgroundMusic,
+  ]);
 
-
+  // --- Smart Notification Logic ---
   useEffect(() => {
-    if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (activeTab !== "chat" && !isChatOpen && lastMessage.senderUserId !== user?.id) {
-        setUnreadMessages((prev) => prev + 1);
+    const currentMessageCount = messages.length;
+    // Only process new messages
+    if (!isChatVisible && currentMessageCount > prevMessageCountRef.current) {
+      const newMessages = messages.slice(prevMessageCountRef.current);
+      const countFromOthers = newMessages.filter(
+        (msg) =>
+          msg.senderUserId !== user?.id && msg.senderId !== "system" && msg.text
+      ).length;
+
+      if (countFromOthers > 0) {
+        setUnreadMessages((prev) => prev + countFromOthers);
       }
     }
-  }, [messages, user?.id, activeTab, isChatOpen]);
+    prevMessageCountRef.current = currentMessageCount;
+  }, [messages, user?.id, isChatVisible]);
 
-  const handleTabChange = (value: string) => {
-    const tab = value as Tab;
-    if (tab === "chat") {
+  useEffect(() => {
+    // Reset count whenever chat becomes visible
+    if (isChatVisible) {
       setUnreadMessages(0);
     }
-    setActiveTab(tab);
+  }, [isChatVisible]);
+  // --- End Smart Notification Logic ---
+
+  const handleNavigateToProfile = () => {
+    const isMobile = window.innerWidth < 768; // Tailwind's `md` breakpoint
+    const targetTab = isMobile ? "settings" : "achievements";
+    setActiveTab(targetTab);
+
+    // Wait for the DOM to update after tab switch
+    setTimeout(() => {
+      const element = document.getElementById("profile-customization-card");
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 500);
   };
-  
+
   const handleOpenChat = () => {
     setIsChatOpen(true);
-    setUnreadMessages(0);
   };
 
   const renderGameScreen = () => {
@@ -174,18 +258,21 @@ const MainContent: React.FC = () => {
     gameState.phase !== GamePhase.DRAGONS_BREATH;
 
   return (
-    <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-[100dvh] w-screen">
-
+    <Tabs
+      value={activeTab}
+      onValueChange={(v) => setActiveTab(v as Tab)}
+      className="flex flex-col h-[100dvh] w-screen"
+    >
       {gameState.reconnectingPlayer && (
         <ReconnectionBanner player={gameState.reconnectingPlayer} />
       )}
-      {gameState.restartVote && (
-        <RestartVoteOverlay />
-      )}
-      
+      {gameState.restartVote && <RestartVoteOverlay />}
+
       {/* HEADER: Player info + Desktop Nav */}
       <header className="w-full bg-slate-900/70 backdrop-blur-md border-b border-slate-700 z-30 flex-shrink-0">
-        {showPlayerInfo && <PlayerInfoBar />}
+        {showPlayerInfo && (
+          <PlayerInfoBar onNavigateToProfile={handleNavigateToProfile} />
+        )}
 
         <TabsList className="hidden md:flex bg-transparent p-0 rounded-none h-auto">
           {desktopTabs.map(({ id, label }) => (
@@ -207,21 +294,32 @@ const MainContent: React.FC = () => {
         </TabsList>
       </header>
 
-      <main ref={mainContentRef} className="flex-grow p-2 sm:p-4 md:p-6 overflow-y-auto pb-28 md:pb-6 scroll-smooth">
+      <main
+        ref={mainContentRef}
+        className="flex-grow p-2 sm:p-4 md:p-6 overflow-y-auto pb-28 md:pb-6 scroll-smooth"
+      >
         <div className="w-full max-w-7xl mx-auto">
-            <TabsContent value="game" className="mt-0 outline-none">
-              {renderGameScreen()}
-            </TabsContent>
-            <TabsContent value="chat" className="mt-0 outline-none">
-                <Chat activeTab={chatActiveTab} onTabChange={setChatActiveTab} />
-            </TabsContent>
-            <TabsContent value="settings" className="mt-0 outline-none"><SettingsScreen /></TabsContent>
-            <TabsContent value="leaderboard" className="mt-0 outline-none"><LeaderboardScreen /></TabsContent>
-            <TabsContent value="achievements" className="mt-0 outline-none"><AchievementsTab /></TabsContent>
-            <TabsContent value="admin" className="mt-0 outline-none"><AdminPage /></TabsContent>
+          <TabsContent value="game" className="mt-0 outline-none">
+            {renderGameScreen()}
+          </TabsContent>
+          <TabsContent value="chat" className="mt-0 outline-none">
+            <Chat activeTab={chatActiveTab} onTabChange={setChatActiveTab} />
+          </TabsContent>
+          <TabsContent value="settings" className="mt-0 outline-none">
+            <SettingsScreen />
+          </TabsContent>
+          <TabsContent value="leaderboard" className="mt-0 outline-none">
+            <LeaderboardScreen />
+          </TabsContent>
+          <TabsContent value="achievements" className="mt-0 outline-none">
+            <AchievementsTab />
+          </TabsContent>
+          <TabsContent value="admin" className="mt-0 outline-none">
+            <AdminPage />
+          </TabsContent>
         </div>
       </main>
-      
+
       {/* MOBILE: Chat pop-up button */}
       <div className="md:hidden fixed bottom-20 right-4 z-30">
         <button
@@ -232,7 +330,7 @@ const MainContent: React.FC = () => {
           <MessageSquare size={32} />
           {unreadMessages > 0 && (
             <span className="absolute -top-1 -right-1 w-6 h-6 text-sm flex items-center justify-center bg-red-500 text-white font-sans font-bold rounded-full border-2 border-slate-900">
-              {unreadMessages > 9 ? '9+' : unreadMessages}
+              {unreadMessages > 9 ? "9+" : unreadMessages}
             </span>
           )}
         </button>
@@ -258,17 +356,16 @@ const MainContent: React.FC = () => {
               className="absolute bottom-16 left-0 right-0 h-[calc(100dvh-4rem)] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <Chat 
-                isMobileView={true} 
-                onHeaderClose={() => setIsChatOpen(false)} 
-                activeTab={chatActiveTab} 
+              <Chat
+                isMobileView={true}
+                onHeaderClose={() => setIsChatOpen(false)}
+                activeTab={chatActiveTab}
                 onTabChange={setChatActiveTab}
               />
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-
 
       <TabsList className="md:hidden fixed bottom-0 left-0 w-full h-16 flex justify-around bg-slate-900/80 backdrop-blur-xl border-t border-slate-700 z-40 p-0 rounded-none">
         {mobileTabs.map(({ id, label, icon }) => (
@@ -289,37 +386,36 @@ const MainContent: React.FC = () => {
   );
 };
 
-
 export default function GamePage() {
-    const params = useParams();
-    const router = useRouter();
-    const { gameState, isAuthenticated, isLoading } = useGame();
-    const roomCodeFromUrl = params.roomCode as string;
+  const params = useParams();
+  const router = useRouter();
+  const { gameState, isAuthenticated, isLoading } = useGame();
+  const roomCodeFromUrl = params.roomCode as string;
 
-    useEffect(() => {
-        if (isLoading) return;
+  useEffect(() => {
+    if (isLoading) return;
 
-        if (!isAuthenticated) {
-            router.replace(`/join/${roomCodeFromUrl}`);
-            return;
-        }
-        
-        // This handles cases where the game has ended, the user was kicked,
-        // or they manually entered a URL for a game they aren't in.
-        if (gameState.roomCode !== roomCodeFromUrl) {
-            router.replace('/');
-        }
-    }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router]);
-
-    // Render a loading state while checks are performed
-    if (isLoading || !isAuthenticated || gameState.roomCode !== roomCodeFromUrl) {
-        return (
-            <div className="flex items-center justify-center h-screen w-screen">
-                <Spinner size="lg" />
-            </div>
-        );
+    if (!isAuthenticated) {
+      router.replace(`/join/${roomCodeFromUrl}`);
+      return;
     }
-    
-    // If all checks pass, render the main game content.
-    return <MainContent />;
+
+    // This handles cases where the game has ended, the user was kicked,
+    // or they manually entered a URL for a game they aren't in.
+    if (gameState.roomCode !== roomCodeFromUrl) {
+      router.replace("/");
+    }
+  }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router]);
+
+  // Render a loading state while checks are performed
+  if (isLoading || !isAuthenticated || gameState.roomCode !== roomCodeFromUrl) {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  // If all checks pass, render the main game content.
+  return <MainContent />;
 }

@@ -7,14 +7,18 @@ type QuestStatus = 'PENDING' | 'ACTIVE' | 'PASSED' | 'FAILED';
 
 interface QuestProgressProps {
   currentQuest: number;
-  questResults: { status: QuestStatus; successVotes: number; failVotes: number }[];
-  config: { quests: number[] };
+  questResults: { 
+    status: QuestStatus; 
+    successVotes: number; 
+    failVotes: number;
+    failsRequired: number;
+    teamSize: number;
+  }[];
 }
 
 const QuestProgressWithPopover: React.FC<QuestProgressProps> = ({
   currentQuest,
   questResults,
-  config,
 }) => {
   const goodWins = questResults.filter(q => q.status === 'PASSED').length;
   const evilWins = questResults.filter(q => q.status === 'FAILED').length;
@@ -32,7 +36,9 @@ const QuestProgressWithPopover: React.FC<QuestProgressProps> = ({
         <div className="grid grid-cols-5 gap-2 min-w-[400px] px-2 mt-5">
           {[1, 2, 3, 4, 5].map((questNumber) => {
             const result = questResults[questNumber - 1];
-            let status = result?.status || 'PENDING';
+            if (!result) return null; // Should not happen if data is correct
+            
+            let status = result.status;
             
             // If the game is over, we can infer the state of any 'ACTIVE' quest.
             if (isGameOver && status === 'ACTIVE') {
@@ -70,7 +76,7 @@ const QuestProgressWithPopover: React.FC<QuestProgressProps> = ({
                     <div className="flex justify-center mb-1">{icon}</div>
                     <div className="text-[10px] sm:text-xs font-semibold">Quest {questNumber}</div>
                     <div className="text-[10px] sm:text-xs opacity-70 mt-1">
-                      {config.quests[questNumber - 1]} Knights
+                      {result.teamSize} Knights
                     </div>
                   </div>
                 </PopoverTrigger>
@@ -91,24 +97,21 @@ const QuestProgressWithPopover: React.FC<QuestProgressProps> = ({
                     </div>
                   </div>
 
-                  {(status === 'PASSED' || status === 'FAILED') ? (
-                    <>
-                      <div className="text-white/70 text-xs mt-2">
-                        {result.successVotes} Success / {result.failVotes} Fail
-                      </div>
-                      <div className="text-white/50 text-xs mt-4 italic">
-                        Full details revealed at game end.
-                      </div>
-                    </>
-                  ) : status === 'ACTIVE' ? (
-                    <div className="text-yellow-200 text-xs mt-2">
-                      This quest is currently in progress.
-                    </div>
-                  ) : (
-                    <div className="text-white/60 text-xs mt-2">
-                      This quest has not yet started.
-                    </div>
-                  )}
+                    {(status === 'PASSED' || status === 'FAILED') ? (
+                        <div className="space-y-1 mt-2">
+                            <p className="text-sm text-white/80"><span className="font-bold">{result.teamSize}</span> knights participated.</p>
+                            <div className="text-white/70 text-xs">
+                                Result: {result.successVotes} Success / {result.failVotes} Fail
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-1 mt-2">
+                            <p className="text-sm text-white/80">A team of <span className="font-bold">{result.teamSize}</span> knights is required.</p>
+                            <div className="text-white/60 text-xs">
+                                Requires <span className="font-bold">{result.failsRequired}</span> Fail vote{result.failsRequired > 1 ? 's' : ''} to fail.
+                            </div>
+                        </div>
+                    )}
                 </PopoverContent>
               </Popover>
             );
