@@ -48,7 +48,7 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
         'bg-slate-900/50 backdrop-blur-sm border-4',
         borderClass,
         isDisconnected ? 'grayscale opacity-50' : '',
-        onClick && !isDisconnected ? 'cursor-pointer hover:border-yellow-500/80 hover:-translate-y-1 active:scale-95 active:border-yellow-500 active:brightness-90' : '',
+        onClick && !isDisconnected ? 'cursor-pointer [@media(hover:hover)]:hover:border-yellow-500/80 [@media(hover:hover)]:hover:-translate-y-1 active:scale-95 active:border-yellow-500 active:brightness-90' : '',
         isSelected ? 'scale-105' : '',
         className
       )}
@@ -64,7 +64,6 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
       {/* Info Box */}
       <div className="relative w-full bg-black/50 backdrop-blur-sm rounded-md p-2 text-center z-10">
         <div className="text-base font-bold text-slate-100 truncate w-full flex items-center justify-center gap-1.5 h-6">
-            <span className="truncate">{player.name}</span>
             {/* <AnimatePresence>
                 {isSpeaking && (
                     <motion.div
@@ -77,7 +76,7 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
                     </motion.div>
                 )}
             </AnimatePresence> */}
-            
+            <span className="truncate">{player.name}</span>
         </div>
         {player.selectedTitle ? (
             <p className="text-xs text-yellow-400 font-bold italic truncate w-full h-4">

@@ -10,7 +10,7 @@ import Spinner from "@/components/ui/Spinner";
 import { useRouter } from "next/navigation";
 
 const JoinHostView: React.FC = () => {
-  const { joinRoom, user, logout } = useGame();
+  const { joinRoom, user, logout, isConnected } = useGame();
   const [roomCode, setRoomCode] = useState("");
 
   return (
@@ -37,8 +37,8 @@ const JoinHostView: React.FC = () => {
 
       <Card className="w-full max-w-md">
         <div className="flex flex-col space-y-6">
-          <Button onClick={() => joinRoom()} className="w-full">
-            Host New Game
+          <Button onClick={() => joinRoom()} className="w-full h-14" disabled={!isConnected}>
+            {isConnected ? 'Host New Game' : <Spinner size="sm" />}
           </Button>
           <div className="flex items-center text-slate-500">
             <hr className="flex-grow border-slate-700" />
@@ -56,21 +56,27 @@ const JoinHostView: React.FC = () => {
             <Button
               variant="secondary"
               onClick={() => joinRoom(roomCode)}
-              disabled={!roomCode.trim()}
-              className="w-full"
+              disabled={!roomCode.trim() || !isConnected}
+              className="w-full h-14"
             >
-              Join Game
+              {isConnected ? 'Join Game' : <Spinner size="sm" />}
             </Button>
           </div>
         </div>
       </Card>
+      {!isConnected && (
+         <div className="flex items-center gap-2 text-yellow-400 mt-2">
+            <Spinner size="sm" />
+            <p>Connecting to server...</p>
+          </div>
+      )}
     </div>
   );
 };
 
 
 export default function Home() {
-  const { isAuthenticated, isLoading, gameState, settings } = useGame();
+  const { isAuthenticated, isLoading, gameState, settings, isConnected } = useGame();
   const router = useRouter();
   const [showIntro, setShowIntro] = useState(true);
 

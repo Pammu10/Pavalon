@@ -298,7 +298,24 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setHasViewedRole(false);
     }, []);
 
-    // --- Main Socket Listener `useEffect` ---
+    const logout = useCallback(() => {
+        if (gameState.roomCode && socketService.socket.connected) {
+            socketService.emit('leaveRoom');
+        }
+        socketService.disconnect();
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        delete api.defaults.headers.common['Authorization'];
+        setToken(null);
+        setUser(null);
+        setIsAuthenticated(false);
+        setGameState(initialGameState);
+        setHasViewedRole(false);
+        setViewedSessionKeys(new Set());
+        router.push('/');
+    }, [gameState.roomCode, router]);
+
+    // --- Socket Listener `useEffect` ---
     useEffect(() => {
         socketService.on('updateGameState', handleUpdate);
         socketService.on('chatMessage', handleChatMessage);
@@ -314,6 +331,34 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             socketService.off('kicked', handleKicked);
         };
     }, [handleUpdate, handleChatMessage, handleError, handleAchievementUnlocked, handleKicked]);
+
+    // This effect handles authentication failures on connection
+    useEffect(() => {
+        const handleConnectError = (err: Error) => {
+             // Only handle this if the user was supposed to be authenticated.
+            // This prevents firing the toast on the login screen if the server is down.
+            if (isAuthenticated) {
+                console.error("Socket connection error:", err.message);
+                if (err.message.includes("Authentication error")) {
+                    toast.error("Your session is invalid or has expired.", {
+                        description: "You have been logged out. Please log in again."
+                    });
+                    logout(); 
+                } else {
+                    // Generic connection error for an authenticated user trying to connect
+                    toast.error("Could not connect to the game server.", {
+                        description: "Please check your internet connection and try again."
+                    });
+                }
+            }
+        };
+
+        socketService.socket.on('connect_error', handleConnectError);
+
+        return () => {
+            socketService.socket.off('connect_error', handleConnectError);
+        };
+    }, [isAuthenticated, logout]);
 
      useEffect(() => {
         const onConnect = () => setPlayerId(socketService.socket.id!);
@@ -360,23 +405,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             autoClearError(setAuthError, message);
             toast.error(message);
         }
-    };
-
-    const logout = () => {
-        if (gameState.roomCode && socketService.socket.connected) {
-            socketService.emit('leaveRoom');
-        }
-        socketService.disconnect();
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-        delete api.defaults.headers.common['Authorization'];
-        setToken(null);
-        setUser(null);
-        setIsAuthenticated(false);
-        setGameState(initialGameState);
-        setHasViewedRole(false);
-        setViewedSessionKeys(new Set());
-        router.push('/');
     };
 
     const updateUsername = async (newUsername: string) => {

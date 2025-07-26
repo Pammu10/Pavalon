@@ -458,16 +458,6 @@ const GameScreen: React.FC = () => {
 
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col items-center">
-      <div className="w-full mb-4 bg-slate-900/50 p-2 md:p-3 rounded-xl border border-slate-700">
-        <div className="flex justify-between items-center text-sm md:text-base">
-          <div className="text-blue-400 font-bold">Good: {goodScore}</div>
-          <div className="font-eaglelake text-lg md:text-xl">
-            Rejected Count: {gameState.voteTrack}
-          </div>
-          <div className="text-red-500 font-bold">Evil: {evilScore}</div>
-        </div>
-      </div>
-
       {gameState.questHistory.length > 0 && (
         <div className="w-full">
           <QuestProgressWithPopover
@@ -478,7 +468,9 @@ const GameScreen: React.FC = () => {
         </div>
       )}
       
-      <GamePhaseHeader />
+      <div className="w-full bg-gradient-to-br from-slate-800/40 to-black/40 border border-slate-600/30 shadow-slate-700/20 shadow-inner rounded-2xl p-4 sm:p-6 mb-6 backdrop-blur-sm">
+        <GamePhaseHeader />
+      </div>
       <div className="w-full animate-slideInUp">{renderPhaseComponent()}</div>
     </div>
   );

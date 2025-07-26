@@ -1,12 +1,11 @@
-
-import React, { useState, useMemo, useCallback } from "react";
+import React from "react";
 import { useGame } from "@/components/context/GameContext";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { Player, Role, Alignment } from "@/types";
 import { ROLES, EVIL_PLAYER_COUNT } from "@/constants";
 import Spinner from "@/components/ui/Spinner";
-import { Copy, Check, LogOut, ShieldAlert, Flame, Share2 } from "lucide-react";
+import { Copy, LogOut, ShieldAlert, Flame } from "lucide-react";
 import PlayerTile from "@/components/ui/PlayerTile";
 import { toast } from "sonner";
 
@@ -52,9 +51,9 @@ const RoleCustomization: React.FC<{
   onStart: (roles: Role[]) => void;
   isPaused: boolean;
 }> = ({ playerCount, onStart, isPaused }) => {
-  const [selectedRoles, setSelectedRoles] = useState<Set<Role>>(new Set());
+  const [selectedRoles, setSelectedRoles] = React.useState<Set<Role>>(new Set());
 
-  const handleToggle = useCallback((role: Role) => {
+  const handleToggle = React.useCallback((role: Role) => {
     setSelectedRoles((prev) => {
       const newRoles = new Set(prev);
       if (newRoles.has(role)) {
@@ -76,7 +75,7 @@ const RoleCustomization: React.FC<{
     });
   }, []);
 
-  const { finalRoles, validation } = useMemo(() => {
+  const { finalRoles, validation } = React.useMemo(() => {
     const rolesWithDefaults = new Set(selectedRoles);
     rolesWithDefaults.add(Role.MERLIN);
     rolesWithDefaults.add(Role.ASSASSIN);
@@ -202,41 +201,33 @@ const LobbyView: React.FC = () => {
     const { gameState, playerId, startGame, leaveRoom, kickPlayer, startDragonsBreath } = useGame();
     const { roomCode, players } = gameState;
     const isPaused = !!gameState.reconnectingPlayer;
-    const [copied, setCopied] = useState(false);
   
-    const handleCopyClick = () => {
-      if (roomCode) {
-        navigator.clipboard.writeText(roomCode).then(
-          () => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          },
-          (err) => {
-            console.error("Could not copy text: ", err);
-          }
-        );
-      }
-    };
-  
-    const handleShare = () => {
-      if (!roomCode) return;
-      const joinUrl = `${window.location.origin}/join/${roomCode}`;
-      if (navigator.share) {
-        navigator.share({
-            title: 'Join my Pavalon Game!',
-            text: `Join my game with code: ${roomCode}`,
-            url: joinUrl,
-        }).catch(() => {
-            // Fallback to clipboard if share fails
-            navigator.clipboard.writeText(joinUrl);
-            toast.success('Join link copied to clipboard!');
-        });
-      } else {
-        navigator.clipboard.writeText(joinUrl);
-        toast.success('Join link copied to clipboard!');
-      }
-    };
+    const handleShare = async () => {
+        if (!roomCode) return;
+        const inviteText = `Join my Pavalon game!\nCode: ${roomCode}\nLink: ${window.location.origin}/join/${roomCode}`;
+        const shareData = {
+            title: "Join Pavalon Game",
+            text: `Join my game on Pavalon! Code: ${roomCode}`,
+            url: `${window.location.origin}/join/${roomCode}`,
+        };
 
+        if (navigator.share) {
+            try {
+                await navigator.share(shareData);
+            } catch (error) {
+                console.log("Web Share API failed, likely user cancellation.", error);
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(inviteText);
+                toast.success("Invite copied to clipboard!");
+            } catch (error) {
+                console.error("Failed to copy invite:", error);
+                toast.error("Could not copy invite.");
+            }
+        }
+    };
+  
     const currentPlayer = players.find((p) => p.id === playerId);
     const canStartPavalon = players.length >= 5 && players.length <= 10;
     const canStartDragonsBreath = players.length === 2;
@@ -253,10 +244,6 @@ const LobbyView: React.FC = () => {
               <p className="text-slate-400">Waiting for players to join...</p>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
-                 <Button variant="secondary" onClick={handleShare} className="text-sm py-1.5 px-4 flex-1 flex items-center gap-2 justify-center">
-                    <Share2 size={16} />
-                    Share
-                </Button>
                 <Button variant="danger" onClick={leaveRoom} className="text-sm py-1.5 px-4 flex-1 flex items-center gap-2 justify-center">
                     <LogOut size={16} />
                     Leave
@@ -270,22 +257,17 @@ const LobbyView: React.FC = () => {
                   <h3 className="text-slate-300 text-sm uppercase tracking-widest font-bold mb-2">
                   Room Code
                   </h3>
-                  <div className="flex items-center justify-center gap-2 bg-slate-900/70 p-2 rounded-lg w-fit mx-auto border-2 border-slate-700">
-                      <p className="font-mono text-3xl md:text-4xl font-bold text-white tracking-[0.1em] px-4">
+                  <button
+                    onClick={handleShare}
+                    className="flex items-center justify-center gap-4 bg-slate-900/70 p-3 rounded-lg w-fit mx-auto border-2 border-slate-700 hover:border-yellow-600 transition-colors cursor-pointer"
+                    aria-label="Share game code"
+                    title="Share Game Invite"
+                  >
+                      <p className="font-mono text-3xl md:text-4xl font-bold text-white tracking-[0.1em]">
                       {roomCode}
                       </p>
-                      <button
-                      onClick={handleCopyClick}
-                      className="bg-slate-700/70 p-2 rounded-md hover:bg-slate-600 transition-colors"
-                      aria-label="Copy room code"
-                      >
-                      {copied ? (
-                          <Check className="w-5 h-5 text-green-400" />
-                      ) : (
-                          <Copy className="w-5 h-5 text-slate-400" />
-                      )}
-                      </button>
-                  </div>
+                      <Copy className="w-6 h-6 text-yellow-500" />
+                  </button>
               </Card>
           </div>
   

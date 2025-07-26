@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useGame } from "@/components/context/GameContext";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -15,6 +15,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const { login, register, authError, isLoading } = useGame();
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +25,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
       } else {
         register({ username, password }, onRegisterSuccess);
       }
+    }
+  };
+
+  const handleUsernameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      passwordInputRef.current?.focus();
     }
   };
 
@@ -55,11 +63,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={handleUsernameKeyDown}
             className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
             required
             maxLength={10}
           />
           <input
+            ref={passwordInputRef}
             type="password"
             placeholder="Password"
             value={password}
