@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useGame } from "@/components/context/GameContext";
-import { useAudio } from "@/components/context/AudiContext";
+import { useAudio } from "@/components/context/AudioContext";
 import LobbyScreen from "@/components/screens/LobbyScreen";
 import RoleRevealScreen from "@/components/screens/RoleRevealScreen";
 import GameScreen from "@/components/screens/GameScreen";
@@ -221,7 +221,7 @@ const MainContent: React.FC = () => {
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    }, 500);
+    }, 1000);
   };
 
   const handleOpenChat = () => {

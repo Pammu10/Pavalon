@@ -1,64 +1,23 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
 import { Crown, Sword, Shield, Castle, Scroll, Gem } from "lucide-react"
-// import { useHapticFeedback } from "@/hooks/useHapticFeedback"
 import { StorybookScene } from "@/components/ui/StorybookScene"
 import { AvalonLoadingOverlay } from "@/components/ui/LoadingOverlay";
-// import { App as CapacitorApp } from "@capacitor/app";
-// import { PluginListenerHandle } from "@capacitor/core"
-// import { Dialog } from "@capacitor/dialog"
-// import { storageManager } from "@/lib/storage"
-// @ts-ignore
-export default function HomeScreen({onEnter}) {
+
+export default function HomeScreen({ onEnter, shouldSkipStory }: { onEnter: () => void; shouldSkipStory: boolean; }) {
   const [mounted, setMounted] = useState(false)
   const [showStory, setShowStory] = useState(false);
-  const [showLoading, setShowLoading] =useState(false);
-  const [shouldSkipStory, setShouldSkipStory] = useState(false);
+  const [showLoading, setShowLoading] = useState(false);
+
   useEffect(() => {
     setMounted(true)
   }, [])
-//   useEffect(() => {
-//     let listener: PluginListenerHandle;
-
-//     const setupListener = async () => {
-//       listener = await CapacitorApp.addListener("backButton", async () => {
-//           const { value } = await Dialog.confirm({
-//             title: "Retreat from the Realm?",
-//             message:
-//               "Are you sure you wish to abandon the Round Table and leave Pavalon?",
-//             okButtonTitle: "Yes, Retreat",
-//             cancelButtonTitle: "Stay and Fight",
-//           });
-
-//           if (value) {
-//             CapacitorApp.exitApp();
-//           }
-//         })
-//     };
-
-//     setupListener();
-
-//     return () => {
-//       if (listener) {
-//         listener.remove();
-//       }
-//     };
-//   });
-
-//   const { impact } = useHapticFeedback();
-
-//   useEffect(() => {
-//     const checkOnSkip = async () => {
-//       const settings = await storageManager.loadSettings();
-//       setShouldSkipStory(settings.skipIntro === true);
-//     };
-//     checkOnSkip();
-//   }, []);
 
   return (
     <>
-      {showStory ? (<StorybookScene onSkip={async () => {
+      {showStory ? (<StorybookScene onSkip={() => {
         setShowStory(false)
     setShowLoading(true)
 }} />
@@ -176,13 +135,12 @@ export default function HomeScreen({onEnter}) {
 
           
             <button
-              onClick={async () => {
-                // await impact();
+              onClick={() => {
                 if (!shouldSkipStory) {
-          setShowStory(true);
-        } else {
-          setShowLoading(true);
-        }
+                  setShowStory(true);
+                } else {
+                  setShowLoading(true);
+                }
               }}
               className="relative px-8 sm:px-16 py-4 sm:py-6 bg-gradient-to-r from-amber-800 via-yellow-700 to-amber-800 rounded-2xl leading-none flex items-center hover:scale-105 active:scale-95 transform transition-all duration-300 shadow-2xl touch-manipulation border-2 border-amber-500"
             >

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useGame } from "@/components/context/GameContext";
-import { useAudio } from "@/components/context/AudiContext";
+import { useAudio } from "@/components/context/AudioContext";
 import { Alignment, Player, Quest } from "@/types";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -12,9 +12,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 // --- Sub-components for After-Action Report ---
 
 const TimelineItem: React.FC<{ children: React.ReactNode; isLast?: boolean }> = ({ children, isLast }) => (
-  <div className="relative pl-8 pb-8">
-    {!isLast && <div className="absolute top-5 -left-1 w-0.5 h-full bg-slate-700"></div>}
-    <div className="absolute top-4 -left-1 w-5 h-5 bg-slate-800 rounded-full flex items-center justify-center ring-4 ring-slate-900">
+  <div className="relative pl-6 sm:pl-8 pb-8">
+    {!isLast && <div className="absolute top-5 -left-1 sm:left-[-1px] w-0.5 h-full bg-slate-700"></div>}
+    <div className="absolute top-4 -left-1 sm:left-[-3px] w-5 h-5 bg-slate-800 rounded-full flex items-center justify-center ring-4 ring-slate-900">
         <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
     </div>
     {children}
@@ -197,10 +197,10 @@ const EndGameScreen: React.FC = () => {
   const gameReportAccordion = (
     <Accordion type="single" collapsible className="w-full my-8">
       <AccordionItem value="report" className="rounded-lg overflow-hidden bg-slate-800/20">
-        <AccordionTrigger className="px-4 py-4 text-2xl sm:text-3xl font-eaglelake text-yellow-500 hover:no-underline data-[state=open]:border-b ">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 text-2xl sm:text-3xl font-eaglelake text-yellow-500 hover:no-underline data-[state=open]:border-b data-[state=open]:border-yellow-700/50">
             End of Game Report
         </AccordionTrigger>
-        <AccordionContent className="px-4">
+        <AccordionContent className="px-2 sm:px-4">
           <div className="pt-4">
               <div className="text-left">
                   {questHistory.filter(q => q.status === "PASSED" || q.status === "FAILED").map((quest, index, arr) => (
@@ -261,7 +261,7 @@ const EndGameScreen: React.FC = () => {
         
         {gameReportAccordion}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4 border-slate-700 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-2 pt-2">
             <FinalRolesDisplay players={players} />
             <ReadyForNextGame 
                 players={players} 

@@ -1,5 +1,4 @@
 import { Role } from "./types";
-import { ShieldCheck, Skull, Crown, Swords, Star, Eye, Trophy, Shield, Zap, Feather, Spade, BookHeart, HeartCrack, Castle, Cherry } from "lucide-react";
 
 export interface AchievementReward {
     type: 'TITLE' | 'BORDER' | 'ICON';
@@ -142,6 +141,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         description: 'A special blessing bestowed upon the most dedicated knights of the realm.',
         icon: 'Cherry',
         rewards: [
+            { type: 'ICON', value: 'cherry', name: 'Cherry Icon' },
             { type: 'BORDER', value: 'sakura', name: 'Sakura Border' }
         ],
         check: () => false, // Cannot be earned automatically

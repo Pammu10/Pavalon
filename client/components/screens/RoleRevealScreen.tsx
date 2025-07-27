@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useGame } from "@/components/context/GameContext";
-import { useAudio } from "@/components/context/AudiContext";
+import { useAudio } from "@/components/context/AudioContext";
 import { ROLES } from "@/constants";
 import { Role, Alignment, Player } from "@/types";
 import Button from "@/components/ui/Button";
@@ -11,13 +11,14 @@ import PlayerStatusList from "../ui/PlayerStatusList";
 import { getVisiblePlayers } from "@/hooks/usePlayerVision";
 
 const RoleRevealScreen: React.FC = () => {
-  const { gameState, playerId, playerReady, hasViewedRole, setHasViewedRole } = useGame();
+  const { gameState, playerId, playerReady, hasViewedRole, setHasViewedRole } =
+    useGame();
   const { playSound } = useAudio();
   const [isInitialLoad, setIsInitialLoad] = useState(!hasViewedRole);
 
   useEffect(() => {
     if (isInitialLoad) {
-      playSound('role-reveal');
+      playSound("role-reveal");
       const timer = setTimeout(() => {
         setIsInitialLoad(false); // After the first animation cycle, it's no longer an initial load
         setHasViewedRole(true);
@@ -25,7 +26,6 @@ const RoleRevealScreen: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [isInitialLoad, playSound, setHasViewedRole]);
-
 
   const player = gameState.players.find((p) => p.id === playerId);
   const roleInfo = player?.role ? ROLES[player.role] : null;
@@ -44,20 +44,26 @@ const RoleRevealScreen: React.FC = () => {
   const handleReadyClick = () => {
     playerReady();
   };
-  
+
   const isGood = roleInfo.alignment === Alignment.GOOD;
   const isReady = gameState.readyPlayers.includes(playerId!);
 
-  const getVisionSpan = (seenPlayer: Player, knownAs: 'Evil' | 'Mystic') => {
-    const text = knownAs === 'Mystic' ? "Merlin/Morgana" : seenPlayer.role ?? "Unknown";
-    const colorClass = knownAs === 'Mystic' ? "text-purple-400" : "text-red-400";
+  const getVisionSpan = (seenPlayer: Player, knownAs: "Evil" | "Mystic") => {
+    const text =
+      knownAs === "Mystic" ? "Merlin/Morgana" : seenPlayer.role ?? "Unknown";
+    const colorClass =
+      knownAs === "Mystic" ? "text-purple-400" : "text-red-400";
     return <span className={`text-sm font-bold ${colorClass}`}>{text}</span>;
   };
-  
+
   const animProps = (delay: number) => ({
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.8, ease: "easeOut" as const, delay: !hasViewedRole ? delay : 0 },
+    transition: {
+      duration: 0.8,
+      ease: "easeOut" as const,
+      delay: !hasViewedRole ? delay : 0,
+    },
   });
 
   return (
@@ -70,18 +76,25 @@ const RoleRevealScreen: React.FC = () => {
         className="flex flex-col items-center justify-start p-2 sm:p-4"
       >
         <div className="w-full max-w-md mx-auto text-center">
-          <motion.h1 
+          <motion.h1
             {...animProps(0.2)}
             className="font-eaglelake text-2xl sm:text-3xl md:text-4xl mb-4 text-center text-white"
           >
             Your Identity
           </motion.h1>
 
-          <motion.div {...animProps(0.5)} className="relative w-58 h-58 mx-auto mb-6">
+          <motion.div
+            {...animProps(0.5)}
+            className="relative w-58 h-58 mx-auto mb-6"
+          >
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 3, ease: "easeOut", delay: !hasViewedRole ? 0.8 : 0 }}
+              transition={{
+                duration: 3,
+                ease: "easeOut",
+                delay: !hasViewedRole ? 0.8 : 0,
+              }}
               className={`absolute inset-0 rounded-xl blur-2xl z-0 pointer-events-none ${
                 isGood
                   ? "bg-gradient-to-tr from-blue-500 via-indigo-400 to-purple-500"
@@ -100,14 +113,21 @@ const RoleRevealScreen: React.FC = () => {
                 src={roleInfo.img}
                 alt={`${player.role} portrait`}
                 initial={{ scale: 1, opacity: 0, rotate: -60 }}
-                animate={{ scale: 1, opacity: 1, rotate: 0  }}
-                transition={{ duration: 2.5, ease: "easeOut", delay: !hasViewedRole ? 1 : 0 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                transition={{
+                  duration: 2.5,
+                  ease: "easeOut",
+                  delay: !hasViewedRole ? 1 : 0,
+                }}
                 className="w-full h-full object-cover"
               />
             </div>
           </motion.div>
 
-          <motion.h3 {...animProps(1.5)} className="text-3xl font-bold mb-3 text-amber-300 font-eaglelake">
+          <motion.h3
+            {...animProps(1.5)}
+            className="text-3xl font-bold mb-3 text-amber-300 font-eaglelake"
+          >
             {player.role}
           </motion.h3>
 
@@ -122,7 +142,10 @@ const RoleRevealScreen: React.FC = () => {
             {roleInfo.alignment}
           </motion.div>
 
-          <motion.div {...animProps(2.2)} className="bg-gradient-to-br from-black/40 to-black/60 rounded-xl p-4 sm:p-6 mb-6 border border-amber-600/30 text-left">
+          <motion.div
+            {...animProps(2.2)}
+            className="bg-gradient-to-br from-black/40 to-black/60 rounded-xl p-4 sm:p-6 mb-6 border border-amber-600/30 text-left"
+          >
             <h4 className="font-bold mb-3 text-amber-300 flex items-center font-eaglelake">
               <Star className="w-5 h-5 mr-2 flex-shrink-0" />
               Your Sacred Duty
@@ -142,17 +165,18 @@ const RoleRevealScreen: React.FC = () => {
           </motion.div>
 
           {visiblePlayerInfo.length > 0 && (
-            <motion.div id="role-vision" {...animProps(2.5)} className="bg-gradient-to-br from-black/40 to-black/60 rounded-xl p-4 sm:p-6 mb-6 border border-amber-600/30 text-left">
+            <motion.div
+              id="role-vision"
+              {...animProps(2.5)}
+              className="bg-gradient-to-br from-black/40 to-black/60 rounded-xl p-4 sm:p-6 mb-6 border border-amber-600/30 text-left"
+            >
               <h4 className="font-bold mb-3 text-amber-300 flex items-center font-eaglelake">
                 <Eye className="w-5 h-5 mr-2 flex-shrink-0" />
                 Your Vision
               </h4>
               <div className="space-y-2">
-                {visiblePlayerInfo.map(({player: p, knownAs}) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between"
-                  >
+                {visiblePlayerInfo.map(({ player: p, knownAs }) => (
+                  <div key={p.id} className="flex items-center justify-between">
                     <span className="max-w-xs truncate inline-block text-slate-200">
                       {p.name}
                     </span>
@@ -164,7 +188,10 @@ const RoleRevealScreen: React.FC = () => {
           )}
         </div>
 
-        <motion.div {...animProps(3.0)} className="mt-4 text-center w-full max-w-lg pb-6">
+        <motion.div
+          {...animProps(3.0)}
+          className="mt-4 text-center w-full max-w-lg pb-6"
+        >
           <PlayerStatusList
             title="Player Status"
             players={gameState.players}

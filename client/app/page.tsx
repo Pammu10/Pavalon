@@ -8,10 +8,18 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Spinner from "@/components/ui/Spinner";
 import { useRouter } from "next/navigation";
+import HomeScreen from "@/components/screens/HomeScreen";
 
 const JoinHostView: React.FC = () => {
   const { joinRoom, user, logout, isConnected } = useGame();
   const [roomCode, setRoomCode] = useState("");
+
+  const handleJoinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (roomCode.trim() && isConnected) {
+      joinRoom(roomCode);
+    }
+  };
 
   return (
     <div className="animate-fadeIn flex flex-col items-center justify-center space-y-8 min-h-[90vh]">
@@ -45,7 +53,7 @@ const JoinHostView: React.FC = () => {
             <span className="px-2">OR</span>
             <hr className="flex-grow border-slate-700" />
           </div>
-          <div className="flex flex-col gap-4 w-full">
+          <form onSubmit={handleJoinSubmit} className="flex flex-col gap-4 w-full">
             <input
               type="text"
               placeholder="Room Code"
@@ -54,14 +62,14 @@ const JoinHostView: React.FC = () => {
               className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 uppercase transition"
             />
             <Button
+              type="submit"
               variant="secondary"
-              onClick={() => joinRoom(roomCode)}
               disabled={!roomCode.trim() || !isConnected}
               className="w-full h-14"
             >
               {isConnected ? 'Join Game' : <Spinner size="sm" />}
             </Button>
-          </div>
+          </form>
         </div>
       </Card>
       {!isConnected && (
@@ -76,15 +84,25 @@ const JoinHostView: React.FC = () => {
 
 
 export default function Home() {
-  const { isAuthenticated, isLoading, gameState, settings, isConnected } = useGame();
+  const { isAuthenticated, isLoading, gameState, settings } = useGame();
   const router = useRouter();
-  const [showIntro, setShowIntro] = useState(true);
+  // Initialize state from sessionStorage to prevent flicker on reload.
+  const [introCompleted, setIntroCompleted] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem("introCompleted") === "true";
+    }
+    return false;
+  });
 
   useEffect(() => {
-    if (settings.skipIntro) {
-      setShowIntro(false);
+    // If a user is already in a game when they hit the home page (e.g., new tab),
+    // automatically mark the intro as completed for this session.
+    // This prevents showing the intro if they log out and back in within the same session.
+    if (isAuthenticated && gameState.roomCode && !introCompleted) {
+      sessionStorage.setItem("introCompleted", "true");
+      setIntroCompleted(true);
     }
-  }, [settings.skipIntro]);
+  }, [isAuthenticated, gameState.roomCode, introCompleted]);
 
 
   if (isLoading) {
@@ -105,7 +123,17 @@ export default function Home() {
     )
   }
 
-  if (!isAuthenticated) {
+  
+    if (!introCompleted) {
+        return <HomeScreen 
+            onEnter={() => {
+                sessionStorage.setItem('introCompleted', 'true');
+                setIntroCompleted(true);
+            }} 
+            shouldSkipStory={isAuthenticated && settings.skipIntro}
+        />;
+    }
+    if (!isAuthenticated) {
     return <AuthScreen />;
   }
 

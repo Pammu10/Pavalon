@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useGame } from '@/components/context/GameContext';
-import { useAudio } from '@/components/context/AudiContext';
+import { useAudio } from '@/components/context/AudioContext';
 import api from '@/services/api';
 import { Achievement, AchievementReward, Player } from '@/types';
 import Card from './Card';
 import Spinner from './Spinner';
 import Button from './Button';
-import { ICON_MAP, DEFAULT_ICONS, ACHIEVEMENT_ICONS } from './AvailableIcons';
+import { ICON_MAP, DEFAULT_ICONS } from './AvailableIcons';
 import { CheckCircle, Lock, Trophy, Star, Shield, Eye, Skull, Crown, Swords, Palette, VenetianMask, ShieldCheck, UserRound, Feather, HeartCrack, Castle, Spade, Cherry } from 'lucide-react';
 import PlayerTile from './PlayerTile';
 import { toast } from 'sonner';
@@ -46,14 +46,19 @@ const BorderOption: React.FC<{
                 className={cn(
                     'relative w-20 h-20 rounded-lg border-4 transition-all duration-200 flex items-center justify-center bg-slate-900/50',
                     borderStyleClass,
-                    isSelected ? 'scale-110 ring-2 ring-offset-2 ring-offset-slate-900 ring-yellow-400 shadow-lg' : 'hover:scale-105',
+                    isSelected ? 'scale-110' : 'hover:scale-105',
                     !option.unlocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
                 )}
                 title={displayName}
             >
                 {!option.unlocked && <Lock className="absolute bottom-1 right-1 w-4 h-4 text-slate-200 bg-slate-800 rounded-full p-0.5" />}
             </button>
-            <span className="text-xs text-slate-300 text-center w-20 truncate">{displayName}</span>
+            <span className={cn(
+                "text-xs text-slate-300 text-center w-20 truncate",
+                isSelected && "text-yellow-400 animate-glow font-bold"
+            )}>
+                {displayName}
+            </span>
         </div>
     );
 };
@@ -130,6 +135,8 @@ const AchievementsTab: React.FC = () => {
             allIcons: rewards.filter(r => r.type === 'ICON'),
         };
     }, [achievements]);
+    
+    const achievementIconNames = useMemo(() => allIcons.map(i => i.value), [allIcons]);
 
     const previewPlayer: Player | null = useMemo(() => {
         if (!user) return null;
@@ -177,7 +184,8 @@ const AchievementsTab: React.FC = () => {
                 {iconList.map(iconName => {
                     const Icon = ICON_MAP[iconName];
                     const iconReward = allIcons.find(i => i.value === iconName);
-                    const isUnlocked = !iconReward || iconReward.unlocked;
+                    const isDefaultIcon = DEFAULT_ICONS.includes(iconName);
+                    const isUnlocked = isDefaultIcon || (iconReward?.unlocked ?? false);
 
                     return (
                         <button 
@@ -274,7 +282,7 @@ const AchievementsTab: React.FC = () => {
                         </label>
                         <div className="flex flex-col md:flex-row gap-x-6">
                           {renderIconGrid(DEFAULT_ICONS, "Default Icons")}
-                          {renderIconGrid(ACHIEVEMENT_ICONS, "Achievement Rewards")}
+                          {renderIconGrid(achievementIconNames, "Achievement Rewards")}
                         </div>
                     </div>
                 </div>
