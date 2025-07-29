@@ -22,6 +22,7 @@ import {
   Trophy,
   Star,
   ShieldAlert,
+  Users,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,6 +30,7 @@ import AchievementsTab from "@/components/ui/AchievementsTab";
 import AdminPage from "@/app/admin/page";
 import { useInteraction } from "@/components/context/ClientProviders";
 import DragonsBreathScreen from "@/components/screens/DragonsBreathScreen";
+import SocialHub from "@/components/ui/SocialHub";
 
 type Tab =
   | "game"
@@ -37,7 +39,8 @@ type Tab =
   | "achievements"
   | "settings"
   | "gamelog"
-  | "admin";
+  | "admin"
+  | "social";
 
 const BASE_TABS_CONFIG: {
   id: Tab;
@@ -64,6 +67,13 @@ const BASE_TABS_CONFIG: {
     id: "leaderboard",
     label: "Hall of Heroes",
     icon: <Trophy size={24} />,
+    desktop: true,
+    mobile: true,
+  },
+   {
+    id: "social",
+    label: "Social",
+    icon: <Users size={24} />,
     desktop: true,
     mobile: true,
   },
@@ -109,7 +119,7 @@ const ReconnectionBanner: React.FC<{
 };
 
 const MainContent: React.FC = () => {
-  const { gameState, messages, user } = useGame();
+  const { gameState, messages, user, friendRequests, isSocialHubOpen, openSocialHub, closeSocialHub } = useGame();
   const { playLobbyMusic, playInGameMusic, stopBackgroundMusic } = useAudio();
   const { hasInteracted } = useInteraction();
   const [activeTab, setActiveTab] = useState<Tab>("game");
@@ -123,8 +133,16 @@ const MainContent: React.FC = () => {
   const prevMessageCountRef = useRef(messages.length);
   const isChatVisible = activeTab === "chat" || isChatOpen;
 
+  useEffect(() => {
+    if (gameState.phase !== prevPhase.current || activeTab !== prevTab.current) {
+      mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    prevPhase.current = gameState.phase;
+    prevTab.current = activeTab;
+  }, [gameState.phase, activeTab]);
+
   const TABS_CONFIG = useMemo(() => {
-    const config = [...BASE_TABS_CONFIG];
+    let config = [...BASE_TABS_CONFIG];
     if (user?.is_admin) {
       config.push({
         id: "admin",
@@ -134,23 +152,14 @@ const MainContent: React.FC = () => {
         mobile: false,
       });
     }
+    if (gameState.phase === GamePhase.LOBBY) {
+        config = config.filter(tab => tab.id !== 'social');
+    }
     return config;
-  }, [user?.is_admin]);
+  }, [user?.is_admin, gameState.phase]);
 
   const desktopTabs = TABS_CONFIG.filter((t) => t.desktop);
   const mobileTabs = TABS_CONFIG.filter((t) => t.mobile);
-
-  useEffect(() => {
-    if (
-      gameState.phase !== prevPhase.current ||
-      activeTab !== prevTab.current
-    ) {
-      mainContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
-    prevPhase.current = gameState.phase;
-    prevTab.current = activeTab;
-  }, [gameState.phase, activeTab]);
 
   useEffect(() => {
     if (!hasInteracted) return;
@@ -221,7 +230,7 @@ const MainContent: React.FC = () => {
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    }, 1000);
+    }, 500);
   };
 
   const handleOpenChat = () => {
@@ -263,6 +272,9 @@ const MainContent: React.FC = () => {
       onValueChange={(v) => setActiveTab(v as Tab)}
       className="flex flex-col h-[100dvh] w-screen"
     >
+      <AnimatePresence>
+        {isSocialHubOpen && <SocialHub onClose={closeSocialHub} />}
+      </AnimatePresence>
       {gameState.reconnectingPlayer && (
         <ReconnectionBanner player={gameState.reconnectingPlayer} />
       )}
@@ -289,6 +301,9 @@ const MainContent: React.FC = () => {
               {id === "chat" && unreadMessages > 0 && (
                 <span className="absolute top-2 right-4 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-800"></span>
               )}
+               {id === "social" && friendRequests.length > 0 && (
+                <span className="absolute top-2 right-4 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-800"></span>
+              )}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -305,6 +320,9 @@ const MainContent: React.FC = () => {
           <TabsContent value="chat" className="mt-0 outline-none">
             <Chat activeTab={chatActiveTab} onTabChange={setChatActiveTab} />
           </TabsContent>
+           <TabsContent value="social" className="mt-0 outline-none">
+             <SocialHub asScreen />
+          </TabsContent>
           <TabsContent value="settings" className="mt-0 outline-none">
             <SettingsScreen />
           </TabsContent>
@@ -320,7 +338,7 @@ const MainContent: React.FC = () => {
         </div>
       </main>
 
-      {/* MOBILE: Chat pop-up button */}
+      {/* MOBILE: Floating Action Buttons */}
       <div className="md:hidden fixed bottom-20 right-4 z-30">
         <button
           onClick={handleOpenChat}
@@ -378,6 +396,11 @@ const MainContent: React.FC = () => {
           >
             {icon}
             <span className="mt-[-2px]">{label}</span>
+             {id === 'social' && friendRequests.length > 0 && (
+                <span className="absolute top-1 right-1 w-5 h-5 text-xs flex items-center justify-center bg-blue-500 text-white font-sans font-bold rounded-full border-2 border-slate-900">
+                    {friendRequests.length}
+                </span>
+            )}
             <div className="absolute top-0 w-12 h-1 rounded-b-full bg-transparent group-data-[state=active]:bg-yellow-500"></div>
           </TabsTrigger>
         ))}

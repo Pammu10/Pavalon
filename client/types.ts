@@ -26,6 +26,7 @@ export interface Player {
   selectedTitle?: string | null;
   selectedBorder?: string | null;
   selectedIcon?: string | null;
+  selectedBackground?: string | null;
 }
 
 export enum GamePhase {
@@ -40,6 +41,8 @@ export enum GamePhase {
   END_GAME = "END_GAME",
   DRAGONS_BREATH = "DRAGONS_BREATH", // New phase for the 2-player game
 }
+
+export type Tab = 'home' | 'game' | 'social' | 'leaderboard' | 'settings' | 'achievements' | 'admin' | 'chat' | 'gamelog';
 
 export interface Quest {
   questNumber: number;
@@ -193,6 +196,7 @@ export interface User {
   selectedTitle?: string | null;
   selectedBorder?: string | null;
   selectedIcon?: string | null;
+  selectedBackground?: string | null;
 }
 export type RegisterCredentials = {
   username: string;
@@ -273,6 +277,30 @@ export interface DragonsBreathLeaderboardData {
     mostFillers: LeaderboardEntry[];
 }
 
+// --- Social Types ---
+export interface Friend {
+    id: number;
+    username: string;
+    selectedTitle: string | null;
+    selectedBorder: string | null;
+    selectedIcon: string | null;
+    selectedBackground?: string | null;
+    isOnline: boolean;
+    isInGame: boolean;
+    gamePhase?: GamePhase | null;
+}
+
+export interface FriendRequest {
+    id: number; // user id of the requester
+    username: string;
+}
+
+export interface GameInvite {
+    from: User;
+    roomCode: string;
+}
+
+
 // Socket Event Types
 export interface ClientToServerEvents {
   joinRoom: (data: { roomCode?: string }) => void;
@@ -301,6 +329,9 @@ export interface ClientToServerEvents {
   placeDragonCard: (index: number) => void;
   endFutureView: () => void;
   returnToLobby: () => void;
+  
+  // Social Events
+  'social:invite_to_game': (data: { friendId: number }) => void;
 
   // Voice Chat
   'voice:offer': (data: { targetId: string, sdp: RTCSessionDescriptionInit }) => void;
@@ -314,6 +345,13 @@ export interface ServerToClientEvents {
   error: (message: string) => void;
   achievementUnlocked: (achievement: Achievement) => void;
   kicked: (reason: string) => void;
+
+  // Social Events
+  'social:status': (data: { userId: number, isOnline: boolean, isInGame: boolean, gamePhase?: GamePhase | null }) => void;
+  'social:request_received': (data: FriendRequest) => void;
+  'social:request_accepted': (data: Friend) => void;
+  'social:friend_removed': (data: { friendId: number }) => void;
+  'social:invite_received': (data: GameInvite) => void;
 
   // Voice Chat
   'voice:user-joined': (data: { socketId: string }) => void;

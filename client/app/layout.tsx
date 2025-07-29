@@ -1,13 +1,14 @@
-
 import { Eagle_Lake } from "next/font/google";
 import "./globals.css";
 import ClientProviders from "@/components/context/ClientProviders";
+import DynamicBackground from "@/components/ui/DynamicBackground";
 
 
 const eagleLake = Eagle_Lake({ 
   subsets: ["latin"],
   variable: '--font-eagle-lake',
-  weight: ['400']
+  weight: ['400'],
+  display: 'swap',
 });
 
 export const metadata = {
@@ -24,9 +25,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${eagleLake.variable} font-eaglelake`}>
         <ClientProviders>
-          <div className="min-h-[100dvh] text-slate-300 overflow-hidden bg-cover bg-center relative" style={{ backgroundImage: `url(/background/5-players.jpg)` }}>
-          {children}
-          </div>
+          <DynamicBackground>
+            {children}
+          </DynamicBackground>
         </ClientProviders>
       </body>
     </html>

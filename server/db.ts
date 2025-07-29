@@ -1,4 +1,3 @@
-
 import 'dotenv/config';
 import { Pool, QueryResult } from 'pg';
 
@@ -30,7 +29,24 @@ async function initializeDb() {
             username TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-            is_admin BOOLEAN NOT NULL DEFAULT FALSE
+            is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+            win_streak INTEGER NOT NULL DEFAULT 0,
+            highest_win_streak INTEGER NOT NULL DEFAULT 0,
+            assassin_kills INTEGER NOT NULL DEFAULT 0,
+            selected_title TEXT,
+            selected_border TEXT,
+            selected_icon TEXT,
+            total_games INTEGER NOT NULL DEFAULT 0,
+            total_wins INTEGER NOT NULL DEFAULT 0,
+            good_games INTEGER NOT NULL DEFAULT 0,
+            good_wins INTEGER NOT NULL DEFAULT 0,
+            evil_games INTEGER NOT NULL DEFAULT 0,
+            evil_wins INTEGER NOT NULL DEFAULT 0,
+            db_defuses INTEGER NOT NULL DEFAULT 0,
+            db_futures_played INTEGER NOT NULL DEFAULT 0,
+            db_attacks_played INTEGER NOT NULL DEFAULT 0,
+            db_fillers_played INTEGER NOT NULL DEFAULT 0,
+            selected_background TEXT
         );
         
         CREATE TABLE IF NOT EXISTS matches (
@@ -62,40 +78,17 @@ async function initializeDb() {
             loser_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             played_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS friends (
+            id SERIAL PRIMARY KEY,
+            user1_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            user2_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            status TEXT NOT NULL,
+            action_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user1_id, user2_id)
+        );
     `);
-
-    // Add columns if they don't exist for graceful migration
-    const columnsToAdd = [
-        { name: 'win_streak', type: 'INTEGER NOT NULL DEFAULT 0' },
-        { name: 'highest_win_streak', type: 'INTEGER NOT NULL DEFAULT 0' },
-        { name: 'assassin_kills', type: 'INTEGER NOT NULL DEFAULT 0' },
-        { name: 'selected_title', type: 'TEXT' },
-        { name: 'selected_border', type: 'TEXT' },
-        { name: 'selected_icon', type: 'TEXT' },
-        { name: 'is_admin', type: 'BOOLEAN NOT NULL DEFAULT FALSE' },
-        { name: 'total_games', type: 'INTEGER NOT NULL DEFAULT 0' },
-        { name: 'total_wins', type: 'INTEGER NOT NULL DEFAULT 0' },
-        { name: 'good_games', type: 'INTEGER NOT NULL DEFAULT 0' },
-        { name: 'good_wins', type: 'INTEGER NOT NULL DEFAULT 0' },
-        { name: 'evil_games', type: 'INTEGER NOT NULL DEFAULT 0' },
-        { name: 'evil_wins', type: 'INTEGER NOT NULL DEFAULT 0' },
-        { name: 'db_defuses', type: 'INTEGER NOT NULL DEFAULT 0' },
-        { name: 'db_futures_played', type: 'INTEGER NOT NULL DEFAULT 0' },
-        { name: 'db_attacks_played', type: 'INTEGER NOT NULL DEFAULT 0' },
-        { name: 'db_fillers_played', type: 'INTEGER NOT NULL DEFAULT 0' },
-    ];
-
-    for (const column of columnsToAdd) {
-        try {
-            await pool.query(`ALTER TABLE users ADD COLUMN ${column.name} ${column.type}`);
-            console.log(`Verified column '${column.name}' on users table.`);
-        } catch (e: any) {
-            // Error code for "duplicate column" in PostgreSQL is 42701
-            if (e.code !== '42701') {
-                console.error(`Error adding column ${column.name}:`, e.message);
-            }
-        }
-    }
 
     console.log("Database tables are set up.");
     return pool;

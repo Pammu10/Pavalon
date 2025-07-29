@@ -33,9 +33,10 @@ type RewardOption = AchievementReward & { unlocked: boolean, achievementName: st
 
 const BorderOption: React.FC<{
     option: RewardOption | { name: string, value: string, unlocked: boolean, achievementName?: string };
-    isSelected: boolean;
+    isPreview: boolean;
+    isApplied: boolean;
     onClick: () => void;
-}> = ({ option, isSelected, onClick }) => {
+}> = ({ option, isPreview, isApplied, onClick }) => {
     const borderStyleClass = option.value ? `border-style-${option.value}` : 'border-slate-600';
     const displayName = option.name === 'None' ? 'Default' : option.name.replace(' Border', '');
 
@@ -46,7 +47,7 @@ const BorderOption: React.FC<{
                 className={cn(
                     'relative w-20 h-20 rounded-lg border-4 transition-all duration-200 flex items-center justify-center bg-slate-900/50',
                     borderStyleClass,
-                    isSelected ? 'scale-110' : 'hover:scale-105',
+                    (isApplied || isPreview) ? 'scale-110' : 'hover:scale-105',
                     !option.unlocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
                 )}
                 title={displayName}
@@ -55,7 +56,8 @@ const BorderOption: React.FC<{
             </button>
             <span className={cn(
                 "text-xs text-slate-300 text-center w-20 truncate",
-                isSelected && "text-yellow-400 animate-glow font-bold"
+                 isApplied && "text-yellow-400 animate-glow font-bold",
+                !isApplied && isPreview && "text-blue-400 font-bold animate-glow"
             )}>
                 {displayName}
             </span>
@@ -97,6 +99,7 @@ const AchievementsTab: React.FC = () => {
     const [selectedTitle, setSelectedTitle] = useState('');
     const [selectedBorder, setSelectedBorder] = useState('');
     const [selectedIcon, setSelectedIcon] = useState('');
+    const [selectedBackground, setSelectedBackground] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     
     useEffect(() => {
@@ -119,6 +122,7 @@ const AchievementsTab: React.FC = () => {
             setSelectedTitle(user.selectedTitle || '');
             setSelectedBorder(user.selectedBorder || '');
             setSelectedIcon(user.selectedIcon || '');
+            setSelectedBackground(user.selectedBackground || '');
         }
     }, [user]);
 
@@ -152,8 +156,9 @@ const AchievementsTab: React.FC = () => {
             selectedTitle,
             selectedBorder,
             selectedIcon,
+            selectedBackground,
         };
-    }, [user, selectedTitle, selectedBorder, selectedIcon]);
+    }, [user, selectedTitle, selectedBorder, selectedIcon, selectedBackground]);
     
     const handleLockedItemClick = (option: RewardOption) => {
         toast.error("Item Locked", {
@@ -165,8 +170,8 @@ const AchievementsTab: React.FC = () => {
     const handleSaveCustomization = async () => {
         setIsSaving(true);
         try {
-            await api.post('/user/customize', { title: selectedTitle, border: selectedBorder, icon: selectedIcon });
-            updateUser({ selectedTitle, selectedBorder, selectedIcon });
+            await api.post('/user/customize', { title: selectedTitle, border: selectedBorder, icon: selectedIcon, background: selectedBackground });
+            updateUser({ selectedTitle, selectedBorder, selectedIcon, selectedBackground });
             toast.success("Profile Updated!");
             playSound('success', { manageBgm: false });
         } catch (err) {
@@ -177,6 +182,21 @@ const AchievementsTab: React.FC = () => {
         }
     };
 
+    const themes = [
+        { id: '', name: "King's Hall", image: '/background/king.jpg' },
+        { id: 'lady', name: "Lady of the Lake's Grotto", image: '/background/lady.png' },
+        { id: 'woods', name: "Whispering Woods of Brocéliande", image: '/background/woods.png' },
+        { id: 'orchard', name: "Avalon's Orchard", image: '/background/orchard.png' },
+        { id: 'dragon', name: "The Dragon's Peak", image: '/background/dragon.png' },
+        { id: 'round', name: "The Round Table Chamber", image: '/background/round.png' },
+        { id: 'pool', name: "Morgana's Scrying Pool", image: '/background/pool.png' },
+        { id: 'siege', name: "The Siege Perilous", image: '/background/siege.png' },
+        { id: 'tournament', name: "Camelot Tournament Grounds", image: '/background/tournament.png' },
+        { id: 'chapel', name: "The Grail Chapel", image: '/background/chapel.png' },
+        { id: 'armory', name: "The Royal Armory", image: '/background/armory.png' },
+
+    ];
+
     const renderIconGrid = (iconList: string[], title: string) => (
         <div className="flex-1">
             <h4 className="font-bold text-slate-300 mt-4 mb-2 text-sm">{title}</h4>
@@ -186,6 +206,8 @@ const AchievementsTab: React.FC = () => {
                     const iconReward = allIcons.find(i => i.value === iconName);
                     const isDefaultIcon = DEFAULT_ICONS.includes(iconName);
                     const isUnlocked = isDefaultIcon || (iconReward?.unlocked ?? false);
+                    const isSelectedForPreview = selectedIcon === iconName;
+                    const isApplied = (user?.selectedIcon || '') === iconName;
 
                     return (
                         <button 
@@ -197,7 +219,15 @@ const AchievementsTab: React.FC = () => {
                                     handleLockedItemClick(iconReward);
                                 }
                             }}
-                            className={`relative p-2 rounded-md aspect-square transition-all duration-200 ${selectedIcon === iconName ? 'bg-yellow-600 ring-2 ring-white scale-110' : (isUnlocked ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-800 opacity-40 cursor-not-allowed')} `}
+                             className={cn(
+                                'relative p-2 rounded-md aspect-square transition-all duration-200',
+                                {
+                                    'bg-yellow-600 ring-2 ring-white scale-110': isApplied,
+                                    'bg-blue-600 ring-2 ring-white scale-110': !isApplied && isSelectedForPreview,
+                                    'bg-slate-800 hover:bg-slate-700': !isApplied && !isSelectedForPreview && isUnlocked,
+                                    'bg-slate-800 opacity-40 cursor-not-allowed': !isUnlocked,
+                                }
+                            )}
                             title={iconName.charAt(0).toUpperCase() + iconName.slice(1)}
                         >
                             <Icon className="w-full h-full text-white" />
@@ -255,14 +285,16 @@ const AchievementsTab: React.FC = () => {
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 bg-slate-900/40 border-2 border-slate-700 rounded-md p-4">
                             <BorderOption
                                 option={{ name: 'None', value: '', unlocked: true }}
-                                isSelected={selectedBorder === ''}
+                                isPreview={selectedBorder === ''}
+                                isApplied={(user?.selectedBorder || '') === ''}
                                 onClick={() => setSelectedBorder('')}
                             />
                             {allBorders.map(border => (
                                 <BorderOption
                                     key={border.value}
                                     option={border}
-                                    isSelected={selectedBorder === border.value}
+                                    isPreview={selectedBorder === border.value}
+                                    isApplied={user?.selectedBorder === border.value}
                                     onClick={() => {
                                         if (border.unlocked) {
                                             setSelectedBorder(border.value);
@@ -283,6 +315,48 @@ const AchievementsTab: React.FC = () => {
                         <div className="flex flex-col md:flex-row gap-x-6">
                           {renderIconGrid(DEFAULT_ICONS, "Default Icons")}
                           {renderIconGrid(achievementIconNames, "Achievement Rewards")}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
+                            <Palette />
+                            Game Board Theme
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-slate-900/40 border-2 border-slate-700 rounded-md p-3">
+                           {themes.map(theme => {
+                                const isSelectedForPreview = selectedBackground === theme.id;
+                                const isApplied = (user?.selectedBackground || '') === theme.id;
+                                
+                                return (
+                                    <button
+                                        key={theme.id}
+                                        onClick={() => setSelectedBackground(theme.id)}
+                                        className={cn(
+                                            'relative w-full aspect-[3/4] rounded-lg transition-all duration-200 ring-offset-2 ring-offset-slate-900 focus:outline-none focus:ring-2 overflow-hidden group',
+                                            isApplied
+                                                ? 'ring-4 ring-yellow-500' // Yellow for saved/applied takes priority
+                                                : isSelectedForPreview
+                                                    ? 'ring-4 ring-blue-500' // Blue for previewing/tapped
+                                                    : 'ring-2 ring-transparent [@media(hover:hover)]:hover:ring-blue-500/70' // Desktop-only hover
+                                        )}
+                                        title={theme.name}
+                                    >
+                                        <img src={theme.image} alt={theme.name} className="w-full h-full object-cover rounded-md transition-transform duration-300 group-hover:scale-110" />
+                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent pointer-events-none"></div>
+                                        <span className={cn(
+                                            "absolute bottom-1 left-1 right-1 text-xs sm:text-sm text-center font-bold truncate p-1",
+                                            isApplied
+                                                ? "text-yellow-400"
+                                                : isSelectedForPreview
+                                                    ? "text-blue-400"
+                                                    : "text-slate-200"
+                                        )}>
+                                            {theme.name}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>

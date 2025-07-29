@@ -12,6 +12,7 @@ import { usePlayerVisionMap } from "@/hooks/usePlayerVision";
 import { motion } from "framer-motion";
 import { ROLES } from "@/constants";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import Spinner from "../ui/Spinner";
 
 // --- Reusable UI Components ---
 
@@ -98,7 +99,7 @@ const TeamSelection: React.FC = () => {
     <Card className="w-full">
       {currentQuest.pastVotes.length > 0 && (
         <div className="my-6 space-y-4">
-          <h3 className="font-eaglelake text-lg text-center mb-2">
+          <h3 className="font-eaglelake text-lg text-center mb-2 text-sky-50">
             Rejected Team Votes
           </h3>
           <Accordion type="single" collapsible className="w-full space-y-2">
@@ -215,7 +216,7 @@ const QuestVote: React.FC = () => {
   return (
     <Card className="w-full">
       <div className="mb-4">
-        <h3 className="font-eaglelake text-lg text-center mb-2">
+        <h3 className="font-eaglelake text-lg text-center mb-2 text-sky-50">
           Approved Team
         </h3>
         {currentQuest.approvedVote && (
@@ -335,6 +336,7 @@ const QuestResult: React.FC = () => {
 const Assassination: React.FC = () => {
   const { gameState, playerId, assassinate, updateAssassinationTarget } = useGame();
   const player = gameState.players.find((p) => p.id === playerId);
+  const [isAssassinating, setIsAssassinating] = React.useState(false);
 
   const isAssassin = player?.role === Role.ASSASSIN;
   const isEvilTeam = player?.alignment === Alignment.EVIL && player?.role !== Role.OBERON;
@@ -352,6 +354,7 @@ const Assassination: React.FC = () => {
 
   const handleConfirmClick = () => {
     if (isPaused || !isAssassin || !selectedTargetId) return;
+    setIsAssassinating(true);
     assassinate(selectedTargetId);
   };
 
@@ -413,11 +416,18 @@ const Assassination: React.FC = () => {
             <div className="text-center mt-6">
                 <Button 
                     onClick={handleConfirmClick}
-                    disabled={isPaused || !selectedTargetId}
+                    disabled={isPaused || !selectedTargetId || isAssassinating}
                     variant="fail"
-                    className="py-4 text-xl"
+                    className="py-4 text-xl flex items-center justify-center gap-2"
                 >
-                    Confirm Assassination
+                    {isAssassinating ? (
+                        <>
+                            <Spinner size="sm" />
+                            <span>Going for the kill...</span>
+                        </>
+                    ) : (
+                        'Confirm Assassination'
+                    )}
                 </Button>
             </div>
        )}

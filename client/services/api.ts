@@ -9,6 +9,8 @@ const api = axios.create({
     timeout: 30000, // 30 seconds
 });
 
+const SERVER_ERROR_TOAST_ID = 'server-connection-error';
+
 // A map to store active request timers for the "slow response" toast
 const requestTimers = new Map<any, ReturnType<typeof setTimeout>>();
 
@@ -37,6 +39,9 @@ api.interceptors.response.use(
             clearTimeout(requestTimers.get(response.config));
             requestTimers.delete(response.config);
         }
+        // If an API call succeeds, the server is responding, so dismiss the error toast.
+        toast.dismiss(SERVER_ERROR_TOAST_ID);
+
         return response;
     },
     error => {
@@ -51,8 +56,9 @@ api.interceptors.response.use(
             // No response received (network error, CORS, DNS issue) or a timeout occurred
             if (!error.response || error.code === 'ECONNABORTED') {
                  toast.error("The server is not responding.", {
+                    id: SERVER_ERROR_TOAST_ID,
                     description: "It might be temporarily down. If the issue persists, please contact pavalon.help@gmail.com",
-                    duration: Infinity, // Keep this message until dismissed by user
+                    duration: Infinity, // Keep this message until dismissed
                 });
             }
         }

@@ -1,9 +1,8 @@
-
-
 import 'dotenv/config';
 import jwt from 'jsonwebtoken';
 import { User } from './types';
 import { Socket } from 'socket.io';
+import * as express from 'express';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-for-avalon';
 
@@ -12,7 +11,7 @@ export const generateToken = (user: User): string => {
 };
 
 // Middleware for Express to protect routes
-export const authMiddleware = (req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) => {
+export const authMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const authHeader = req.headers.authorization;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -31,7 +30,7 @@ export const authMiddleware = (req: import('express').Request, res: import('expr
 };
 
 // Middleware for admin-only Express routes
-export const adminMiddleware = (req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) => {
+export const adminMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const user = (req as any).user;
     if (user && user.isAdmin) {
         next();

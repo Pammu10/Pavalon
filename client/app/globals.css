@@ -54,6 +54,24 @@
   animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* Keyframe animation for spinning */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-fast {
+  animation: spin 0.8s linear infinite;
+}
+
+.animate-spin-slow {
+  animation: spin 2.5s linear infinite;
+}
+
 
 .perspective-1000 {
     perspective: 1000px;

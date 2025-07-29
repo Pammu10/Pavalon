@@ -11,12 +11,13 @@ import Card from '@/components/ui/Card';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Swords, BarChart2, Gamepad2, Trash2, Edit, Award, ShieldCheck, ShieldAlert, KeyRound, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
+import { Users, Swords, BarChart2, Gamepad2, Trash2, Edit, Award, ShieldCheck, ShieldAlert, KeyRound, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Heart } from 'lucide-react';
 
 // --- Types for Admin Panel ---
 type AdminUser = { id: number; username: string; created_at: string; is_admin: boolean; };
 type AdminRoom = { roomCode: string; playerCount: number; phase: string; players: { name: string; status: string; }[]; };
 type AllAchievement = { id: string; name: string; };
+type Friendship = { id: number; user1: string; user2: string; status: string; created_at: string; };
 type UserStat = { 
     win_streak: number; 
     highest_win_streak: number;
@@ -110,6 +111,75 @@ const GameManagementTab: React.FC = () => {
                         </table>
                         {data.totalPages > 1 && <PaginationControls />}
                     </>
+                )}
+            </div>
+        </Card>
+    );
+};
+
+const FriendshipsManagementTab: React.FC = () => {
+    const [friendships, setFriendships] = useState<Friendship[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchFriendships = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await api.get('/admin/friendships');
+            setFriendships(res.data);
+        } catch (error) {
+            toast.error("Failed to fetch friendships.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchFriendships();
+    }, [fetchFriendships]);
+    
+    const handleDeleteFriendship = async (id: number) => {
+        if (window.confirm(`Are you sure you want to delete friendship ID ${id}?`)) {
+            try {
+                await api.delete(`/admin/friendships/${id}`);
+                toast.success("Friendship deleted.");
+                fetchFriendships();
+            } catch (error) {
+                toast.error("Failed to delete friendship.");
+            }
+        }
+    };
+    
+    return (
+        <Card>
+            <h2 className="text-2xl font-bold mb-4">Friendships</h2>
+             <div className="overflow-x-auto">
+                {loading ? <div className="h-64 flex items-center justify-center"><Spinner /></div> : (
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="border-b border-slate-700">
+                                <th className="p-2">ID</th>
+                                <th className="p-2">User 1</th>
+                                <th className="p-2">User 2</th>
+                                <th className="p-2">Status</th>
+                                <th className="p-2">Created At</th>
+                                <th className="p-2 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {friendships.map(f => (
+                                <tr key={f.id} className="border-b border-slate-800 hover:bg-slate-800/50">
+                                    <td className="p-2 font-mono">#{f.id}</td>
+                                    <td className="p-2 font-semibold">{f.user1}</td>
+                                    <td className="p-2 font-semibold">{f.user2}</td>
+                                    <td className={`p-2 font-bold ${f.status === 'accepted' ? 'text-green-400' : 'text-yellow-400'}`}>{f.status}</td>
+                                    <td className="p-2">{new Date(f.created_at).toLocaleString()}</td>
+                                    <td className="p-2 text-right">
+                                        <Button variant="danger" className="p-2 h-auto" onClick={() => handleDeleteFriendship(f.id)}><Trash2 size={16}/></Button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 )}
             </div>
         </Card>
@@ -346,18 +416,21 @@ const AdminPageContent: React.FC = () => {
             {renderModals()}
             <h1 className="font-eagleLake text-5xl text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Admin Panel</h1>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 bg-slate-800/50 p-1 h-auto">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 bg-slate-800/50 p-1 h-auto">
                     <TabsTrigger value="dashboard" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
                         <BarChart2 size={16}/> Dashboard
                     </TabsTrigger>
                     <TabsTrigger value="users" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
-                        <Users size={16}/> User Management
+                        <Users size={16}/> Users
                     </TabsTrigger>
                     <TabsTrigger value="rooms" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
-                        <Gamepad2 size={16}/> Room Management
+                        <Gamepad2 size={16}/> Rooms
                     </TabsTrigger>
                      <TabsTrigger value="games" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
-                        <Swords size={16}/> Game Management
+                        <Swords size={16}/> Matches
+                    </TabsTrigger>
+                    <TabsTrigger value="friendships" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
+                        <Heart size={16}/> Friendships
                     </TabsTrigger>
                 </TabsList>
 
@@ -442,6 +515,9 @@ const AdminPageContent: React.FC = () => {
                 </TabsContent>
                 <TabsContent value="games" className="mt-6">
                     <GameManagementTab />
+                </TabsContent>
+                 <TabsContent value="friendships" className="mt-6">
+                    <FriendshipsManagementTab />
                 </TabsContent>
             </Tabs>
         </div>

@@ -82,7 +82,11 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             } else {
                 if (activeMusicRef.current && activeMusicRef.current.paused && wasPausedByVisibility.current) {
                     if (!isBgmMuted) {
-                        activeMusicRef.current.play().catch(e => console.error("Error resuming BGM on visibility change:", e));
+                        activeMusicRef.current.play().catch(e => {
+                            if (e.name !== 'NotAllowedError') {
+                                console.error("Error resuming BGM on visibility change:", e);
+                            }
+                        });
                     }
                     wasPausedByVisibility.current = false;
                 }
@@ -124,7 +128,10 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           resolve();
         };
         const onError = (e: any) => {
-            console.error(`Error playing sound ${sound}:`, e);
+            // Gracefully handle autoplay errors without polluting the console
+            if (e.name !== 'NotAllowedError') {
+                console.error(`Error playing sound ${sound}:`, e);
+            }
             sfx.removeEventListener('error', onError);
             resolve();
         }
@@ -138,7 +145,11 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
 
     if (bgmWasPlaying) {
-      activeMusicRef.current?.play().catch(e => console.error("Error resuming BGM:", e));
+      activeMusicRef.current?.play().catch(e => {
+          if (e.name !== 'NotAllowedError') {
+            console.error("Error resuming BGM:", e);
+          }
+      });
     }
   }, []);
 
@@ -170,7 +181,11 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (lobbyMusicRef.current) {
       if (lobbyMusicRef.current.paused) {
         lobbyMusicRef.current.muted = isBgmMuted;
-        lobbyMusicRef.current.play().catch(e => console.error("Error playing lobby music:", e));
+        lobbyMusicRef.current.play().catch(e => {
+            if (e.name !== 'NotAllowedError') {
+                console.error("Error playing lobby music:", e);
+            }
+        });
       }
       activeMusicRef.current = lobbyMusicRef.current;
     }
@@ -181,7 +196,11 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (gameMusicRef.current) {
       if (gameMusicRef.current.paused) {
         gameMusicRef.current.muted = isBgmMuted;
-        gameMusicRef.current.play().catch(e => console.error("Error playing game music:", e));
+        gameMusicRef.current.play().catch(e => {
+            if (e.name !== 'NotAllowedError') {
+                console.error("Error playing game music:", e);
+            }
+        });
       }
       activeMusicRef.current = gameMusicRef.current;
     }

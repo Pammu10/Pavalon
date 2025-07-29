@@ -1,4 +1,3 @@
-
 import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
@@ -26,7 +25,10 @@ import {
   DragonCardType,
   DragonCard,
   DragonsBreathState,
-  DragonsBreathStats
+  DragonsBreathStats,
+  OnlineUser,
+  GameInvite,
+  Friend
 } from "./types";
 import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES, DEFAULT_ICONS } from "./constants";
 import db from "./db";
@@ -87,7 +89,7 @@ app.post("/api/register", async (req, res) => {
     const { id, is_admin } = result.rows[0];
     const user: User = { id, username, is_admin };
     const token = generateToken(user);
-    res.status(201).json({ token, user: { ...user, selectedTitle: null, selectedBorder: null, selectedIcon: null } });
+    res.status(201).json({ token, user: { ...user, selectedTitle: null, selectedBorder: null, selectedIcon: null, selectedBackground: null } });
   } catch (error: any) {
     if (error.code === "23505") { // Unique constraint violation
       return res.status(409).json({ message: "Username already exists." });
@@ -112,8 +114,9 @@ app.post("/api/login", async (req, res) => {
         selected_title: string | null;
         selected_border: string | null;
         selected_icon: string | null;
+        selected_background: string | null;
     }>(
-      "SELECT id, username, password_hash, is_admin, selected_title, selected_border, selected_icon FROM users WHERE username = $1",
+      "SELECT id, username, password_hash, is_admin, selected_title, selected_border, selected_icon, selected_background FROM users WHERE username = $1",
       [username]
     );
     if (!userRow) {
@@ -133,12 +136,49 @@ app.post("/api/login", async (req, res) => {
         selectedTitle: userRow.selected_title,
         selectedBorder: userRow.selected_border,
         selectedIcon: userRow.selected_icon,
+        selectedBackground: userRow.selected_background,
     };
     const token = generateToken({ id: user.id, username: user.username, is_admin: user.is_admin });
     res.json({ token, user });
   } catch (error) {
     res.status(500).json({ message: "Server error during login." });
   }
+});
+
+app.get("/api/verify-token", authMiddleware, async (req, res) => {
+    const userId = (req as any).user.id;
+    try {
+        const userRow = await db.get<{
+            id: number;
+            username: string;
+            is_admin: boolean;
+            selected_title: string | null;
+            selected_border: string | null;
+            selected_icon: string | null;
+            selected_background: string | null;
+        }>(
+            "SELECT id, username, is_admin, selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1",
+            [userId]
+        );
+
+        if (!userRow) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const user: User = { 
+            id: userRow.id, 
+            username: userRow.username,
+            is_admin: userRow.is_admin,
+            selectedTitle: userRow.selected_title,
+            selectedBorder: userRow.selected_border,
+            selectedIcon: userRow.selected_icon,
+            selectedBackground: userRow.selected_background,
+        };
+        res.json({ user });
+
+    } catch (error) {
+        res.status(500).json({ message: "Server error during token verification." });
+    }
 });
 
 app.get("/api/stats", authMiddleware, async (req, res) => {
@@ -278,7 +318,7 @@ app.get("/api/achievements", authMiddleware, async (req, res) => {
 
 app.post("/api/user/customize", authMiddleware, async (req, res) => {
     const userId = (req as any).user.id;
-    const { title, border, icon } = req.body;
+    const { title, border, icon, background } = req.body;
     
     if (title && typeof title === 'string' && title.length > 10) {
         return res.status(400).json({ message: "Title cannot be more than 10 characters." });
@@ -309,10 +349,10 @@ app.post("/api/user/customize", authMiddleware, async (req, res) => {
             return res.status(403).json({ message: "You have not unlocked this icon." });
         }
         
-        await db.run("UPDATE users SET selected_title = $1, selected_border = $2, selected_icon = $3 WHERE id = $4", [title, border, icon, userId]);
+        await db.run("UPDATE users SET selected_title = $1, selected_border = $2, selected_icon = $3, selected_background = $4 WHERE id = $5", [title, border, icon, background, userId]);
         
         // Update player in any active game session for real-time changes
-        gameService.updatePlayerCustomization(userId, { title, border, icon });
+        gameService.updatePlayerCustomization(userId, { title, border, icon, background });
 
         res.json({ success: true, message: "Customizations updated." });
     } catch (error) {
@@ -344,8 +384,8 @@ app.post("/api/user/username", authMiddleware, async (req, res) => {
         
         gameService.updatePlayerUsername(userId, username);
         
-        const userRow = await db.get<{ is_admin: boolean; selected_title: string | null; selected_border: string | null; selected_icon: string | null; }>(
-             "SELECT is_admin, selected_title, selected_border, selected_icon FROM users WHERE id = $1",
+        const userRow = await db.get<{ is_admin: boolean; selected_title: string | null; selected_border: string | null; selected_icon: string | null; selected_background: string | null; }>(
+             "SELECT is_admin, selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1",
              [userId]
         );
 
@@ -355,7 +395,8 @@ app.post("/api/user/username", authMiddleware, async (req, res) => {
             is_admin: userRow?.is_admin,
             selectedTitle: userRow?.selected_title,
             selectedBorder: userRow?.selected_border,
-            selectedIcon: userRow?.selected_icon
+            selectedIcon: userRow?.selected_icon,
+            selectedBackground: userRow?.selected_background
         };
         
         const token = generateToken({ id: fullUserObject.id, username: fullUserObject.username, is_admin: fullUserObject.is_admin });
@@ -367,6 +408,180 @@ app.post("/api/user/username", authMiddleware, async (req, res) => {
         res.status(500).json({ message: "Server error during username update." });
     }
 });
+
+// --- SOCIAL ROUTES ---
+const socialRouter = express.Router();
+socialRouter.use(authMiddleware);
+
+socialRouter.get('/friends', async (req, res) => {
+    const userId = (req as any).user.id;
+    try {
+        const friends = await socialService.getFriendsOfUser(userId);
+        res.json(friends);
+    } catch (error) {
+        console.error("Failed to fetch friends:", error);
+        res.status(500).json({ message: "Failed to fetch friends." });
+    }
+});
+
+socialRouter.get('/requests', async (req, res) => {
+    const userId = (req as any).user.id;
+    try {
+        const requests = await db.all<{ id: number, username: string }>(`
+            SELECT u.id, u.username 
+            FROM friends f 
+            JOIN users u ON f.action_user_id = u.id 
+            WHERE (f.user1_id = $1 OR f.user2_id = $1) AND f.status = 'pending' AND f.action_user_id != $1
+        `, [userId]);
+        res.json(requests);
+    } catch (error) {
+        console.error("Failed to fetch friend requests:", error);
+        res.status(500).json({ message: "Failed to fetch friend requests." });
+    }
+});
+
+socialRouter.get('/requests/sent', async (req, res) => {
+    const userId = (req as any).user.id;
+    try {
+        const requests = await db.all<{ id: number, username: string }>(`
+            SELECT 
+                u.id, 
+                u.username 
+            FROM friends f 
+            JOIN users u ON u.id = (CASE WHEN f.user1_id = $1 THEN f.user2_id ELSE f.user1_id END)
+            WHERE f.action_user_id = $1 AND f.status = 'pending'
+        `, [userId]);
+        res.json(requests);
+    } catch (error) {
+        console.error("Failed to fetch sent friend requests:", error);
+        res.status(500).json({ message: "Failed to fetch sent friend requests." });
+    }
+});
+
+socialRouter.post('/add', async (req, res) => {
+    const userId = (req as any).user.id;
+    const { username } = req.body;
+
+    if (!username) {
+        return res.status(400).json({ message: "Username is required." });
+    }
+
+    try {
+        const targetUser = await db.get<User>("SELECT id, username FROM users WHERE username = $1", [username]);
+        if (!targetUser) {
+            return res.status(404).json({ message: "User not found." });
+        }
+        if (targetUser.id === userId) {
+            return res.status(400).json({ message: "You cannot add yourself as a friend." });
+        }
+
+        const user1_id = Math.min(userId, targetUser.id);
+        const user2_id = Math.max(userId, targetUser.id);
+
+        const existingFriendship = await db.get<{ status: string }>("SELECT status FROM friends WHERE user1_id = $1 AND user2_id = $2", [user1_id, user2_id]);
+        if (existingFriendship) {
+            if (existingFriendship.status === 'accepted') {
+                return res.status(409).json({ message: "You are already friends with this user." });
+            } else {
+                return res.status(409).json({ message: "A friend request is already pending." });
+            }
+        }
+
+        await db.run(
+            "INSERT INTO friends (user1_id, user2_id, status, action_user_id) VALUES ($1, $2, 'pending', $3)",
+            [user1_id, user2_id, userId]
+        );
+        
+        socialService.notifyFriendRequest(userId, (req as any).user.username, targetUser.id);
+        
+        res.status(201).json({ message: "Friend request sent.", sentRequest: { id: targetUser.id, username: targetUser.username } });
+    } catch (error) {
+        console.error("Error sending friend request:", error);
+        res.status(500).json({ message: "Server error while sending friend request." });
+    }
+});
+
+socialRouter.post('/respond', async (req, res) => {
+    const userId = (req as any).user.id;
+    const { requesterId, action } = req.body; // action: 'accept' or 'decline'
+
+    if (!requesterId || !['accept', 'decline'].includes(action)) {
+        return res.status(400).json({ message: "Invalid request." });
+    }
+
+    try {
+        const user1_id = Math.min(userId, requesterId);
+        const user2_id = Math.max(userId, requesterId);
+        
+        if (action === 'accept') {
+            await db.run(
+                "UPDATE friends SET status = 'accepted', action_user_id = $1 WHERE user1_id = $2 AND user2_id = $3 AND status = 'pending'",
+                [userId, user1_id, user2_id]
+            );
+            socialService.notifyFriendAccepted(userId, requesterId);
+            res.json({ message: "Friend request accepted." });
+        } else { // decline
+            await db.run(
+                "DELETE FROM friends WHERE user1_id = $1 AND user2_id = $2 AND status = 'pending'",
+                [user1_id, user2_id]
+            );
+            res.json({ message: "Friend request declined." });
+        }
+    } catch (error) {
+        console.error("Error responding to friend request:", error);
+        res.status(500).json({ message: "Server error while responding to friend request." });
+    }
+});
+
+socialRouter.delete('/remove/:friendId', async (req, res) => {
+    const userId = (req as any).user.id;
+    const friendId = parseInt(req.params.friendId, 10);
+
+    if (isNaN(friendId)) {
+        return res.status(400).json({ message: "Invalid friend ID." });
+    }
+    
+    try {
+        const user1_id = Math.min(userId, friendId);
+        const user2_id = Math.max(userId, friendId);
+        
+        await db.run(
+            "DELETE FROM friends WHERE user1_id = $1 AND user2_id = $2 AND status = 'accepted'",
+            [user1_id, user2_id]
+        );
+
+        socialService.notifyFriendRemoved(userId, friendId);
+        res.json({ message: "Friend removed." });
+    } catch (error) {
+        console.error("Error removing friend:", error);
+        res.status(500).json({ message: "Server error while removing friend." });
+    }
+});
+
+socialRouter.delete('/request/cancel/:recipientId', async (req, res) => {
+    const userId = (req as any).user.id;
+    const recipientId = parseInt(req.params.recipientId, 10);
+     if (isNaN(recipientId)) {
+        return res.status(400).json({ message: "Invalid recipient ID." });
+    }
+
+    try {
+        const user1_id = Math.min(userId, recipientId);
+        const user2_id = Math.max(userId, recipientId);
+        
+        await db.run(
+            "DELETE FROM friends WHERE user1_id = $1 AND user2_id = $2 AND status = 'pending' AND action_user_id = $3",
+            [user1_id, user2_id, userId]
+        );
+        res.json({ message: 'Friend request cancelled.' });
+    } catch (error) {
+        console.error("Error cancelling friend request:", error);
+        res.status(500).json({ message: "Server error while cancelling friend request." });
+    }
+});
+
+app.use('/api/social', socialRouter);
+
 
 // --- ADMIN ROUTES ---
 const adminRouter = express.Router();
@@ -605,6 +820,34 @@ adminRouter.delete('/matches/:id', async (req, res) => {
     }
 });
 
+// --- Friend Management Routes ---
+adminRouter.get('/friendships', async (req, res) => {
+    try {
+        const friendships = await db.all(`
+            SELECT f.id, u1.username as user1, u2.username as user2, f.status, f.created_at
+            FROM friends f
+            JOIN users u1 ON f.user1_id = u1.id
+            JOIN users u2 ON f.user2_id = u2.id
+            ORDER BY f.id DESC
+        `);
+        res.json(friendships);
+    } catch (error) {
+        res.status(500).json({ message: "Failed to fetch friendships." });
+    }
+});
+
+adminRouter.delete('/friendships/:id', async (req, res) => {
+    const friendshipId = parseInt(req.params.id, 10);
+    if (isNaN(friendshipId)) {
+        return res.status(400).json({ message: 'Invalid friendship ID.' });
+    }
+    try {
+        await db.run("DELETE FROM friends WHERE id = $1", [friendshipId]);
+        res.json({ success: true, message: 'Friendship deleted.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to delete friendship.' });
+    }
+});
 
 
 app.use('/api/admin', adminRouter);
@@ -660,15 +903,209 @@ class AchievementService {
 }
 const achievementService = new AchievementService();
 
+// --- Social Service ---
+class SocialService {
+    private io: Server<ClientToServerEvents, ServerToClientEvents>;
+    private onlineUsers: Map<number, OnlineUser> = new Map();
+    private gameService?: GameService;
+
+    constructor(io: Server<ClientToServerEvents, ServerToClientEvents>) {
+        this.io = io;
+    }
+    
+    setGameService(service: GameService) {
+        this.gameService = service;
+    }
+
+    async addUser(socket: any, user: User) {
+        this.onlineUsers.set(user.id, { socketId: socket.id, roomCode: null });
+        socket.join(`user-${user.id}`);
+        console.log(`[+] User ${user.username} (ID: ${user.id}) connected and joined room user-${user.id}`);
+        await this.broadcastStatusToFriends(user.id, true, false);
+    }
+
+    async removeUser(socket: any) {
+        const user = socket.user;
+        if (user && this.onlineUsers.has(user.id)) {
+            this.onlineUsers.delete(user.id);
+            console.log(`[-] User ${user.username} (ID: ${user.id}) disconnected.`);
+            await this.broadcastStatusToFriends(user.id, false, false, null);
+        }
+    }
+
+    async updateUserStatus(userId: number, isInGame: boolean, roomCode?: string) {
+        const user = this.onlineUsers.get(userId);
+        if (user) {
+            user.roomCode = roomCode || null;
+            this.onlineUsers.set(userId, user);
+            const friendGame = roomCode && this.gameService ? this.gameService.getGameByRoomCode(roomCode) : undefined;
+            await this.broadcastStatusToFriends(userId, true, isInGame, friendGame?.phase);
+        }
+    }
+
+    private async broadcastStatusToFriends(userId: number, isOnline: boolean, isInGame: boolean, gamePhase?: GamePhase | null) {
+        const friends = await this.getFriendIds(userId);
+        for (const friendId of friends) {
+            if (this.isUserOnline(friendId)) {
+                this.io.to(`user-${friendId}`).emit('social:status', { userId, isOnline, isInGame, gamePhase: gamePhase ?? null });
+            }
+        }
+    }
+
+    private async getFriendIds(userId: number): Promise<number[]> {
+        const results = await db.all<{ friend_id: number }>(`
+            SELECT CASE
+                WHEN user1_id = $1 THEN user2_id
+                ELSE user1_id
+            END as friend_id
+            FROM friends
+            WHERE (user1_id = $1 OR user2_id = $1) AND status = 'accepted'
+        `, [userId]);
+        return results.map(r => r.friend_id);
+    }
+    
+    async getFriendsOfUser(userId: number) {
+        const friendsData = await db.all<{ id: number; username: string; selected_title: string; selected_border: string; selected_icon: string; selected_background: string; }>(`
+            SELECT u.id, u.username, u.selected_title, u.selected_border, u.selected_icon, u.selected_background
+            FROM users u
+            JOIN friends f ON (u.id = f.user1_id OR u.id = f.user2_id)
+            WHERE (f.user1_id = $1 OR f.user2_id = $1) AND f.status = 'accepted' AND u.id != $1
+        `, [userId]);
+        
+        return friendsData.map(f => {
+            const onlineInfo = this.onlineUsers.get(f.id);
+            const friendGame = onlineInfo?.roomCode && this.gameService
+                ? this.gameService.getGameByRoomCode(onlineInfo.roomCode)
+                : undefined;
+
+            return {
+                id: f.id,
+                username: f.username,
+                selectedTitle: f.selected_title,
+                selectedBorder: f.selected_border,
+                selectedIcon: f.selected_icon,
+                selectedBackground: f.selected_background,
+                isOnline: !!onlineInfo,
+                isInGame: !!onlineInfo?.roomCode,
+                gamePhase: friendGame?.phase || null
+            };
+        });
+    }
+
+    isUserOnline(userId: number): boolean {
+        return this.onlineUsers.has(userId);
+    }
+    
+    getUserSocketId(userId: number): string | undefined {
+        return this.onlineUsers.get(userId)?.socketId;
+    }
+
+    notifyFriendRequest(fromUserId: number, fromUsername: string, toUserId: number) {
+        if (this.isUserOnline(toUserId)) {
+            this.io.to(`user-${toUserId}`).emit('social:request_received', {
+                id: fromUserId,
+                username: fromUsername,
+            });
+        }
+    }
+
+    async notifyFriendAccepted(acceptedByUserId: number, requesterId: number) {
+        const [acceptedByUser, requester] = await Promise.all([
+            db.get<User>('SELECT id, username, selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1', [acceptedByUserId]),
+            db.get<User>('SELECT id, username, selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1', [requesterId])
+        ]);
+
+        const createPayload = (friendUser: User): Friend => {
+            const onlineInfo = this.onlineUsers.get(friendUser.id);
+            const friendGame = onlineInfo?.roomCode && this.gameService
+                ? this.gameService.getGameByRoomCode(onlineInfo.roomCode)
+                : undefined;
+
+            return {
+                id: friendUser.id,
+                username: friendUser.username,
+                selectedTitle: friendUser.selectedTitle,
+                selectedBorder: friendUser.selectedBorder,
+                selectedIcon: friendUser.selectedIcon,
+                selectedBackground: friendUser.selectedBackground,
+                isOnline: this.isUserOnline(friendUser.id),
+                isInGame: !!onlineInfo?.roomCode,
+                gamePhase: friendGame?.phase || null
+            };
+        };
+
+        if (this.isUserOnline(requesterId) && acceptedByUser) {
+            this.io.to(`user-${requesterId}`).emit('social:request_accepted', createPayload(acceptedByUser));
+        }
+        if (this.isUserOnline(acceptedByUserId) && requester) {
+             this.io.to(`user-${acceptedByUserId}`).emit('social:request_accepted', createPayload(requester));
+        }
+    }
+
+    notifyFriendRemoved(removedByUserId: number, removedUserId: number) {
+        if (this.isUserOnline(removedUserId)) {
+            this.io.to(`user-${removedUserId}`).emit('social:friend_removed', { friendId: removedByUserId });
+        }
+    }
+
+    handleGameInvite(fromUser: User, toFriendId: number) {
+        const friendSocketId = this.getUserSocketId(toFriendId);
+        const fromUserRoomCode = this.onlineUsers.get(fromUser.id)?.roomCode;
+        const fromUserSocketId = this.getUserSocketId(fromUser.id);
+
+        if (friendSocketId && fromUserRoomCode && fromUserSocketId) {
+            // Server-side validation: Ensure the person inviting is in a lobby state
+            const fromUserGame = this.gameService?.getGameByRoomCode(fromUserRoomCode);
+            if (fromUserGame?.phase !== GamePhase.LOBBY) {
+                this.io.to(fromUserSocketId).emit('error', 'You can only invite friends while you are in a lobby.');
+                return;
+            }
+
+            const friendUser = this.onlineUsers.get(toFriendId);
+            if (friendUser?.roomCode) {
+                 if (!this.gameService) {
+                    this.io.to(fromUserSocketId).emit('error', 'Server is initializing, please try again.');
+                    return;
+                }
+                const friendGameState = this.gameService.getGameByRoomCode(friendUser.roomCode);
+                
+                const nonInvitablePhases = [
+                    GamePhase.ROLE_REVEAL,
+                    GamePhase.TEAM_SELECTION,
+                    GamePhase.TEAM_VOTE,
+                    GamePhase.QUEST_VOTE,
+                    GamePhase.QUEST_RESULT,
+                    GamePhase.ASSASSINATION,
+                ];
+
+                if (friendGameState && nonInvitablePhases.includes(friendGameState.phase)) {
+                    this.io.to(fromUserSocketId).emit('error', 'Your friend is in an active game and cannot be invited right now.');
+                    return;
+                }
+            }
+            const invitePayload: GameInvite = { from: fromUser, roomCode: fromUserRoomCode };
+            this.io.to(friendSocketId).emit('social:invite_received', invitePayload);
+        } else if (fromUserSocketId) {
+            this.io.to(fromUserSocketId).emit('error', 'Could not send invite. Friend is offline or you are not in a lobby.');
+        }
+    }
+}
+
 // --- Game Service ---
 class GameService {
   private games: Map<string, GameState> = new Map();
   private reconnectionTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private restartVoteTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private io: Server<ClientToServerEvents, ServerToClientEvents>;
+  private socialService: SocialService;
 
-  constructor(io: Server<ClientToServerEvents, ServerToClientEvents>) {
+  constructor(io: Server<ClientToServerEvents, ServerToClientEvents>, socialService: SocialService) {
     this.io = io;
+    this.socialService = socialService;
+  }
+  
+  public getGameByRoomCode(roomCode: string): GameState | undefined {
+    return this.games.get(roomCode.toUpperCase());
   }
 
   private addLog(gameState: GameState, text: string, type: LogEntry['type']) {
@@ -751,13 +1188,44 @@ class GameService {
   }
 
   async handleJoinRoom(socket: Socket, user: User, roomCode?: string) {
-    const existingGame = this.findGameByPlayerUserId(user.id);
-    if (existingGame) {
-      this.handleReconnect(socket, user, existingGame);
+    const existingGameInfo = this.findGameByPlayerUserId(user.id);
+    const upperRoomCode = roomCode?.toUpperCase();
+
+    // Handle lobby switching
+    if (existingGameInfo && upperRoomCode && existingGameInfo[0] !== upperRoomCode) {
+        const [oldRoomCode, oldGameState] = existingGameInfo;
+        const oldPlayer = oldGameState.players.find(p => p.userId === user.id);
+        
+        const switchablePhases = [GamePhase.LOBBY, GamePhase.END_GAME, GamePhase.DRAGONS_BREATH];
+        if (oldPlayer && switchablePhases.includes(oldGameState.phase)) {
+            console.log(`[SWITCH] User ${user.username} is switching from lobby ${oldRoomCode} to ${upperRoomCode}`);
+            
+            // Remove player from the old lobby
+            oldGameState.players = oldGameState.players.filter(p => p.userId !== user.id);
+            
+            // Handle host reassignment if the leaving player was the host
+            if (oldPlayer.isHost && oldGameState.players.length > 0) {
+                oldGameState.players[0].isHost = true;
+            }
+            
+            // If the old lobby is now empty, delete it. Otherwise, update remaining players.
+            if (oldGameState.players.length === 0) {
+                this.games.delete(oldRoomCode);
+                console.log(`Lobby ${oldRoomCode} is empty after switch, deleting.`);
+            } else {
+                this.addLog(oldGameState, `${user.username} has left to join another game.`, 'system');
+                this.io.to(oldRoomCode).emit("updateGameState", oldGameState);
+            }
+        } else if (oldPlayer) {
+             socket.emit("error", "You cannot switch rooms while in an active game.");
+             return;
+        }
+    } else if (existingGameInfo) {
+      this.handleReconnect(socket, user, existingGameInfo);
       return;
     }
 
-    let code = roomCode?.toUpperCase();
+    let code = upperRoomCode;
     let gameState: GameState | undefined;
 
     if (code) {
@@ -781,8 +1249,8 @@ class GameService {
       this.games.set(code, gameState);
     }
     
-    const userCustomizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string; }>(
-        "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
+    const userCustomizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string; selected_background: string; }>(
+        "SELECT selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1",
         [user.id]
     );
     
@@ -800,8 +1268,10 @@ class GameService {
       selectedTitle: userCustomizations?.selected_title,
       selectedBorder: userCustomizations?.selected_border,
       selectedIcon: userCustomizations?.selected_icon,
+      selectedBackground: userCustomizations?.selected_background,
     };
     gameState.players.push(newPlayer);
+    this.socialService.updateUserStatus(user.id, true, code);
     
     // Notify other clients that a new user joined for WebRTC setup
     socket.broadcast.to(code).emit('voice:user-joined', { socketId: socket.id });
@@ -832,8 +1302,8 @@ class GameService {
         gameState.reconnectingPlayer = null;
     }
     
-    const userCustomizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string; }>(
-        "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1",
+    const userCustomizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string; selected_background: string; }>(
+        "SELECT selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1",
         [user.id]
     );
     
@@ -855,6 +1325,7 @@ class GameService {
     player.selectedTitle = userCustomizations?.selected_title;
     player.selectedBorder = userCustomizations?.selected_border;
     player.selectedIcon = userCustomizations?.selected_icon;
+    player.selectedBackground = userCustomizations?.selected_background;
 
     player.id = newPlayerId;
     player.status = "CONNECTED";
@@ -1306,8 +1777,8 @@ class GameService {
         gameState.players
             .filter(p => p.status === 'CONNECTED') // Filter out disconnected players before mapping
             .map(async (p) => {
-                const customizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string }>(
-                    "SELECT selected_title, selected_border, selected_icon FROM users WHERE id = $1", [p.userId]
+                const customizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string; selected_background: string; }>(
+                    "SELECT selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1", [p.userId]
                 );
                 return {
                     id: p.id,
@@ -1321,6 +1792,7 @@ class GameService {
                     selectedTitle: customizations?.selected_title,
                     selectedBorder: customizations?.selected_border,
                     selectedIcon: customizations?.selected_icon,
+                    selectedBackground: customizations?.selected_background,
                 };
             })
     );
@@ -1376,6 +1848,9 @@ class GameService {
     this.reconnectionTimers.delete(roomCode);
   
     if (gameState.phase === GamePhase.LOBBY || gameState.phase === GamePhase.DRAGONS_BREATH) {
+      if (gameState.players.some(p => p.userId === userId)) {
+        this.socialService.updateUserStatus(userId, false, undefined);
+      }
       gameState.players = gameState.players.filter(p => p.userId !== userId);
       
       this.io.to(roomCode).emit("chatMessage", { senderId: 'system', senderUserId: 0, senderName: 'System', text: `${name} left the lobby.`});
@@ -1877,6 +2352,7 @@ class GameService {
     const leavingPlayer = this.getPlayer(gameState, playerId);
     if (!leavingPlayer) return;
 
+    this.socialService.updateUserStatus(leavingPlayer.userId, false, undefined);
     this.io.to(roomCode).emit('voice:user-left', { socketId: playerId });
     const socket = this.io.sockets.sockets.get(playerId);
     if (socket) {
@@ -1940,6 +2416,7 @@ class GameService {
     
 
     if (gameState.phase === GamePhase.LOBBY) {
+        this.socialService.updateUserStatus(playerToKick.userId, false, undefined);
         gameState.players = gameState.players.filter(p => p.id !== playerIdToKick);
         this.addLog(gameState, `${kickedPlayerName} was kicked by the host.`, 'system');
         this.io.to(roomCode).emit("chatMessage", { senderId: 'system', senderUserId: 0, senderName: 'System', text: `${kickedPlayerName} was kicked by the host.` });
@@ -1955,7 +2432,7 @@ class GameService {
     }
   }
 
-  updatePlayerCustomization(userId: number, customizations: { title: string | null; border: string | null; icon: string | null; }) {
+  updatePlayerCustomization(userId: number, customizations: { title: string | null; border: string | null; icon: string | null; background: string | null; }) {
     const gameInfo = this.findGameByPlayerUserId(userId);
     if (gameInfo) {
       const [roomCode, gameState] = gameInfo;
@@ -1964,6 +2441,7 @@ class GameService {
         playerInGame.selectedTitle = customizations.title;
         playerInGame.selectedBorder = customizations.border;
         playerInGame.selectedIcon = customizations.icon;
+        playerInGame.selectedBackground = customizations.background;
         this.io.to(roomCode).emit("updateGameState", gameState);
         console.log(`Pushed real-time customization update for ${playerInGame.name} to room ${roomCode}.`);
       }
@@ -2285,12 +2763,15 @@ class GameService {
   }
 }
 
-const gameService = new GameService(io);
+const socialService = new SocialService(io);
+const gameService = new GameService(io, socialService);
+socialService.setGameService(gameService);
 
 io.use(authMiddlewareSocket);
 
 io.on("connection", (socket: any) => {
   console.log(`A user connected: ${socket.id}, username: ${socket.user.username}`);
+  socialService.addUser(socket, socket.user);
 
   const gameToRejoin = gameService.findGameByPlayerUserId(socket.user.id);
   if (gameToRejoin) {
@@ -2321,6 +2802,9 @@ io.on("connection", (socket: any) => {
   socket.on('endFutureView', () => gameService.handleEndFutureView(socket.id));
   socket.on('returnToLobby', () => gameService.handleReturnToLobby(socket.id));
 
+  // --- Social Events ---
+  socket.on('social:invite_to_game', ({ friendId }) => socialService.handleGameInvite(socket.user, friendId));
+
   // --- Voice Chat Signaling ---
   socket.on('voice:offer', ({ targetId, sdp }) => {
     socket.to(targetId).emit('voice:offer', { fromId: socket.id, sdp });
@@ -2334,9 +2818,27 @@ io.on("connection", (socket: any) => {
 
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);
+    socialService.removeUser(socket);
     gameService.handleDisconnect(socket.id);
   });
 });
 
+const cleanupStaleFriendRequests = async () => {
+    try {
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const result = await db.run(
+            "DELETE FROM friends WHERE status = 'pending' AND created_at < $1",
+            [oneDayAgo]
+        );
+        if (result.rowCount && result.rowCount > 0) {
+            console.log(`Cleaned up ${result.rowCount} stale friend requests.`);
+        }
+    } catch (err) {
+        console.error('Error cleaning up stale friend requests:', err);
+    }
+}
+
+setInterval(cleanupStaleFriendRequests, 60 * 60 * 1000);
+
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`))

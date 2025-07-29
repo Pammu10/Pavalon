@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useGame } from "@/components/context/GameContext";
 import AuthScreen from "@/components/screens/AuthScreen";
 import Button from "@/components/ui/Button";
@@ -9,6 +8,14 @@ import Card from "@/components/ui/Card";
 import Spinner from "@/components/ui/Spinner";
 import { useRouter } from "next/navigation";
 import HomeScreen from "@/components/screens/HomeScreen";
+import { Tab } from "@/types";
+import { Swords, Users, Trophy, Settings, Star, ShieldAlert } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import LeaderboardScreen from "@/components/screens/LeaderboardScreen";
+import SettingsScreen from "@/components/screens/SettingsScreen";
+import AchievementsTab from "@/components/ui/AchievementsTab";
+import AdminPage from "@/app/admin/page";
+import SocialHub from "@/components/ui/SocialHub";
 
 const JoinHostView: React.FC = () => {
   const { joinRoom, user, logout, isConnected } = useGame();
@@ -22,7 +29,7 @@ const JoinHostView: React.FC = () => {
   };
 
   return (
-    <div className="animate-fadeIn flex flex-col items-center justify-center space-y-8 min-h-[90vh]">
+    <div className="animate-fadeIn flex flex-col items-center justify-center space-y-8 min-h-[calc(100vh-200px)]">
       <h1
         className="font-eaglelake text-5xl sm:text-6xl font-bold text-yellow-500 text-center tracking-wider"
         style={{ textShadow: "0 0 25px rgba(234, 179, 8, 0.5)" }}
@@ -83,6 +90,125 @@ const JoinHostView: React.FC = () => {
 };
 
 
+const BASE_TABS_CONFIG: {
+  id: Tab;
+  label: string;
+  icon: React.ReactNode;
+  desktop: boolean;
+  mobile: boolean;
+}[] = [
+  { id: "home", label: "Home", icon: <Swords size={24} />, desktop: true, mobile: true },
+  { id: "leaderboard", label: "Hall of Heroes", icon: <Trophy size={24} />, desktop: true, mobile: true },
+  { id: "social", label: "Social", icon: <Users size={24} />, desktop: true, mobile: true },
+  { id: "achievements", label: "Achievements", icon: <Star size={24} />, desktop: true, mobile: false },
+  { id: "settings", label: "Settings", icon: <Settings size={24} />, desktop: true, mobile: true },
+];
+
+const MainPageView: React.FC = () => {
+    const { user, friendRequests } = useGame();
+    const [activeTab, setActiveTab] = useState<Tab>("home");
+    const mainContentRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (mainContentRef.current) {
+            mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [activeTab]);
+    
+    const TABS_CONFIG = useMemo(() => {
+        let config = [...BASE_TABS_CONFIG];
+        if (user?.is_admin) {
+            config.push({
+                id: "admin",
+                label: "Admin Panel",
+                icon: <ShieldAlert size={24} />,
+                desktop: true,
+                mobile: false,
+            });
+        }
+        return config;
+    }, [user?.is_admin]);
+
+    const desktopTabs = TABS_CONFIG.filter((t) => t.desktop);
+    const mobileTabs = TABS_CONFIG.filter((t) => t.mobile);
+    
+    return (
+        <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as Tab)}
+            className="flex flex-col h-[100dvh] w-screen"
+        >
+            <header className="w-full bg-slate-900/70 backdrop-blur-md border-b border-slate-700 z-30 flex-shrink-0">
+                <TabsList className="hidden md:flex bg-transparent p-0 rounded-none h-auto">
+                    {desktopTabs.map(({ id, label }) => (
+                        <TabsTrigger
+                            key={id}
+                            value={id}
+                            className="relative flex-1 py-6 font-eagleLake text-lg capitalize transition-colors duration-200 rounded-none 
+                                        text-slate-400 data-[state=active]:text-yellow-500 
+                                        data-[state=active]:border-b-2 data-[state=active]:border-yellow-500
+                                        hover:text-white focus-visible:ring-0 focus-visible:ring-offset-0 
+                                        data-[state=active]:shadow-none data-[state=active]:bg-transparent p-0"
+                        >
+                            {label}
+                            {id === "social" && friendRequests.length > 0 && (
+                                <span className="absolute top-2 right-4 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-800"></span>
+                            )}
+                        </TabsTrigger>
+                    ))}
+                </TabsList>
+            </header>
+            
+            <main ref={mainContentRef} className="flex-grow p-2 sm:p-4 md:p-6 overflow-y-auto pb-28 md:pb-6 scroll-smooth">
+                <div className="w-full max-w-7xl mx-auto">
+                    <TabsContent value="home" className="mt-0 outline-none">
+                        <JoinHostView />
+                    </TabsContent>
+                    <TabsContent value="social" className="mt-0 outline-none">
+                        <SocialHub asScreen />
+                    </TabsContent>
+                    <TabsContent value="settings" className="mt-0 outline-none">
+                        <SettingsScreen />
+                    </TabsContent>
+                    <TabsContent value="leaderboard" className="mt-0 outline-none">
+                        <LeaderboardScreen />
+                    </TabsContent>
+                    <TabsContent value="achievements" className="mt-0 outline-none">
+                        <AchievementsTab />
+                    </TabsContent>
+                    {user?.is_admin && (
+                         <TabsContent value="admin" className="mt-0 outline-none">
+                            <AdminPage />
+                        </TabsContent>
+                    )}
+                </div>
+            </main>
+            
+             <TabsList className="md:hidden fixed bottom-0 left-0 w-full h-16 flex justify-around bg-slate-900/80 backdrop-blur-xl border-t border-slate-700 z-40 p-0 rounded-none">
+                {mobileTabs.map(({ id, label, icon }) => (
+                    <TabsTrigger
+                        key={id}
+                        value={id}
+                        className="group relative h-full flex-1 flex flex-col items-center justify-center gap-1 text-xs capitalize transition-colors duration-200 
+                                    text-slate-400 data-[state=active]:text-yellow-500 font-eagleLake
+                                    focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none p-0"
+                    >
+                        {icon}
+                        <span className="mt-[-2px]">{label}</span>
+                        {id === 'social' && friendRequests.length > 0 && (
+                            <span className="absolute top-1 right-1 w-5 h-5 text-xs flex items-center justify-center bg-blue-500 text-white font-sans font-bold rounded-full border-2 border-slate-900">
+                                {friendRequests.length}
+                            </span>
+                        )}
+                        <div className="absolute top-0 w-12 h-1 rounded-b-full bg-transparent group-data-[state=active]:bg-yellow-500"></div>
+                    </TabsTrigger>
+                ))}
+            </TabsList>
+        </Tabs>
+    );
+};
+
+
 export default function Home() {
   const { isAuthenticated, isLoading, gameState, settings } = useGame();
   const router = useRouter();
@@ -109,7 +235,8 @@ export default function Home() {
     return (
       <div className="flex items-center justify-center h-screen w-screen">
         <Spinner size="lg" />
-      </div>
+        
+        </div>
     );
   }
   
@@ -137,9 +264,5 @@ export default function Home() {
     return <AuthScreen />;
   }
 
-  return (
-    <main className="flex-grow p-2 sm:p-4 md:p-6 overflow-y-auto scroll-smooth">
-      <JoinHostView />
-    </main>
-  );
+  return <MainPageView />;
 }
