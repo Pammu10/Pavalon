@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useGame } from '@/components/context/GameContext';
 import { useAudio } from '@/components/context/AudioContext';
 import api from '@/services/api';
@@ -7,7 +7,7 @@ import Card from './Card';
 import Spinner from './Spinner';
 import Button from './Button';
 import { ICON_MAP, DEFAULT_ICONS } from './AvailableIcons';
-import { CheckCircle, Lock, Trophy, Star, Shield, Eye, Skull, Crown, Swords, Palette, VenetianMask, ShieldCheck, UserRound, Feather, HeartCrack, Castle, Spade, Cherry } from 'lucide-react';
+import { CheckCircle, Lock, Trophy, Star, Shield, Eye, Skull, Crown, Swords, Palette, VenetianMask, ShieldCheck, UserRound, Feather, HeartCrack, Castle, Spade, Cherry, ChevronLeft, ChevronRight } from 'lucide-react';
 import PlayerTile from './PlayerTile';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -103,6 +103,9 @@ const AchievementsTab: React.FC = () => {
     const [selectedBackground, setSelectedBackground] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     
+    const themeScrollRef = useRef<HTMLDivElement>(null);
+    const [showScrollButtons, setShowScrollButtons] = useState(false);
+
     useEffect(() => {
         const fetchAchievements = async () => {
             setLoading(true);
@@ -127,7 +130,7 @@ const AchievementsTab: React.FC = () => {
         }
     }, [user]);
 
-    const { allBorders, allIcons } = useMemo(() => {
+    const { allBorders, allIcons, themeToAchievementMap } = useMemo(() => {
         const rewards: RewardOption[] = achievements.flatMap(ach =>
             ach.rewards.map(reward => ({
                 ...reward,
@@ -135,9 +138,19 @@ const AchievementsTab: React.FC = () => {
                 achievementName: ach.name
             }))
         );
+        const tMap = new Map<string, Achievement>();
+        achievements.forEach(ach => {
+            ach.rewards.forEach(reward => {
+                if (reward.type === 'BACKGROUND') {
+                    tMap.set(reward.value, ach);
+                }
+            });
+        });
+
         return {
             allBorders: rewards.filter(r => r.type === 'BORDER'),
             allIcons: rewards.filter(r => r.type === 'ICON'),
+            themeToAchievementMap: tMap,
         };
     }, [achievements]);
     
@@ -182,8 +195,8 @@ const AchievementsTab: React.FC = () => {
             setIsSaving(false);
         }
     };
-
-    const themes = [
+    
+    const themes = useMemo(() => [
        { id: '', name: "King's Hall", image: '/background/king.jpg' },
         { id: 'goodguy', name: "Arthur's Legacy", image: '/background/goodguy.png' },
         { id: 'badguy', name: "Assassin's Perch", image: '/background/badguy.png' },
@@ -200,8 +213,29 @@ const AchievementsTab: React.FC = () => {
         { id: 'reddrag', name: "Emberwing Dragon", image: '/background/reddrag.png' },
         { id: 'bluedrag', name: "Azure Tempest Dragon", image: '/background/bluedrag.png' },
         { id: 'purpledrag', name: "Amethyst Wyrm Dragon", image: '/background/purpledrag.png' },
+    ], []);
+    
+    const checkScroll = useCallback(() => {
+        const el = themeScrollRef.current;
+        if (el) {
+            setShowScrollButtons(el.scrollWidth > el.clientWidth);
+        }
+    }, []);
+    
+    useEffect(() => {
+        checkScroll();
+        window.addEventListener('resize', checkScroll);
+        return () => window.removeEventListener('resize', checkScroll);
+    }, [checkScroll]);
+    
+    const handleScroll = (direction: 'left' | 'right') => {
+        const el = themeScrollRef.current;
+        if (el) {
+            const scrollAmount = el.clientWidth * 0.8;
+            el.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+        }
+    };
 
-    ];
 
     const renderIconGrid = (iconList: string[], title: string) => (
         <div className="flex-1">
@@ -323,41 +357,69 @@ const AchievementsTab: React.FC = () => {
                     </TabsContent>
                     
                     <TabsContent value="theme" className="mt-4">
-                        <div className="overflow-x-auto scroll-hide bg-slate-900/40 border-2 border-slate-700 rounded-md p-3">
-                            <div className="grid grid-rows-2 grid-flow-col auto-cols-[48%] sm:auto-cols-[31%] md:auto-cols-[23.5%] gap-3">
-                                {themes.map(theme => {
-                                    const isSelectedForPreview = selectedBackground === theme.id;
-                                    const isApplied = (user?.selectedBackground || '') === theme.id;
-                                    
-                                    return (
-                                        <button
-                                            key={theme.id}
-                                            onClick={() => setSelectedBackground(theme.id)}
-                                            className={cn(
-                                                'relative w-full aspect-[3/4] rounded-lg transition-all duration-200 ring-offset-2 ring-offset-slate-900 focus:outline-none focus:ring-2 overflow-hidden group',
-                                                isApplied
-                                                    ? 'ring-4 ring-yellow-500'
-                                                    : isSelectedForPreview
-                                                        ? 'ring-4 ring-blue-500'
-                                                        : 'ring-2 ring-transparent [@media(hover:hover)]:hover:ring-blue-500/70'
-                                            )}
-                                            title={theme.name}
-                                        >
-                                            <img src={theme.image} alt={theme.name} className="w-full h-full object-cover rounded-md transition-transform duration-300 group-hover:scale-110" />
-                                            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent pointer-events-none"></div>
-                                            <span className={cn(
-                                                "absolute bottom-1 left-1 right-1 text-xs sm:text-sm text-center font-bold truncate p-1",
-                                                isApplied
-                                                    ? "text-yellow-400"
-                                                    : isSelectedForPreview
-                                                        ? "text-blue-400"
-                                                        : "text-slate-200"
-                                            )}>
-                                                {theme.name}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
+                        <div className="relative">
+                            {showScrollButtons && (
+                                <>
+                                    <button onClick={() => handleScroll('left')} className="hidden md:flex absolute top-1/2 -translate-y-1/2 left-0 z-10 w-10 h-10 bg-slate-900/50 hover:bg-slate-800 backdrop-blur-sm rounded-full items-center justify-center border border-slate-600">
+                                        <ChevronLeft />
+                                    </button>
+                                    <button onClick={() => handleScroll('right')} className="hidden md:flex absolute top-1/2 -translate-y-1/2 right-0 z-10 w-10 h-10 bg-slate-900/50 hover:bg-slate-800 backdrop-blur-sm rounded-full items-center justify-center border border-slate-600">
+                                        <ChevronRight />
+                                    </button>
+                                </>
+                            )}
+                            <div ref={themeScrollRef} className="overflow-x-auto scroll-hide bg-slate-900/40 border-2 border-slate-700 rounded-md p-3 scroll-smooth">
+                                <div className="grid grid-rows-2 grid-flow-col auto-cols-[48%] sm:auto-cols-[31%] md:auto-cols-[23.5%] gap-3">
+                                    {themes.map(theme => {
+                                        const isSelectedForPreview = selectedBackground === theme.id;
+                                        const isApplied = (user?.selectedBackground || '') === theme.id;
+                                        const achievementToUnlock = themeToAchievementMap.get(theme.id);
+                                        const isUnlocked = !achievementToUnlock || achievementToUnlock.unlocked;
+
+                                        return (
+                                            <button
+                                                key={theme.id}
+                                                onClick={() => {
+                                                    if (isUnlocked) {
+                                                        setSelectedBackground(theme.id);
+                                                    } else if (achievementToUnlock) {
+                                                        handleLockedItemClick({
+                                                            type: 'BACKGROUND',
+                                                            value: theme.id,
+                                                            name: theme.name,
+                                                            unlocked: false,
+                                                            achievementName: achievementToUnlock.name,
+                                                        });
+                                                    }
+                                                }}
+                                                className={cn(
+                                                    'relative w-full aspect-[3/4] rounded-lg transition-all duration-200 ring-offset-2 ring-offset-slate-900 focus:outline-none focus:ring-2 overflow-hidden group',
+                                                    isApplied
+                                                        ? 'ring-4 ring-yellow-500'
+                                                        : isSelectedForPreview
+                                                            ? 'ring-4 ring-blue-500'
+                                                            : 'ring-2 ring-transparent [@media(hover:hover)]:hover:ring-blue-500/70',
+                                                    !isUnlocked && 'cursor-not-allowed'
+                                                )}
+                                                title={isUnlocked ? theme.name : `Unlock by completing: "${achievementToUnlock?.name}"`}
+                                            >
+                                                <img src={theme.image} alt={theme.name} className={cn("w-full h-full object-cover rounded-md transition-transform duration-300 group-hover:scale-110", !isUnlocked && "grayscale")} />
+                                                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent pointer-events-none"></div>
+                                                <span className={cn(
+                                                    "absolute bottom-1 left-1 right-1 text-xs sm:text-sm text-center font-bold truncate p-1",
+                                                    isApplied ? "text-yellow-400" : isSelectedForPreview ? "text-blue-400" : "text-slate-200"
+                                                )}>
+                                                    {theme.name}
+                                                </span>
+                                                {!isUnlocked && (
+                                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                                        <Lock className="w-8 h-8 text-slate-200"/>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     </TabsContent>

@@ -239,7 +239,7 @@ export interface PlayerStats {
 }
 
 export interface AchievementReward {
-    type: 'TITLE' | 'BORDER' | 'ICON';
+    type: 'TITLE' | 'BORDER' | 'ICON' | 'BACKGROUND';
     value: string;
     name: string;
 }

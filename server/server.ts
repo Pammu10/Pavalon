@@ -330,23 +330,27 @@ app.post("/api/user/customize", authMiddleware, async (req, res) => {
             [userId]
         );
 
+        // --- Unified Reward Check ---
         const unlockedRewards = new Set<string>();
-
-        // Default icons are always unlocked
-        DEFAULT_ICONS.forEach(i => unlockedRewards.add(i));
-
+        DEFAULT_ICONS.forEach(i => unlockedRewards.add(i)); // Default icons are always available
+        
+        // Add rewards from unlocked achievements
         userAchievements.forEach(ua => {
             const achievement = ALL_ACHIEVEMENTS.find(a => a.id === ua.achievement_id);
             achievement?.rewards.forEach(reward => {
                 unlockedRewards.add(reward.value);
             });
         });
-        
+
+        // Validate selected items
         if (border && !unlockedRewards.has(border)) {
             return res.status(403).json({ message: "You have not unlocked this border." });
         }
         if (icon && !unlockedRewards.has(icon)) {
             return res.status(403).json({ message: "You have not unlocked this icon." });
+        }
+        if (background && !unlockedRewards.has(background)) {
+            return res.status(403).json({ message: "You have not unlocked this theme." });
         }
         
         await db.run("UPDATE users SET selected_title = $1, selected_border = $2, selected_icon = $3, selected_background = $4 WHERE id = $5", [title, border, icon, background, userId]);

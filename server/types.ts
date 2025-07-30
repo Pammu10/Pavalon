@@ -228,7 +228,7 @@ export interface DragonsBreathLeaderboardData {
 
 // Achievement types for socket payload
 export interface AchievementReward {
-    type: 'TITLE' | 'BORDER' | 'ICON';
+    type: 'TITLE' | 'BORDER' | 'ICON' | 'BACKGROUND';
     value: string;
     name: string;
 }

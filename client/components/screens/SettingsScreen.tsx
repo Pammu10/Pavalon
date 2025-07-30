@@ -143,8 +143,8 @@ const SettingsScreen: React.FC = () => {
         
       </Card>
       
-      {/* Profile & Achievements Section */}
-      <div>
+      {/* Profile & Achievements Section only for mobile*/}
+      <div className="md:hidden">
         <AchievementsTab />
       </div>
     </div>

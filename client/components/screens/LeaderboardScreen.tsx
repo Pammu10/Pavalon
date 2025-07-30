@@ -118,14 +118,14 @@ const MyStatsTab: React.FC = () => {
                     <StatCard title="Overall Win Rate" value={`${stats.winRate}%`} icon={<TrendingUp size={24}/>} />
                 </div>
                 <div>
-                    <h3 className="font-eagleLake text-xl my-4 text-center">Performance by Alignment</h3>
+                    <h3 className="font-eagleLake text-xl my-4 text-center text-white">Performance by Alignment</h3>
                     <div className="space-y-4 bg-slate-900/40 p-4 rounded-lg">
                         <WinRateBar rate={stats.goodWinRate} alignment={Alignment.GOOD} totalGames={stats.goodGames} />
                         <WinRateBar rate={stats.evilWinRate} alignment={Alignment.EVIL} totalGames={stats.evilGames} />
                     </div>
                 </div>
                 <div>
-                    <h3 className="font-eagleLake text-xl my-4 text-center">Recent Match History</h3>
+                    <h3 className="font-eagleLake text-xl my-4 text-center text-white">Recent Match History</h3>
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2 scroll-hide">
                     {stats.recentMatches.length > 0 ? (
                         stats.recentMatches.map((match) => (

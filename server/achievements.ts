@@ -1,8 +1,8 @@
 import { Role } from "./types";
 
 export interface AchievementReward {
-    type: 'TITLE' | 'BORDER' | 'ICON';
-    value: string; // e.g., "The Seer" or "azure" or "zap"
+    type: 'TITLE' | 'BORDER' | 'ICON' | 'BACKGROUND';
+    value: string; // e.g., "The Seer" or "azure" or "zap" or "cherry"
     name: string; // e.g. "Azure Border" or "Zap Icon"
 }
 
@@ -23,7 +23,9 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         name: 'First Quest',
         description: 'Complete your first game of Pavalon.',
         icon: 'Swords',
-        rewards: [{ type: 'ICON', value: 'swords', name: 'Crossed Swords Icon'}],
+        rewards: [{ type: 'ICON', value: 'swords', name: 'Crossed Swords Icon'},
+            { type: 'BACKGROUND', value: 'cherry', name: 'Cherry Blossom Theme' }
+        ],
         check: (stats, p) => stats?.totalGames >= 1,
     },
     {
@@ -32,7 +34,9 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         description: 'Win your first game.',
         icon: 'Trophy',
         rewards: [
-            { type: 'ICON', value: 'trophy', name: 'Trophy Icon' }
+            { type: 'ICON', value: 'trophy', name: 'Trophy Icon' },
+            { type: 'BACKGROUND', value: 'tournament', name: 'Camelot Tournament Grounds Theme' }
+
         ],
         check: (stats, p) => stats?.totalWins >= 1,
     },
@@ -43,7 +47,8 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         icon: 'Shield',
         rewards: [
             { type: 'BORDER', value: 'crimson', name: 'Crimson Border' },
-            { type: 'ICON', value: 'shield', name: 'Shield Icon' }
+            { type: 'ICON', value: 'shield', name: 'Shield Icon' },
+            { type: 'BACKGROUND', value: 'bluedrag', name: 'Azure Tempest Dragon Theme' }
         ],
         check: (stats, p) => stats?.totalGames >= 10,
     },
@@ -56,6 +61,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         icon: 'Eye',
         rewards: [
             { type: 'ICON', value: 'eye', name: 'Eye Icon' },
+            { type: 'BACKGROUND', value: 'chair', name: 'The Siege Perilous Theme' },
         ],
         check: (stats, p) => p?.role === Role.MERLIN && p.won,
     },
@@ -65,7 +71,8 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         description: 'Win a game by assassinating Merlin.',
         icon: 'Skull',
         rewards: [
-            { type: 'ICON', value: 'skull', name: 'Skull Icon' }
+            { type: 'ICON', value: 'skull', name: 'Skull Icon' },
+            {type: 'BACKGROUND', value: 'fire', name: 'Crimson Scar of Camlann'}
         ],
         check: (stats, p) => p?.role === Role.ASSASSIN && p.won,
     },
@@ -77,6 +84,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         rewards: [
             { type: 'BORDER', value: 'azure', name: 'Azure Border' },
             { type: 'ICON', value: 'star', name: 'Star Icon' },
+            { type: 'BACKGROUND', value: 'ice', name: 'Frozen Chamber Theme' }
         ],
         check: (stats, p) => p?.role === Role.PERCIVAL && p.won,
     },
@@ -87,6 +95,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         icon: 'Feather',
         rewards: [
             { type: 'ICON', value: 'feather', name: 'Feather Icon' },
+            { type: 'BACKGROUND', value: 'pool', name: "Morgana's Scrying Pool Theme" }
         ],
         check: (stats, p) => p?.role === Role.MORGANA && p.won,
     },
@@ -99,7 +108,8 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         description: 'Win 10 games.',
         icon: 'Crown',
         rewards: [
-            { type: 'ICON', value: 'crown', name: 'Crown Icon' }
+            { type: 'ICON', value: 'crown', name: 'Crown Icon' },
+            { type: 'BACKGROUND', value: 'purpledrag', name: 'Amethyst Wyrm Dragon Theme' }
         ],
         check: (stats, p) => stats?.totalWins >= 10,
     },
@@ -110,6 +120,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         icon: 'ShieldCheck',
         rewards: [
             { type: 'ICON', value: 'shieldcheck', name: 'Shield Check Icon' },
+            { type: 'BACKGROUND', value: 'light', name: 'Celestial Zenith Theme' }
         ],
         check: (stats, p) => stats?.goodWins >= 5,
     },
@@ -121,6 +132,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         rewards: [
             { type: 'BORDER', value: 'amethyst', name: 'Amethyst Border' },
             { type: 'ICON', value: 'heartcrack', name: 'Heartcrack Icon' },
+            { type: 'BACKGROUND', value: 'dark', name: "Mordred's Umbral Sanctum Theme" }
         ],
         check: (stats, p) => stats?.evilWins >= 5,
     },
@@ -132,6 +144,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         rewards: [
             { type: 'BORDER', value: 'golden', name: 'Golden Border' },
             { type: 'ICON', value: 'castle', name: 'Castle Icon' },
+            { type: 'BACKGROUND', value: 'reddrag', name: 'Emberwing Dragon Theme' }
         ],
         check: (stats, p) => stats?.totalWins >= 25,
     },
@@ -142,7 +155,8 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
         icon: 'Cherry',
         rewards: [
             { type: 'ICON', value: 'cherry', name: 'Cherry Icon' },
-            { type: 'BORDER', value: 'sakura', name: 'Sakura Border' }
+            { type: 'BORDER', value: 'sakura', name: 'Sakura Border' },
+            
         ],
         check: () => false, // Cannot be earned automatically
         hidden: true,
