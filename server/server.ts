@@ -71,7 +71,11 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
 const RECONNECT_TIMEOUT = 60000; // 60 seconds
 const RESTART_COOLDOWN = 120000; // 2 minutes
 const RESTART_VOTE_DURATION = 30000; // 30 seconds
-
+app.get("/", (req, res) => {
+  return res
+      .status(200)
+      .json({ message: "hoiyaaaaaa" });
+})
 // --- API ROUTES ---
 app.post("/api/register", async (req, res) => {
   const { username, password } = req.body;

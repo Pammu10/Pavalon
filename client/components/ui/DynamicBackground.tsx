@@ -8,16 +8,21 @@ import Image from 'next/image';
 const backgrounds = {
     '': '/background/king.jpg', // Default
     default: '/background/king.jpg',
-    lady: '/background/lady.png',
-    woods: '/background/woods.png',
-    orchard: '/background/orchard.png',
-    dragon: '/background/dragon.png',
-    round: '/background/round.png',
+    goodguy: '/background/goodguy.png',
+    badguy: '/background/badguy.png',
+    forestday: '/background/forestday.png',
+    forestnight: '/background/forestnight.png',
+    cherry: '/background/cherry.png',
     pool: '/background/pool.png',
-    siege: '/background/siege.png',
+    chair: '/background/chair.png',
     tournament: '/background/tournament.png',
-    chapel: '/background/chapel.png',
-    armory: '/background/armory.png',
+    ice: '/background/ice.png',
+    fire: '/background/fire.png',
+    dark: '/background/dark.png',
+    light: '/background/light.png',
+    reddrag: '/background/reddrag.png',
+    bluedrag: '/background/bluedrag.png',
+    purpledrag: '/background/purpledrag.png'
 };
 
 const DynamicBackground: React.FC<{ children: React.ReactNode }> = ({ children }) => {

@@ -31,7 +31,7 @@ const JoinHostView: React.FC = () => {
   return (
     <div className="animate-fadeIn flex flex-col items-center justify-center space-y-8 min-h-[calc(100vh-200px)]">
       <h1
-        className="font-eaglelake text-5xl sm:text-6xl font-bold text-yellow-500 text-center tracking-wider"
+        className="font-eaglelake text-5xl sm:text-6xl font-bold text-yellow-500 text-center tracking-wider opacity-0"
         style={{ textShadow: "0 0 25px rgba(234, 179, 8, 0.5)" }}
       >
         PAVALON: THE SHATTERED THRONE

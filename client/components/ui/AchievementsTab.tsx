@@ -11,6 +11,7 @@ import { CheckCircle, Lock, Trophy, Star, Shield, Eye, Skull, Crown, Swords, Pal
 import PlayerTile from './PlayerTile';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const icons: { [key: string]: React.ReactNode } = {
     Trophy: <Trophy className="w-8 h-8" />,
@@ -57,7 +58,7 @@ const BorderOption: React.FC<{
             <span className={cn(
                 "text-xs text-slate-300 text-center w-20 truncate",
                  isApplied && "text-yellow-400 animate-glow font-bold",
-                !isApplied && isPreview && "text-blue-400 font-bold animate-glow"
+                !isApplied && isPreview && "text-blue-400 font-bold"
             )}>
                 {displayName}
             </span>
@@ -183,17 +184,22 @@ const AchievementsTab: React.FC = () => {
     };
 
     const themes = [
-        { id: '', name: "King's Hall", image: '/background/king.jpg' },
-        { id: 'lady', name: "Lady of the Lake's Grotto", image: '/background/lady.png' },
-        { id: 'woods', name: "Whispering Woods of Brocéliande", image: '/background/woods.png' },
-        { id: 'orchard', name: "Avalon's Orchard", image: '/background/orchard.png' },
-        { id: 'dragon', name: "The Dragon's Peak", image: '/background/dragon.png' },
-        { id: 'round', name: "The Round Table Chamber", image: '/background/round.png' },
+       { id: '', name: "King's Hall", image: '/background/king.jpg' },
+        { id: 'goodguy', name: "Arthur's Legacy", image: '/background/goodguy.png' },
+        { id: 'badguy', name: "Assassin's Perch", image: '/background/badguy.png' },
+        { id: 'forestday', name: "Mythical forest (day)", image: '/background/forestday.png' },
+        { id: 'forestnight', name: "Mythical forest (night)", image: '/background/forestnight.png' },
+        { id: 'cherry', name: "Cherry Blossom", image: '/background/cherry.png' },
         { id: 'pool', name: "Morgana's Scrying Pool", image: '/background/pool.png' },
-        { id: 'siege', name: "The Siege Perilous", image: '/background/siege.png' },
+        { id: 'chair', name: "The Siege Perilous", image: '/background/chair.png' },
         { id: 'tournament', name: "Camelot Tournament Grounds", image: '/background/tournament.png' },
-        { id: 'chapel', name: "The Grail Chapel", image: '/background/chapel.png' },
-        { id: 'armory', name: "The Royal Armory", image: '/background/armory.png' },
+        { id: 'ice', name: "Frozen Chamber", image: '/background/ice.png' },
+        { id: 'fire', name: "Crimson Scar of Camlann", image: '/background/fire.png' },
+        { id: 'dark', name: "Mordred's Umbral Sanctum", image: '/background/dark.png' },
+        { id: 'light', name: "Celestial Zenith", image: '/background/light.png' },
+        { id: 'reddrag', name: "Emberwing Dragon", image: '/background/reddrag.png' },
+        { id: 'bluedrag', name: "Azure Tempest Dragon", image: '/background/bluedrag.png' },
+        { id: 'purpledrag', name: "Amethyst Wyrm Dragon", image: '/background/purpledrag.png' },
 
     ];
 
@@ -256,32 +262,34 @@ const AchievementsTab: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="space-y-6">
-                    <div className="flex-1">
-                        <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
-                            <VenetianMask />
-                            Custom Title
-                        </label>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={selectedTitle}
-                                onChange={(e) => setSelectedTitle(e.target.value)}
-                                placeholder="The Brave"
-                                maxLength={10}
-                                className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 pr-12 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 pointer-events-none">
-                                {selectedTitle.length} / 10
-                            </span>
-                        </div>
+                <div className="flex-1 mb-6">
+                    <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
+                        <VenetianMask />
+                        Custom Title
+                    </label>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            value={selectedTitle}
+                            onChange={(e) => setSelectedTitle(e.target.value)}
+                            placeholder="The Brave"
+                            maxLength={10}
+                            className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 pr-12 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 pointer-events-none">
+                            {selectedTitle.length} / 10
+                        </span>
                     </div>
+                </div>
+                
+                <Tabs defaultValue="border" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 p-1 h-auto rounded-lg">
+                        <TabsTrigger value="border" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold"><Palette size={16}/> Border</TabsTrigger>
+                        <TabsTrigger value="icon" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold"><UserRound size={16}/> Icon</TabsTrigger>
+                        <TabsTrigger value="theme" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold"><Palette size={16}/> Theme</TabsTrigger>
+                    </TabsList>
 
-                    <div>
-                        <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
-                            <Palette />
-                            Border
-                        </label>
+                    <TabsContent value="border" className="mt-4">
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 bg-slate-900/40 border-2 border-slate-700 rounded-md p-4">
                             <BorderOption
                                 option={{ name: 'None', value: '', unlocked: true }}
@@ -305,61 +313,56 @@ const AchievementsTab: React.FC = () => {
                                 />
                             ))}
                         </div>
-                    </div>
+                    </TabsContent>
                     
-                     <div>
-                        <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
-                            <UserRound/>
-                            Icon
-                        </label>
+                    <TabsContent value="icon" className="mt-4">
                         <div className="flex flex-col md:flex-row gap-x-6">
                           {renderIconGrid(DEFAULT_ICONS, "Default Icons")}
                           {renderIconGrid(achievementIconNames, "Achievement Rewards")}
                         </div>
-                    </div>
-
-                    <div>
-                        <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
-                            <Palette />
-                            Game Board Theme
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-slate-900/40 border-2 border-slate-700 rounded-md p-3">
-                           {themes.map(theme => {
-                                const isSelectedForPreview = selectedBackground === theme.id;
-                                const isApplied = (user?.selectedBackground || '') === theme.id;
-                                
-                                return (
-                                    <button
-                                        key={theme.id}
-                                        onClick={() => setSelectedBackground(theme.id)}
-                                        className={cn(
-                                            'relative w-full aspect-[3/4] rounded-lg transition-all duration-200 ring-offset-2 ring-offset-slate-900 focus:outline-none focus:ring-2 overflow-hidden group',
-                                            isApplied
-                                                ? 'ring-4 ring-yellow-500' // Yellow for saved/applied takes priority
-                                                : isSelectedForPreview
-                                                    ? 'ring-4 ring-blue-500' // Blue for previewing/tapped
-                                                    : 'ring-2 ring-transparent [@media(hover:hover)]:hover:ring-blue-500/70' // Desktop-only hover
-                                        )}
-                                        title={theme.name}
-                                    >
-                                        <img src={theme.image} alt={theme.name} className="w-full h-full object-cover rounded-md transition-transform duration-300 group-hover:scale-110" />
-                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent pointer-events-none"></div>
-                                        <span className={cn(
-                                            "absolute bottom-1 left-1 right-1 text-xs sm:text-sm text-center font-bold truncate p-1",
-                                            isApplied
-                                                ? "text-yellow-400"
-                                                : isSelectedForPreview
-                                                    ? "text-blue-400"
-                                                    : "text-slate-200"
-                                        )}>
-                                            {theme.name}
-                                        </span>
-                                    </button>
-                                );
-                            })}
+                    </TabsContent>
+                    
+                    <TabsContent value="theme" className="mt-4">
+                        <div className="overflow-x-auto scroll-hide bg-slate-900/40 border-2 border-slate-700 rounded-md p-3">
+                            <div className="grid grid-rows-2 grid-flow-col auto-cols-[48%] sm:auto-cols-[31%] md:auto-cols-[23.5%] gap-3">
+                                {themes.map(theme => {
+                                    const isSelectedForPreview = selectedBackground === theme.id;
+                                    const isApplied = (user?.selectedBackground || '') === theme.id;
+                                    
+                                    return (
+                                        <button
+                                            key={theme.id}
+                                            onClick={() => setSelectedBackground(theme.id)}
+                                            className={cn(
+                                                'relative w-full aspect-[3/4] rounded-lg transition-all duration-200 ring-offset-2 ring-offset-slate-900 focus:outline-none focus:ring-2 overflow-hidden group',
+                                                isApplied
+                                                    ? 'ring-4 ring-yellow-500'
+                                                    : isSelectedForPreview
+                                                        ? 'ring-4 ring-blue-500'
+                                                        : 'ring-2 ring-transparent [@media(hover:hover)]:hover:ring-blue-500/70'
+                                            )}
+                                            title={theme.name}
+                                        >
+                                            <img src={theme.image} alt={theme.name} className="w-full h-full object-cover rounded-md transition-transform duration-300 group-hover:scale-110" />
+                                            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent pointer-events-none"></div>
+                                            <span className={cn(
+                                                "absolute bottom-1 left-1 right-1 text-xs sm:text-sm text-center font-bold truncate p-1",
+                                                isApplied
+                                                    ? "text-yellow-400"
+                                                    : isSelectedForPreview
+                                                        ? "text-blue-400"
+                                                        : "text-slate-200"
+                                            )}>
+                                                {theme.name}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
-                </div>
+                    </TabsContent>
+                </Tabs>
+
                 <div className="mt-6 text-center">
                     <Button onClick={handleSaveCustomization} disabled={isSaving}>
                         {isSaving ? 'Saving...' : 'Save & Apply'}
