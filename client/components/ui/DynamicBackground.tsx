@@ -50,6 +50,9 @@ const DynamicBackground: React.FC<{ children: React.ReactNode }> = ({ children }
                         quality={75}
                         priority
                     />
+                    {/* Overlay for darkening and vignette effect */}
+                    <div className="absolute inset-0 bg-black/30" />
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.7)_100%)]" />
                 </motion.div>
             </AnimatePresence>
             <div className="relative z-10">

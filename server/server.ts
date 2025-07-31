@@ -30,7 +30,7 @@ import {
   GameInvite,
   Friend
 } from "./types";
-import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES, DEFAULT_ICONS } from "./constants";
+import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES, DEFAULT_ICONS, DEFAULT_BACKGROUNDS } from "./constants";
 import db from "./db";
 import { authMiddleware, generateToken, authMiddlewareSocket, adminMiddleware } from "./auth";
 import { ALL_ACHIEVEMENTS, Achievement } from "./achievements";
@@ -333,7 +333,7 @@ app.post("/api/user/customize", authMiddleware, async (req, res) => {
         // --- Unified Reward Check ---
         const unlockedRewards = new Set<string>();
         DEFAULT_ICONS.forEach(i => unlockedRewards.add(i)); // Default icons are always available
-        
+        DEFAULT_BACKGROUNDS.forEach(i => unlockedRewards.add(i))
         // Add rewards from unlocked achievements
         userAchievements.forEach(ua => {
             const achievement = ALL_ACHIEVEMENTS.find(a => a.id === ua.achievement_id);

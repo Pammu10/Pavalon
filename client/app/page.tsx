@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
@@ -18,7 +19,7 @@ import AdminPage from "@/app/admin/page";
 import SocialHub from "@/components/ui/SocialHub";
 
 const JoinHostView: React.FC = () => {
-  const { joinRoom, user, logout, isConnected } = useGame();
+  const { user, joinRoom, logout, isConnected } = useGame();
   const [roomCode, setRoomCode] = useState("");
 
   const handleJoinSubmit = (e: React.FormEvent) => {
@@ -29,62 +30,70 @@ const JoinHostView: React.FC = () => {
   };
 
   return (
-    <div className="animate-fadeIn flex flex-col items-center justify-center space-y-8 min-h-[calc(100vh-200px)]">
-      <h1
-        className="font-eaglelake text-5xl sm:text-6xl font-bold text-yellow-500 text-center tracking-wider opacity-0"
-        style={{ textShadow: "0 0 25px rgba(234, 179, 8, 0.5)" }}
-      >
-        PAVALON: THE SHATTERED THRONE
-      </h1>
-      <div className="text-center">
-        <p className="text-slate-300 text-lg">
-          Welcome,{" "}
-          <span className="font-bold text-white">{user?.username}</span>!
-        </p>
-        <Button
-          variant="danger"
-          onClick={logout}
-          className="text-sm py-1 px-3 mt-2"
+    <div className="animate-fadeIn flex flex-col items-center justify-between min-h-full py-4 sm:py-6">
+      {/* Top Card: Title */}
+      <Card className="w-full max-w-md bg-transparent border-none shadow-none backdrop-blur-none p-0 mb-2">
+        <h1
+          className="font-eaglelake text-4xl sm:text-5xl font-bold text-yellow-500 text-center tracking-wider leading-tight"
+          style={{ textShadow: "0 0 25px rgba(234, 179, 8, 0.5)" }}
         >
-          Log Out
-        </Button>
-      </div>
-
-      <Card className="w-full max-w-md">
-        <div className="flex flex-col space-y-6">
-          <Button onClick={() => joinRoom()} className="w-full h-14" disabled={!isConnected}>
-            {isConnected ? 'Host New Game' : <Spinner size="sm" />}
-          </Button>
-          <div className="flex items-center text-slate-500">
-            <hr className="flex-grow border-slate-700" />
-            <span className="px-2">OR</span>
-            <hr className="flex-grow border-slate-700" />
-          </div>
-          <form onSubmit={handleJoinSubmit} className="flex flex-col gap-4 w-full">
-            <input
-              type="text"
-              placeholder="Room Code"
-              value={roomCode}
-              onChange={(e) => setRoomCode(e.target.value)}
-              className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 uppercase transition"
-            />
-            <Button
-              type="submit"
-              variant="secondary"
-              disabled={!roomCode.trim() || !isConnected}
-              className="w-full h-14"
-            >
-              {isConnected ? 'Join Game' : <Spinner size="sm" />}
-            </Button>
-          </form>
-        </div>
+          PAVALON: THE SHATTERED THRONE
+        </h1>
       </Card>
-      {!isConnected && (
-         <div className="flex items-center gap-2 text-yellow-400 mt-2">
-            <Spinner size="sm" />
-            <p>Connecting to server...</p>
+
+      {/* Bottom Card: Actions */}
+      <div className="w-full max-w-md">
+        <Card className="bg-transparent">
+          <div className="flex flex-col space-y-4">
+            <Button onClick={() => joinRoom()} className="w-full h-14" disabled={!isConnected}>
+              {isConnected ? 'Host New Game' : <Spinner size="sm" />}
+            </Button>
+            <div className="flex items-center text-slate-500">
+              <hr className="flex-grow border-slate-700" />
+              <span className="px-2">OR</span>
+              <hr className="flex-grow border-slate-700" />
+            </div>
+            <form onSubmit={handleJoinSubmit} className="flex flex-col gap-2 w-full">
+              <input
+                type="text"
+                placeholder="Room Code"
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value)}
+                className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 uppercase transition"
+              />
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={!roomCode.trim() || !isConnected}
+                className="w-full h-14"
+              >
+                {isConnected ? 'Join Game' : <Spinner size="sm" />}
+              </Button>
+            </form>
+
+            <div className="pt-4 border-t border-slate-700 flex items-center justify-between">
+              {user && (
+                  <p className="text-sm text-slate-400">
+                      Logged in as <span className="font-bold text-white">{user.username}</span>
+                  </p>
+              )}
+              <Button
+                  variant="danger"
+                  onClick={logout}
+                  className="text-sm py-1.5 px-4"
+              >
+                  Log Out
+              </Button>
+            </div>
           </div>
-      )}
+        </Card>
+        {!isConnected && (
+          <div className="flex items-center justify-center gap-2 text-yellow-400 mt-4">
+              <Spinner size="sm" />
+              <p>Connecting to server...</p>
+            </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -160,8 +169,8 @@ const MainPageView: React.FC = () => {
             </header>
             
             <main ref={mainContentRef} className="flex-grow p-2 sm:p-4 md:p-6 overflow-y-auto pb-28 md:pb-6 scroll-smooth">
-                <div className="w-full max-w-7xl mx-auto">
-                    <TabsContent value="home" className="mt-0 outline-none">
+                <div className="w-full max-w-7xl mx-auto h-full">
+                    <TabsContent value="home" className="mt-0 outline-none h-full">
                         <JoinHostView />
                     </TabsContent>
                     <TabsContent value="social" className="mt-0 outline-none">
@@ -235,8 +244,7 @@ export default function Home() {
     return (
       <div className="flex items-center justify-center h-screen w-screen">
         <Spinner size="lg" />
-        
-        </div>
+      </div>
     );
   }
   

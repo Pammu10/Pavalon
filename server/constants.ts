@@ -73,3 +73,5 @@ export const QUEST_CONFIGURATIONS: Record<number, { teamSize: number; failsRequi
 };
 
 export const DEFAULT_ICONS = ['gem', 'scroll', 'ghost', 'zap', 'axe', 'bookheart', 'keyround', 'sun', 'moonstar', 'spade'];
+
+export const DEFAULT_BACKGROUNDS = ['goodguy', 'badguy', 'forestday', 'forestnight']

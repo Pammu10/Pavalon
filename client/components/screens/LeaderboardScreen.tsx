@@ -72,31 +72,6 @@ const MyStatsTab: React.FC = () => {
         };
         fetchStats();
     }, []);
-
-    const handleDownloadStats = () => {
-        if (!stats || !user) return;
-        const headers = ["Category", "Value"];
-        const data = [
-          ["Username", user.username],
-          ["Total Games", stats.totalGames],
-          ["Total Wins", stats.totalWins],
-          ["Win Rate (%)", stats.winRate],
-          ["Good Games", stats.goodGames],
-          ["Good Wins", stats.goodWins],
-          ["Good Win Rate (%)", stats.goodWinRate],
-          ["Evil Games", stats.evilGames],
-          ["Evil Wins", stats.evilWins],
-          ["Evil Win Rate (%)", stats.evilWinRate],
-        ];
-        let csvContent = "data:text/csv;charset=utf-8," + data.map(e => e.join(",")).join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `pavalon_stats_${user?.username}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      };
     
       if (loading) return <div className="flex justify-center items-center h-40"><Spinner /></div>;
       if (error || !stats) return <p className="text-center text-red-500">{error || "Could not load stats."}</p>;
@@ -106,10 +81,6 @@ const MyStatsTab: React.FC = () => {
         <Card>
              <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
                 <h2 className="font-eagleLake text-3xl text-yellow-500">My Pavalon Stats</h2>
-                <Button variant="secondary" onClick={handleDownloadStats} disabled={!stats} className="text-sm py-1.5 px-3 flex items-center gap-2">
-                    <Download size={16}/>
-                    Download CSV
-                </Button>
             </div>
             <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -375,8 +346,10 @@ const LeaderboardScreen: React.FC = () => {
     ];
 
     return (
-        <div className="animate-fadeIn max-w-7xl mx-auto space-y-6">
-            <h1 className="font-eagleLake text-5xl text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Hall of Heroes</h1>
+        <div className="animate-fadeIn max-w-7xl mx-auto space-y-6  pb-16 md:pb-0">
+            <Card className="bg-transparent">
+            <h1 className="font-eagleLake text-4xl text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Hall of Heroes</h1>
+            </Card>
             <Tabs defaultValue="my-stats" className="w-full">
                 <TabsList className="w-full max-w-2xl mx-auto grid grid-cols-2 md:grid-cols-4 bg-slate-800/50 p-1 h-auto gap-1 rounded-lg">
                     {TABS_CONFIG.map(tab => (
@@ -396,7 +369,7 @@ const LeaderboardScreen: React.FC = () => {
                      {loading ? (
                         <div className="flex justify-center items-center h-full min-h-[50vh]"><Spinner /></div>
                     ) : error ? (
-                        <Card><p className="text-center text-red-500">{error}</p></Card>
+                        <p className="text-center text-red-500">{error}</p>
                     ) : (
                         <MyStatsTab />
                     )}
@@ -417,6 +390,7 @@ const LeaderboardScreen: React.FC = () => {
                     <DragonsBreathRanksTab />
                 </TabsContent>
             </Tabs>
+            
         </div>
     );
 };
