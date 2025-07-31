@@ -11,61 +11,76 @@ const api = axios.create({
 
 const SERVER_ERROR_TOAST_ID = 'server-connection-error';
 
-// A map to store active request timers for the "slow response" toast
+// --- State for Smart Error Handling ---
+let consecutiveNetworkErrors = 0;
 const requestTimers = new Map<any, ReturnType<typeof setTimeout>>();
 
-// Request Interceptor to start a timer
+// --- Interceptors ---
+
+// Request Interceptor: Start a timer for slow responses.
 api.interceptors.request.use(config => {
     const timer = setTimeout(() => {
-        toast.info("Server may be starting up...", {
-            description: "This can take a moment. Thank you for your patience.",
-            duration: 15000 // Show for 15s
+        toast.info("Server seems to be taking a while...", {
+            description: "This can happen during initial startup. Thanks for your patience.",
+            duration: 15000
         });
     }, 8000); // 8 seconds
 
-    // Use the config object itself as the key. This is unique per request.
     requestTimers.set(config, timer);
-
     return config;
 }, error => {
     return Promise.reject(error);
 });
 
-// Response Interceptor to clear timers and handle errors
+// Response Interceptor: Handle successful responses and errors.
 api.interceptors.response.use(
     response => {
-        // Clear the timer if the request was successful
+        // Clear the slow-response timer.
         if (requestTimers.has(response.config)) {
             clearTimeout(requestTimers.get(response.config));
             requestTimers.delete(response.config);
         }
-        // If an API call succeeds, the server is responding, so dismiss the error toast.
+        
+        // --- Self-Healing: Reset on any successful call ---
+        consecutiveNetworkErrors = 0;
         toast.dismiss(SERVER_ERROR_TOAST_ID);
 
         return response;
     },
     error => {
-        // Clear the timer even if the request failed
+        // Clear the slow-response timer.
         if (error.config && requestTimers.has(error.config)) {
             clearTimeout(requestTimers.get(error.config));
             requestTimers.delete(error.config);
         }
         
-        // Handle specific network/timeout errors
         if (axios.isAxiosError(error)) {
-            // No response received (network error, CORS, DNS issue) or a timeout occurred
+            // --- Smart Escalation for Network Errors ---
             if (!error.response || error.code === 'ECONNABORTED') {
-                 toast.error("The server is not responding.", {
-                    id: SERVER_ERROR_TOAST_ID,
-                    description: "It might be temporarily down. If the issue persists, please contact pavalon.help@gmail.com",
-                    duration: Infinity, // Keep this message until dismissed
-                });
+                consecutiveNetworkErrors++;
+
+                if (consecutiveNetworkErrors === 1) {
+                    // Graceful First Attempt: Temporary, less alarming message.
+                    toast.warning("Server is taking a moment to respond...", {
+                        description: "This can happen during startup. We'll keep trying.",
+                        duration: 10000, // Show for 10 seconds
+                    });
+                } else if (consecutiveNetworkErrors >= 2) {
+                    // Smart Escalation: Persistent, more serious error.
+                    toast.error("The server is not responding.", {
+                        id: SERVER_ERROR_TOAST_ID,
+                        description: "It might be temporarily down. If the issue persists, please contact pavalon.help@gmail.com",
+                        duration: Infinity,
+                    });
+                }
+            } else {
+                // If we get a response (e.g., 401, 404, 500), the server is up. Reset the counter.
+                consecutiveNetworkErrors = 0;
             }
         }
 
         return Promise.reject(error);
     }
 );
-
 
 export default api;

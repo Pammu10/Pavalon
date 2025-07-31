@@ -320,7 +320,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setSentFriendRequests(sentRequestsRes.data);
         } catch (error) {
             console.error("Failed to fetch social data", error);
-            toast.error("Could not load your friends list.");
         }
     }, [isAuthenticated]);
 
@@ -557,7 +556,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     logout(); 
                 } else {
                     // Generic connection error for an authenticated user trying to connect
-                    toast.error("Could not connect to the game server.", {
+                    console.error("Could not connect to the game server.", {
                         id: SOCKET_ERROR_TOAST_ID,
                         description: "Please check your internet connection and try again."
                     });
