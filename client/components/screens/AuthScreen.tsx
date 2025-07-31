@@ -1,8 +1,11 @@
+
+
 import React, { useState, useRef, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Spinner from "@/components/ui/Spinner";
+import { KeyRound, User } from "lucide-react";
 
 interface AuthScreenProps {
   onLoginSuccess?: () => void;
@@ -78,27 +81,32 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
           <h2 className="font-eaglelake text-3xl text-center text-white">
             {isLogin ? "Login" : "Register"}
           </h2>
-
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            onKeyDown={handleUsernameKeyDown}
-            className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
-            required
-            maxLength={10}
-          />
-          <input
-            ref={passwordInputRef}
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={handlePasswordKeyDown}
-            className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
-            required
-          />
+          <div className="relative group">
+            <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none transition-colors group-focus-within:text-yellow-500" />
+            <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={handleUsernameKeyDown}
+              className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 pl-12 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
+              required
+              maxLength={10}
+            />
+          </div>
+          <div className="relative group">
+            <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none transition-colors group-focus-within:text-yellow-500" />
+            <input
+              ref={passwordInputRef}
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={handlePasswordKeyDown}
+              className="w-full bg-slate-900 border-2 border-slate-700 rounded-md p-3 pl-12 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
+              required
+            />
+          </div>
           {authError && (
             <p className="text-red-500 text-center text-sm">{authError}</p>
           )}
