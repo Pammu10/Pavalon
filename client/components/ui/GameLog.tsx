@@ -87,11 +87,6 @@ const GameLog: React.FC<{ isMobileView?: boolean }> = ({ isMobileView }) => {
 
   return (
     <div className="w-full h-full max-h-[calc(100vh-250px)] flex flex-col font-sans bg-slate-900/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
-      <header className="flex-shrink-0 p-4 border-b border-slate-700/50">
-          <h3 className="font-eaglelake text-xl text-yellow-500 flex items-center gap-2">
-              <ScrollText size={20}/> Game Log
-          </h3>
-      </header>
       {content}
     </div>
   );
