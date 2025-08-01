@@ -284,7 +284,7 @@ const AchievementsTab: React.FC = () => {
 
     return (
         <div className="space-y-8">
-            <Card id="profile-customization-card">
+            <Card className='bg-transparent' id="profile-customization-card">
                 <h2 className="font-eagleLake text-3xl mb-4 text-center text-yellow-500">Profile Customization</h2>
                 
                 <div className="mb-8">

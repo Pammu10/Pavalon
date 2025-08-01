@@ -1,6 +1,3 @@
-
-
-
 import React, { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { useAudio } from "@/components/context/AudioContext";
@@ -235,12 +232,11 @@ const GameTips: React.FC = () => {
 
 
 const LobbyView: React.FC = () => {
-    const { gameState, playerId, startGame, leaveRoom, kickPlayer, startDragonsBreath, justJoined, clearJustJoined, openSocialHub, friendRequests } = useGame();
+    const { gameState, playerId, startGame, leaveRoom, kickPlayer, startDragonsBreath, justJoined, clearJustJoined, openSocialHub, friendRequests, updateSelectedRoles } = useGame();
     const { playSound } = useAudio();
     const { roomCode, players } = gameState;
     const isPaused = !!gameState.reconnectingPlayer;
   
-    const [selectedRoles, setSelectedRoles] = useState<Set<Role>>(new Set());
     const [isCopied, setIsCopied] = useState(false);
 
     useEffect(() => {
@@ -251,34 +247,34 @@ const LobbyView: React.FC = () => {
     }, [justJoined, clearJustJoined, playSound]);
 
     const handleToggleRole = useCallback((role: Role) => {
-        setSelectedRoles((prev) => {
-            const newRoles = new Set(prev);
-            const isAdding = !prev.has(role);
+        const currentRoles = new Set(gameState.selectedRoles || []);
+        const isAdding = !currentRoles.has(role);
 
-            // Symmetrical logic for Percival and Morgana
-            if (role === Role.PERCIVAL || role === Role.MORGANA) {
-                if (isAdding) {
-                    newRoles.add(Role.PERCIVAL);
-                    newRoles.add(Role.MORGANA);
-                } else {
-                    newRoles.delete(Role.PERCIVAL);
-                    newRoles.delete(Role.MORGANA);
-                }
+        // Symmetrical logic for Percival and Morgana
+        if (role === Role.PERCIVAL || role === Role.MORGANA) {
+            if (isAdding) {
+                currentRoles.add(Role.PERCIVAL);
+                currentRoles.add(Role.MORGANA);
             } else {
-                // Standard toggle for other roles
-                if (newRoles.has(role)) {
-                    newRoles.delete(role);
-                } else {
-                    newRoles.add(role);
-                }
+                currentRoles.delete(Role.PERCIVAL);
+                currentRoles.delete(Role.MORGANA);
             }
-            return newRoles;
-        });
-    }, []);
+        } else {
+            // Standard toggle for other roles
+            if (currentRoles.has(role)) {
+                currentRoles.delete(role);
+            } else {
+                currentRoles.add(role);
+            }
+        }
+        updateSelectedRoles(Array.from(currentRoles));
+    }, [gameState.selectedRoles, updateSelectedRoles]);
+    
+    const selectedRolesSet = useMemo(() => new Set(gameState.selectedRoles || []), [gameState.selectedRoles]);
 
     const { finalRoles, validation } = useMemo(() => {
         const playerCount = players.length;
-        const rolesWithDefaults = new Set(selectedRoles);
+        const rolesWithDefaults = new Set(selectedRolesSet);
         if (playerCount >= 5) {
             rolesWithDefaults.add(Role.MERLIN);
             rolesWithDefaults.add(Role.ASSASSIN);
@@ -318,7 +314,7 @@ const LobbyView: React.FC = () => {
         finalRoles: finalRolesList,
         validation: { isValid: validationError === "", message: validationError },
         };
-    }, [selectedRoles, players.length]);
+    }, [selectedRolesSet, players.length]);
 
 
     const handleShare = async () => {
@@ -430,7 +426,7 @@ const LobbyView: React.FC = () => {
                   <RoleCustomization
                     onStart={() => startGame({ selectedRoles: finalRoles })}
                     isPaused={isPaused}
-                    selectedRoles={selectedRoles}
+                    selectedRoles={selectedRolesSet}
                     onToggleRole={handleToggleRole}
                     validation={validation}
                   />

@@ -62,37 +62,11 @@ const PlayerInfoBar: React.FC<PlayerInfoBarProps> = ({ onNavigateToProfile }) =>
 
     return (
         <>
-            <div id="player-info-bar" className="bg-slate-900/80 backdrop-blur-md text-white px-2 sm:px-4 py-2 border-b border-slate-700/50 shadow-md">
+            <div id="player-info-bar" className="bg-slate-900/20 backdrop-blur-xs text-white px-2 sm:px-4 py-2 border-b border-slate-700/50 shadow-md">
                 <div className="w-full max-w-7xl mx-auto flex justify-between items-center gap-x-2 sm:gap-x-4">
                     
-                    {/* Left: Player Name & Role */}
+                    {/* Left: Room Code */}
                     <div className="flex-1 flex justify-start">
-                        <button
-                            onClick={onNavigateToProfile}
-                            className="px-3 py-1.5 flex items-center gap-3 flex-shrink-0 min-w-0 shadow-inner rounded-lg hover:bg-slate-800/50 transition-colors"
-                            title="Customize Profile"
-                        >
-                            <User className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500 flex-shrink-0" />
-                            <div className="min-w-0 text-left">
-                                <p className="font-bold text-base leading-tight text-white truncate">{player.name}</p>
-                                <p className={`font-semibold text-sm leading-tight ${alignmentColor} truncate`}>{shortenRoleName(player.role)}</p>
-                            </div>
-                        </button>
-                    </div>
-                    
-                    {/* Center: Vision Button */}
-                    <div className="flex-1 flex justify-center">
-                         <button 
-                            onClick={() => setIsVisionModalOpen(true)}
-                            className={`${visionButtonBaseClasses} ${visionButtonColorClasses}`}
-                        >
-                            <Eye size={16} />
-                            <span className="hidden sm:inline">View Vision</span>
-                        </button>
-                    </div>
-
-                    {/* Right: Room Code */}
-                    <div className="flex-1 flex justify-end">
                         <button 
                             onClick={handleShare} 
                             className="flex items-center gap-2 flex-shrink-0 cursor-pointer hover:bg-slate-800/50 p-1.5 rounded-lg transition-colors"
@@ -100,6 +74,32 @@ const PlayerInfoBar: React.FC<PlayerInfoBarProps> = ({ onNavigateToProfile }) =>
                         >
                             <p className="font-mono font-bold text-base tracking-widest text-white">{gameState.roomCode}</p>
                             {isCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-yellow-500" />}
+                        </button>
+                    </div>
+                    
+                    {/* Center: Player Name & Role */}
+                    <div className="flex-1 flex justify-center">
+                        <button
+                            onClick={onNavigateToProfile}
+                            className="px-3 py-1.5 flex items-center gap-3 flex-shrink-0 min-w-0 shadow-inner rounded-lg hover:bg-slate-800/50 transition-colors"
+                            title="Customize Profile"
+                        >
+                            <User className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500 flex-shrink-0" />
+                            <div className="min-w-0 text-center">
+                                <p className="font-bold text-base leading-tight text-white truncate">{player.name}</p>
+                                <p className={`font-semibold text-sm leading-tight ${alignmentColor} truncate`}>{shortenRoleName(player.role)}</p>
+                            </div>
+                        </button>
+                    </div>
+                    
+                    {/* Right: Vision Button */}
+                    <div className="flex-1 flex justify-end">
+                         <button 
+                            onClick={() => setIsVisionModalOpen(true)}
+                            className={`${visionButtonBaseClasses} ${visionButtonColorClasses}`}
+                        >
+                            <Eye size={16} />
+                            <span className="hidden sm:inline">View Vision</span>
                         </button>
                     </div>
                 </div>

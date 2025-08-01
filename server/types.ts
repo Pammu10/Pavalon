@@ -151,6 +151,7 @@ export interface GameState {
     pendingTeam: string[] | null;
     dragonsBreathState: DragonsBreathState | null; // State for the mini-game
     assassinationTargetId: string | null;
+    selectedRoles: Role[];
 }
 
 export interface RoleDescription {
@@ -280,6 +281,7 @@ export interface ClientToServerEvents {
     // Pavalon Events
     startGame: (data: { selectedRoles: Role[] }) => void;
     kickPlayer: (playerIdToKick: string) => void;
+    updateSelectedRoles: (roles: Role[]) => void;
     selectTeam: (teamPlayerIds: string[]) => void;
     updatePendingTeam: (teamPlayerIds: string[]) => void;
     updateAssassinationTarget: (targetId: string | null) => void;

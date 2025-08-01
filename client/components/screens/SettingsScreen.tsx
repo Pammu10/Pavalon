@@ -73,7 +73,7 @@ const SettingsScreen: React.FC = () => {
 
   return (
     <div className="animate-fadeIn max-w-2xl mx-auto space-y-6 pb-16 md:pb-0">
-      <Card>
+      <Card className="bg-transparent">
         <h2 className="font-eagleLake text-3xl mb-6 text-center text-yellow-500">Settings</h2>
         <div className="space-y-3">
             <Toggle label="Skip Intro Story" enabled={settings.skipIntro} onToggle={handleToggleSkipIntro} />

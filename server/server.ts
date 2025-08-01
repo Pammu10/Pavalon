@@ -89,7 +89,7 @@ app.post("/api/register", async (req, res) => {
     const { id, is_admin } = result.rows[0];
     const user: User = { id, username, is_admin };
     const token = generateToken(user);
-    res.status(201).json({ token, user: { ...user, selectedTitle: null, selectedBorder: null, selectedIcon: null, selectedBackground: null } });
+    res.status(201).json({ token, user: { ...user, selectedTitle: null, selectedBorder: '', selectedIcon: null, selectedBackground: null } });
   } catch (error: any) {
     if (error.code === "23505") { // Unique constraint violation
       return res.status(409).json({ message: "Username already exists." });
@@ -134,7 +134,7 @@ app.post("/api/login", async (req, res) => {
         username: userRow.username,
         is_admin: userRow.is_admin,
         selectedTitle: userRow.selected_title,
-        selectedBorder: userRow.selected_border,
+        selectedBorder: userRow.selected_border || '',
         selectedIcon: userRow.selected_icon,
         selectedBackground: userRow.selected_background,
     };
@@ -170,7 +170,7 @@ app.get("/api/verify-token", authMiddleware, async (req, res) => {
             username: userRow.username,
             is_admin: userRow.is_admin,
             selectedTitle: userRow.selected_title,
-            selectedBorder: userRow.selected_border,
+            selectedBorder: userRow.selected_border || '',
             selectedIcon: userRow.selected_icon,
             selectedBackground: userRow.selected_background,
         };
@@ -398,7 +398,7 @@ app.post("/api/user/username", authMiddleware, async (req, res) => {
             username,
             is_admin: userRow?.is_admin,
             selectedTitle: userRow?.selected_title,
-            selectedBorder: userRow?.selected_border,
+            selectedBorder: userRow?.selected_border || '',
             selectedIcon: userRow?.selected_icon,
             selectedBackground: userRow?.selected_background
         };
@@ -1146,6 +1146,7 @@ class GameService {
       pendingTeam: null,
       dragonsBreathState: null,
       assassinationTargetId: null,
+      selectedRoles: [],
     };
   }
 
@@ -1270,7 +1271,7 @@ class GameService {
       hasVoted: false,
       status: "CONNECTED",
       selectedTitle: userCustomizations?.selected_title,
-      selectedBorder: userCustomizations?.selected_border,
+      selectedBorder: userCustomizations?.selected_border || '',
       selectedIcon: userCustomizations?.selected_icon,
       selectedBackground: userCustomizations?.selected_background,
     };
@@ -1327,7 +1328,7 @@ class GameService {
     }
 
     player.selectedTitle = userCustomizations?.selected_title;
-    player.selectedBorder = userCustomizations?.selected_border;
+    player.selectedBorder = userCustomizations?.selected_border || '';
     player.selectedIcon = userCustomizations?.selected_icon;
     player.selectedBackground = userCustomizations?.selected_background;
 
@@ -1401,6 +1402,20 @@ class GameService {
     socket.join(roomCode);
     this.io.to(roomCode).emit("updateGameState", gameState);
     console.log(`Successfully reconnected user ${user.username}. Migrated state from ${oldPlayerId} to new socket ID ${newPlayerId}`);
+  }
+
+  handleUpdateSelectedRoles(playerId: string, roles: Role[]) {
+    const roomCode = this.findRoomByPlayerId(playerId);
+    if (!roomCode) return;
+    const gameState = this.games.get(roomCode)!;
+    const player = this.getPlayer(gameState, playerId);
+
+    if (!player || !player.isHost || gameState.phase !== GamePhase.LOBBY) {
+        return;
+    }
+
+    gameState.selectedRoles = roles;
+    this.io.to(roomCode).emit("updateGameState", gameState);
   }
 
   handleStartGame(playerId: string, selectedRoles: Role[]) {
@@ -1794,7 +1809,7 @@ class GameService {
                     hasVoted: false,
                     status: "CONNECTED" as "CONNECTED", // Reset status
                     selectedTitle: customizations?.selected_title,
-                    selectedBorder: customizations?.selected_border,
+                    selectedBorder: customizations?.selected_border || '',
                     selectedIcon: customizations?.selected_icon,
                     selectedBackground: customizations?.selected_background,
                 };
@@ -2785,6 +2800,7 @@ io.on("connection", (socket: any) => {
   socket.on("joinRoom", ({ roomCode }) => gameService.handleJoinRoom(socket, socket.user, roomCode));
   socket.on("leaveRoom", () => gameService.handleLeaveRoom(socket.id));
   socket.on("startGame", (data) => gameService.handleStartGame(socket.id, data.selectedRoles));
+  socket.on("updateSelectedRoles", (roles) => gameService.handleUpdateSelectedRoles(socket.id, roles));
   socket.on("playerReady", () => gameService.handlePlayerReady(socket.id));
   socket.on("playerReadyForNextGame", () => gameService.handlePlayerReadyForNextGame(socket.id));
   socket.on("selectTeam", (teamPlayerIds) => gameService.handleSelectTeam(socket.id, teamPlayerIds));

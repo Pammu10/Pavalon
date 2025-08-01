@@ -43,7 +43,7 @@ export const Chat: React.FC<ChatProps> = ({ isMobileView = false, onHeaderClose,
   };
 
   const containerClasses = isMobileView
-    ? "w-full h-full flex flex-col bg-slate-900 overflow-hidden"
+    ? "w-full h-full flex flex-col bg-slate-900/70 overflow-hidden"
     : "w-full h-full max-h-[calc(100vh-220px)] flex flex-col font-sans bg-slate-900/70 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden";
   
   const getHeaderTitle = () => {

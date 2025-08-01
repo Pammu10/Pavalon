@@ -392,13 +392,11 @@ const EndGameScreen: React.FC = () => {
 
   const winnerColor =
     winner === Alignment.GOOD ? "text-blue-400" : "text-red-500";
-  const winnerShadow =
-    winner === Alignment.GOOD ? "shadow-blue-500/20" : "shadow-red-500/20";
 
   return (
     <div className="animate-fadeIn text-center">
       <Card
-        className={`max-w-4xl mx-auto shadow-2xl ${winner ? winnerShadow : ""}`}
+        className='bg-transparent'
       >
         {winner ? (
           <>

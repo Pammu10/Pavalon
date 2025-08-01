@@ -51,6 +51,7 @@ interface GameContextType {
     kickPlayer: (playerIdToKick: string) => void;
     // Pavalon
     startGame: (data: { selectedRoles: Role[] }) => void;
+    updateSelectedRoles: (roles: Role[]) => void;
     selectTeam: (teamPlayerIds: string[]) => void;
     updatePendingTeam: (teamPlayerIds: string[]) => void;
     updateAssassinationTarget: (targetId: string | null) => void;
@@ -100,6 +101,7 @@ const initialGameState: GameState = {
     pendingTeam: null,
     dragonsBreathState: null,
     assassinationTargetId: null,
+    selectedRoles: [],
 };
 
 const initialSettings: Settings = {
@@ -320,6 +322,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setSentFriendRequests(sentRequestsRes.data);
         } catch (error) {
             console.error("Failed to fetch social data", error);
+            toast.error("Could not load your friends list.");
         }
     }, [isAuthenticated]);
 
@@ -556,7 +559,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     logout(); 
                 } else {
                     // Generic connection error for an authenticated user trying to connect
-                    console.error("Could not connect to the game server.", {
+                    toast.error("Could not connect to the game server.", {
                         id: SOCKET_ERROR_TOAST_ID,
                         description: "Please check your internet connection and try again."
                     });
@@ -735,6 +738,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setHasViewedRole(false);
         socketService.emit('startGame', data);
     }
+    const updateSelectedRoles = (roles: Role[]) => socketService.emit('updateSelectedRoles', roles);
     const selectTeam = (teamPlayerIds: string[]) => socketService.emit('selectTeam', teamPlayerIds);
     const updatePendingTeam = (teamPlayerIds: string[]) => socketService.emit('updatePendingTeam', teamPlayerIds);
     const updateAssassinationTarget = (targetId: string | null) => socketService.emit('updateAssassinationTarget', targetId);
@@ -795,6 +799,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         leaveRoom,
         kickPlayer,
         startGame,
+        updateSelectedRoles,
         selectTeam,
         updatePendingTeam,
         updateAssassinationTarget,

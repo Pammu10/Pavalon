@@ -193,7 +193,7 @@ const MainPageView: React.FC = () => {
                 </div>
             </main>
             
-             <TabsList className="md:hidden fixed bottom-0 left-0 w-full h-16 flex justify-around bg-slate-900/80 backdrop-blur-xl border-t border-slate-700 z-40 p-0 rounded-none">
+             <TabsList className="md:hidden fixed bottom-0 left-0 w-full h-16 flex justify-around bg-slate-900/20 backdrop-blur-xs border-t border-slate-700 z-40 p-0 rounded-none">
                 {mobileTabs.map(({ id, label, icon }) => (
                     <TabsTrigger
                         key={id}
