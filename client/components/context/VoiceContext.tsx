@@ -265,13 +265,11 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
-                    // By disabling browser-level audio processing (echo cancellation, gain control, noise suppression),
-                    // we can often prevent mobile OSs from entering "call mode," which lowers the volume of other audio
-                    // like the game's background music. This may introduce echo or background noise if users
-                    // are not using headphones.
+                    // By disabling browser-level audio processing like echo cancellation,
+                    // we can prevent mobile OSs from entering "call mode," which lowers the volume of other audio
+                    // like the game's background music. This may introduce echo if users aren't using headphones,
+                    // but provides a much better in-game audio experience.
                     echoCancellation: false,
-                    autoGainControl: false,
-                    noiseSuppression: false,
                 },
                 video: false
             });
