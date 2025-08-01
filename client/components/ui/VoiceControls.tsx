@@ -44,7 +44,7 @@ const VoiceControls: React.FC = () => {
         )
     }
 
-    if (phase === GamePhase.LOBBY || phase === GamePhase.HOME) {
+    if (phase === GamePhase.HOME) {
         return (
             <div className="p-4 text-center text-slate-400 h-full flex flex-col items-center justify-center">
                 <Mic className="mx-auto mb-2 w-10 h-10" />
