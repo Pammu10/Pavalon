@@ -263,7 +263,18 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const startVoiceChat = useCallback(async () => {
         if (localStreamRef.current) return;
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    // By disabling browser-level audio processing (echo cancellation, gain control, noise suppression),
+                    // we can often prevent mobile OSs from entering "call mode," which lowers the volume of other audio
+                    // like the game's background music. This may introduce echo or background noise if users
+                    // are not using headphones.
+                    echoCancellation: false,
+                    autoGainControl: false,
+                    noiseSuppression: false,
+                },
+                video: false
+            });
             localStreamRef.current = stream;
             
             if (!audioContextRef.current) {
