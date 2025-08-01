@@ -136,7 +136,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [inviteQueue, setInviteQueue] = useState<number | null>(null);
 
 
-    const { playSound } = useAudio();
+    const { playSound, setSystemMute } = useAudio();
 
     // Auth state
     const [user, setUser] = useState<User | null>(null);
@@ -372,6 +372,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // --- Socket Event Handlers (wrapped in useCallback) ---
     const handleUpdate = useCallback((newState: GameState) => {
+        // Automatically mute BGM if the user is in a room to prevent audio conflicts on mobile.
+        // This respects the user's manual mute setting by not altering `isBgmMuted`.
+        setSystemMute(!!newState.roomCode);
+
         setGameState(prevState => {
             // --- Sound Effect Logic ---
             if (newState.phase === GamePhase.LOBBY && prevState.phase === GamePhase.HOME) {
@@ -399,7 +403,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return newState;
         });
         setMessages(newState.chat || []);
-    }, []);
+    }, [setSystemMute]);
 
     const handleChatMessage = useCallback((message: Message) => {
         setMessages(prev => [...prev, message]);
