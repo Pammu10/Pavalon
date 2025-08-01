@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { useAudio } from '@/components/context/AudioContext';
 
 const TriskelionSymbol = ({ className }: { className?: string }) => (
     <div
@@ -28,7 +29,7 @@ interface SpinnerProps {
 }
 
 const Spinner: React.FC<SpinnerProps> = ({ size = 'md' }) => {
-    const [speed, setSpeed] = useState<'fast' | 'slow'>('slow');
+    const [speed, setSpeed] = useState<'fast' | 'slow'>('fast');
 
     const toggleSpeed = (e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent clicks from bubbling up, e.g., if it's in a button
@@ -42,6 +43,7 @@ const Spinner: React.FC<SpinnerProps> = ({ size = 'md' }) => {
     };
 
     const animationClass = speed === 'fast' ? 'animate-spin-fast' : 'animate-spin-slow';
+    const sizeChangeClass = speed === 'slow' ? 'scale-150' : 'scale-100';
 
     return (
         <div 
@@ -51,7 +53,12 @@ const Spinner: React.FC<SpinnerProps> = ({ size = 'md' }) => {
             tabIndex={0}
             aria-label="Toggle spinner speed"
         >
-            <div className={cn(sizeClasses[size], animationClass, 'transition-transform duration-200 active:scale-90')}>
+            <div className={cn(
+                sizeClasses[size], 
+                animationClass, 
+                sizeChangeClass,
+                'transition-transform duration-500 ease-in-out active:scale-90'
+            )}>
                  <TriskelionSymbol className="w-full h-full" />
             </div>
         </div>
