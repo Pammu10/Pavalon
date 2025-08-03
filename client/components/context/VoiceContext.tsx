@@ -19,10 +19,8 @@ interface VoiceContextType {
     micMonitoring: boolean;
     peerStates: { [socketId: string]: PeerState };
     permissionState: 'prompt' | 'granted' | 'denied';
-    isVoiceEnabled: boolean;
     toggleMute: () => void;
     toggleMicMonitoring: () => void;
-    toggleVoiceChat: () => void;
     setPeerVolume: (socketId: string, volume: number) => void;
     togglePeerMute: (socketId: string) => void;
 }
@@ -103,11 +101,6 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const [micMonitoring, setMicMonitoring] = useState(false);
     const [peerStates, setPeerStates] = useState<{ [socketId: string]: PeerState }>({});
     const [peerStreams, setPeerStreams] = useState<{ [socketId: string]: MediaStream }>({});
-    const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(() => {
-        if (typeof window === 'undefined') return true;
-        const saved = localStorage.getItem('voiceEnabled');
-        return saved ? JSON.parse(saved) : true;
-    });
 
     // Refactored stream management
     const localStreamRef = useRef<MediaStream | null>(null); // Raw mic input
@@ -263,18 +256,7 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const startVoiceChat = useCallback(async () => {
         if (localStreamRef.current) return;
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    // By disabling browser-level audio processing (echo cancellation, gain control, noise suppression),
-                    // we can often prevent mobile OSs from entering "call mode," which lowers the volume of other audio
-                    // like the game's background music. This may introduce echo or background noise if users
-                    // are not using headphones.
-                    echoCancellation: false,
-                    autoGainControl: false,
-                    noiseSuppression: false,
-                },
-                video: false
-            });
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             localStreamRef.current = stream;
             
             if (!audioContextRef.current) {
@@ -368,12 +350,12 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }, [gameState.roomCode, closePeerConnection, handleOffer, handleAnswer, handleIceCandidate]);
 
     useEffect(() => {
-        if (gameState.roomCode && permissionState !== 'denied' && isVoiceEnabled) {
+        if (gameState.roomCode && permissionState !== 'denied') {
             startVoiceChat();
         } else {
             stopVoiceChat();
         }
-    }, [gameState.roomCode, startVoiceChat, stopVoiceChat, permissionState, isVoiceEnabled]);
+    }, [gameState.roomCode, startVoiceChat, stopVoiceChat, permissionState]);
 
     useEffect(() => {
         if (!processedStreamRef.current || !playerId || permissionState !== 'granted') {
@@ -504,18 +486,6 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         });
     }, []);
 
-    const toggleVoiceChat = useCallback(() => {
-        setIsVoiceEnabled(prev => {
-            const newState = !prev;
-            localStorage.setItem('voiceEnabled', JSON.stringify(newState));
-            if (!newState) {
-                // Instantly stop speaking indication when disabled
-                setIsSelfSpeaking(false);
-            }
-            return newState;
-        });
-    }, []);
-
     const toggleMicMonitoring = useCallback(() => {
         setMicMonitoring(prev => !prev);
     }, []);
@@ -543,10 +513,8 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         micMonitoring,
         peerStates,
         permissionState,
-        isVoiceEnabled,
         toggleMute,
         toggleMicMonitoring,
-        toggleVoiceChat,
         setPeerVolume,
         togglePeerMute,
     };
