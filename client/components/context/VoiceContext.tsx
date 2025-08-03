@@ -17,10 +17,12 @@ interface VoiceContextType {
     isMuted: boolean;
     isSelfSpeaking: boolean;
     micMonitoring: boolean;
+    isVoiceEnabled: boolean;
     peerStates: { [socketId: string]: PeerState };
     permissionState: 'prompt' | 'granted' | 'denied';
     toggleMute: () => void;
     toggleMicMonitoring: () => void;
+    toggleVoiceChat: () => void;
     setPeerVolume: (socketId: string, volume: number) => void;
     togglePeerMute: (socketId: string) => void;
 }
@@ -97,6 +99,7 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // --- State and Refs ---
     const [permissionState, setPermissionState] = useState<'prompt' | 'granted' | 'denied'>('prompt');
     const [isMuted, setIsMuted] = useState(false);
+    const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
     const [isSelfSpeaking, setIsSelfSpeaking] = useState(false);
     const [micMonitoring, setMicMonitoring] = useState(false);
     const [peerStates, setPeerStates] = useState<{ [socketId: string]: PeerState }>({});
@@ -104,7 +107,7 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     // Refactored stream management
     const localStreamRef = useRef<MediaStream | null>(null); // Raw mic input
-    const processedStreamRef = useRef<MediaStream | null>(null); // Mic input after gain node
+    const [processedStream, setProcessedStream] = useState<MediaStream | null>(null);
     const localGainRef = useRef<GainNode | null>(null); // Gain node for muting
 
     const peerConnectionsRef = useRef<{ [socketId: string]: RTCPeerConnection }>({});
@@ -165,13 +168,23 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 setPeerStreams(prev => ({ ...prev, [targetSocketId]: event.streams[0] }));
             }
         };
-
+        
+        // Add more detailed logging
         pc.onconnectionstatechange = () => {
             console.log(`[voice] Peer ${targetSocketId} connection state: ${pc.connectionState}`);
             if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
                 closePeerConnection(targetSocketId);
             }
         };
+
+        pc.onsignalingstatechange = () => {
+             console.log(`[voice] Peer ${targetSocketId} signaling state: ${pc.signalingState}`);
+        };
+
+        pc.onicegatheringstatechange = () => {
+            console.log(`[voice] Peer ${targetSocketId} ICE gathering state: ${pc.iceGatheringState}`);
+        };
+
 
         pc.onnegotiationneeded = async () => {
             // Only the "senior" peer (lexicographically larger ID) initiates the offer to prevent glare.
@@ -207,35 +220,37 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             return;
         }
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
         
-        // Add local tracks (from the processed stream) to the connection BEFORE sending the answer
-        if (processedStreamRef.current) {
-            processedStreamRef.current.getTracks().forEach(track => {
+        // Add local tracks (from the processed stream) to the connection BEFORE creating the answer
+        if (processedStream) {
+            processedStream.getTracks().forEach(track => {
                 if (!pc.getSenders().find(sender => sender.track === track)) {
-                    pc.addTrack(track, processedStreamRef.current!);
+                    pc.addTrack(track, processedStream);
                 }
             });
         }
+        
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
         if (pc.localDescription) {
             socketService.emit('voice:answer', { targetId: fromId, sdp: pc.localDescription });
         }
-    }, [createPeerConnection]);
+    }, [createPeerConnection, processedStream]);
 
     const handleOffer = useCallback(async ({ fromId, sdp }: { fromId: string, sdp: RTCSessionDescriptionInit }) => {
-        if (processedStreamRef.current) {
+        if (processedStream) {
             await processOffer(fromId, sdp);
         } else {
             console.log(`[voice] Queuing offer from ${fromId} as local stream is not ready.`);
             queuedOffersRef.current.push({ fromId, sdp });
         }
-    }, [processOffer]);
+    }, [processOffer, processedStream]);
 
     const handleAnswer = useCallback(async ({ fromId, sdp }: { fromId: string, sdp: RTCSessionDescriptionInit }) => {
         const pc = peerConnectionsRef.current[fromId];
         if (pc) {
-             console.log(`[voice] Received answer from ${fromId}`);
+             console.log(`[voice] Received answer from ${fromId}, signaling state: ${pc.signalingState}`);
             await pc.setRemoteDescription(new RTCSessionDescription(sdp));
         }
     }, []);
@@ -272,7 +287,7 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
             const destination = audioContext.createMediaStreamDestination();
             source.connect(gainNode).connect(destination);
-            processedStreamRef.current = destination.stream;
+            setProcessedStream(destination.stream);
             // --- End New Audio Graph ---
 
             const analyser = audioContext.createAnalyser();
@@ -282,13 +297,6 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
             setPermissionState('granted');
             
-            if (queuedOffersRef.current.length > 0) {
-                console.log(`[voice] Processing ${queuedOffersRef.current.length} queued offers.`);
-                for (const offer of queuedOffersRef.current) {
-                    await processOffer(offer.fromId, offer.sdp);
-                }
-                queuedOffersRef.current = [];
-            }
         } catch (error) {
             console.error("Error accessing microphone:", error);
             setPermissionState('denied');
@@ -296,17 +304,18 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 description: "Voice chat will be disabled. Please grant microphone permissions in your browser settings and rejoin.",
             });
         }
-    }, [isMuted, processOffer]);
+    }, [isMuted]);
 
     const stopVoiceChat = useCallback(() => {
         if (localStreamRef.current) {
             localStreamRef.current.getTracks().forEach(track => track.stop());
             localStreamRef.current = null;
         }
-        if (processedStreamRef.current) {
-            processedStreamRef.current.getTracks().forEach(track => track.stop());
-            processedStreamRef.current = null;
+        if (processedStream) {
+            processedStream.getTracks().forEach(track => track.stop());
         }
+        setProcessedStream(null);
+
         if (localGainRef.current) {
             localGainRef.current.disconnect();
             localGainRef.current = null;
@@ -327,7 +336,7 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setPermissionState('prompt');
         setIsSelfSpeaking(false);
         queuedOffersRef.current = [];
-    }, [closePeerConnection]);
+    }, [closePeerConnection, processedStream]);
     
     // --- Effects ---
     
@@ -348,17 +357,31 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             socketService.off('voice:ice-candidate', handleIceCandidate);
         };
     }, [gameState.roomCode, closePeerConnection, handleOffer, handleAnswer, handleIceCandidate]);
-
+    
+    // This effect now correctly handles starting/stopping voice based on room, permission, and the master toggle
     useEffect(() => {
-        if (gameState.roomCode && permissionState !== 'denied') {
+        if (gameState.roomCode && permissionState !== 'denied' && isVoiceEnabled) {
             startVoiceChat();
         } else {
             stopVoiceChat();
         }
-    }, [gameState.roomCode, startVoiceChat, stopVoiceChat, permissionState]);
+    }, [gameState.roomCode, startVoiceChat, stopVoiceChat, permissionState, isVoiceEnabled]);
 
+    // NEW Effect to process queued offers once the stream is ready.
     useEffect(() => {
-        if (!processedStreamRef.current || !playerId || permissionState !== 'granted') {
+        if (processedStream && queuedOffersRef.current.length > 0) {
+            console.log(`[voice] Processing ${queuedOffersRef.current.length} queued offers.`);
+            const offersToProcess = [...queuedOffersRef.current];
+            queuedOffersRef.current = []; // Clear queue immediately
+            offersToProcess.forEach(offer => {
+                processOffer(offer.fromId, offer.sdp);
+            });
+        }
+    }, [processedStream, processOffer]);
+
+    // This effect now correctly depends on `processedStream` state.
+    useEffect(() => {
+        if (!processedStream || !playerId || permissionState !== 'granted') {
             return;
         }
         
@@ -369,12 +392,12 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             if (!existingConnection) {
                  console.log(`[voice] Found new player ${player.name} (${player.id}). Creating connection.`);
                  const pc = createPeerConnection(player.id);
-                 processedStreamRef.current.getTracks().forEach(track => {
-                    pc.addTrack(track, processedStreamRef.current!);
+                 processedStream.getTracks().forEach(track => {
+                    pc.addTrack(track, processedStream);
                  });
             }
         }
-    }, [processedStreamRef.current, gameState.players, playerId, permissionState, createPeerConnection]);
+    }, [processedStream, gameState.players, playerId, permissionState, createPeerConnection]);
     
      // Effect to manage peer analysers
     useEffect(() => {
@@ -490,6 +513,8 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setMicMonitoring(prev => !prev);
     }, []);
 
+    const toggleVoiceChat = useCallback(() => setIsVoiceEnabled(prev => !prev), []);
+
     const setPeerVolume = useCallback((socketId: string, volume: number) => {
         setPeerStates(prev => ({
             ...prev,
@@ -511,10 +536,12 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         isMuted,
         isSelfSpeaking,
         micMonitoring,
+        isVoiceEnabled,
         peerStates,
         permissionState,
         toggleMute,
         toggleMicMonitoring,
+        toggleVoiceChat,
         setPeerVolume,
         togglePeerMute,
     };

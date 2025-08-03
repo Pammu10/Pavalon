@@ -1,8 +1,9 @@
+
+
 import React from 'react';
 import { useVoice } from '../context/VoiceContext';
 import { useGame } from '../context/GameContext';
 import { Mic, MicOff, Volume2, VolumeX, Ear, EarOff, Headset } from 'lucide-react';
-import { GamePhase } from '@/types';
 
 const Toggle: React.FC<{ label: string; enabled: boolean; onToggle: () => void, Icon: React.FC<any>, OffIcon: React.FC<any> }> = ({ label, enabled, onToggle, Icon, OffIcon }) => (
     <div className="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
@@ -21,8 +22,8 @@ const Toggle: React.FC<{ label: string; enabled: boolean; onToggle: () => void, 
 
 const VoiceControls: React.FC = () => {
     const { gameState, playerId } = useGame();
-    const { isMuted, peerStates, permissionState, toggleMute, setPeerVolume, togglePeerMute, micMonitoring, toggleMicMonitoring } = useVoice();
-    const { players, roomCode, phase } = gameState;
+    const { isMuted, peerStates, permissionState, toggleMute, setPeerVolume, togglePeerMute, micMonitoring, toggleMicMonitoring, isVoiceEnabled, toggleVoiceChat } = useVoice();
+    const { players, roomCode } = gameState;
 
     if (permissionState === 'denied') {
         return (
@@ -44,21 +45,24 @@ const VoiceControls: React.FC = () => {
         )
     }
 
-    if (phase === GamePhase.HOME) {
-        return (
-            <div className="p-4 text-center text-slate-400 h-full flex flex-col items-center justify-center">
-                <Mic className="mx-auto mb-2 w-10 h-10" />
-                <p className="font-bold">Voice Chat Ready</p>
-                <p className="text-sm">Your microphone will activate automatically when the game starts.</p>
-            </div>
-        );
-    }
-
     const otherPlayers = players.filter(p => p.id !== playerId);
 
     return (
         <div className="p-2 md:p-4 space-y-4 max-h-full overflow-y-auto scroll-hide">
-             {players.length <= 1 ? (
+            {/* Master Control */}
+            <div className="space-y-3">
+                <h4 className="font-eagleLake text-yellow-500 text-lg">Master Controls</h4>
+                <Toggle label="Voice Chat" enabled={isVoiceEnabled} onToggle={toggleVoiceChat} Icon={Headset} OffIcon={Headset} />
+            </div>
+
+            {/* Conditional Content */}
+            {!isVoiceEnabled ? (
+                <div className="text-center text-slate-400 pt-8">
+                    <Headset className="mx-auto mb-2 w-10 h-10" />
+                    <p className="font-bold">Voice chat is disabled.</p>
+                    <p className="text-sm">Enable it to talk with others.</p>
+                </div>
+            ) : players.length <= 1 ? (
                 <div className="p-4 text-center text-slate-400">
                     <Mic className="mx-auto mb-2 w-10 h-10" />
                     <p className="font-bold">Voice chat is active.</p>
@@ -67,8 +71,8 @@ const VoiceControls: React.FC = () => {
             ) : (
                 <>
                     {/* My Controls */}
-                    <div className="space-y-3">
-                         <h4 className="font-eagleLake text-yellow-500 text-lg">My Controls</h4>
+                    <div className="space-y-3 pt-4 border-t border-slate-700/50">
+                        <h4 className="font-eagleLake text-yellow-500 text-lg">My Controls</h4>
                         <Toggle label="Microphone" enabled={!isMuted} onToggle={toggleMute} Icon={Mic} OffIcon={MicOff} />
                         <Toggle label="Mic Monitoring" enabled={micMonitoring} onToggle={toggleMicMonitoring} Icon={Ear} OffIcon={EarOff} />
                     </div>
