@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 import { Friend, FriendRequest, GamePhase, FriendSuggestion } from '@/types';
 import Button from './Button';
@@ -10,14 +10,24 @@ import Card from './Card';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
+import { fetcher } from '@/services/api';
 
 
-const FriendItem: React.FC<{ friend: Friend }> = ({ friend }) => {
+const FriendItem: React.FC<{ friend: Friend }> = React.memo(({ friend }) => {
     const { removeFriend, inviteFriendToGame, gameState, pendingInvites, acceptInvite } = useGame();
     const IconComponent = friend.selectedIcon ? ICON_MAP[friend.selectedIcon] : Gem;
     const borderClass = friend.selectedBorder ? `border-style-${friend.selectedBorder}` : 'border-slate-600';
     
     const pendingInvite = pendingInvites.find(inv => inv.from.id === friend.id);
+
+    const handleRemove = useCallback(() => removeFriend(friend.id), [removeFriend, friend.id]);
+    const handleInvite = useCallback(() => inviteFriendToGame(friend.id), [inviteFriendToGame, friend.id]);
+    const handleAcceptInvite = useCallback(() => {
+        if (pendingInvite) {
+            acceptInvite(pendingInvite.roomCode);
+        }
+    }, [acceptInvite, pendingInvite]);
     
     const nonSwitchablePhases: (GamePhase | null)[] = [
         GamePhase.ROLE_REVEAL,
@@ -87,7 +97,7 @@ const FriendItem: React.FC<{ friend: Friend }> = ({ friend }) => {
                  {pendingInvite ? (
                     <Button 
                         variant="icon-success" 
-                        onClick={() => acceptInvite(pendingInvite.roomCode)}
+                        onClick={handleAcceptInvite}
                         disabled={!canAccept}
                         className="w-10 h-10 p-0 flex items-center justify-center" 
                         title={canAccept ? `Join ${friend.username}'s game` : "Cannot accept, you are in a game."}
@@ -95,55 +105,59 @@ const FriendItem: React.FC<{ friend: Friend }> = ({ friend }) => {
                         <Gamepad2 size={20} />
                     </Button>
                 ) : isInvitable ? (
-                    <Button variant="icon-primary" onClick={() => inviteFriendToGame(friend.id)} className="w-10 h-10 p-0 flex items-center justify-center" title="Invite to Game">
+                    <Button variant="icon-primary" onClick={handleInvite} className="w-10 h-10 p-0 flex items-center justify-center" title="Invite to Game">
                         <Gamepad2 size={20} />
                     </Button>
                 ) : null}
-                <Button variant="icon-danger" onClick={() => removeFriend(friend.id)} className="w-10 h-10 p-0 flex items-center justify-center" title="Remove Friend">
+                <Button variant="icon-danger" onClick={handleRemove} className="w-10 h-10 p-0 flex items-center justify-center" title="Remove Friend">
                     <Trash2 size={20} />
                 </Button>
             </div>
         </div>
     );
-};
+});
 
-const RequestItem: React.FC<{ request: FriendRequest }> = ({ request }) => {
+const RequestItem: React.FC<{ request: FriendRequest }> = React.memo(({ request }) => {
     const { respondToFriendRequest } = useGame();
+    const handleAccept = useCallback(() => respondToFriendRequest(request.id, 'accept'), [respondToFriendRequest, request.id]);
+    const handleDecline = useCallback(() => respondToFriendRequest(request.id, 'decline'), [respondToFriendRequest, request.id]);
+
     return (
         <div className="flex items-center justify-between p-2 sm:p-3 bg-slate-800/60 rounded-lg">
             <p className="font-bold text-white">{request.username}</p>
             <div className="flex items-center gap-2">
-                <Button variant="icon-success" onClick={() => respondToFriendRequest(request.id, 'accept')} className="w-10 h-10 p-0 flex items-center justify-center" title="Accept Request">
+                <Button variant="icon-success" onClick={handleAccept} className="w-10 h-10 p-0 flex items-center justify-center" title="Accept Request">
                     <Check size={20} />
                 </Button>
-                <Button variant="icon-danger" onClick={() => respondToFriendRequest(request.id, 'decline')} className="w-10 h-10 p-0 flex items-center justify-center" title="Decline Request">
+                <Button variant="icon-danger" onClick={handleDecline} className="w-10 h-10 p-0 flex items-center justify-center" title="Decline Request">
                     <X size={20} />
                 </Button>
             </div>
         </div>
     );
-};
+});
 
-const SentRequestItem: React.FC<{ request: FriendRequest }> = ({ request }) => {
+const SentRequestItem: React.FC<{ request: FriendRequest }> = React.memo(({ request }) => {
     const { cancelFriendRequest } = useGame();
+    const handleCancel = useCallback(() => cancelFriendRequest(request.id), [cancelFriendRequest, request.id]);
+
     return (
         <div className="flex items-center justify-between p-2 sm:p-3 bg-slate-800/60 rounded-lg">
             <p className="font-bold text-white">{request.username}</p>
-            <Button variant="secondary" onClick={() => cancelFriendRequest(request.id)} className="p-2 h-auto text-sm" title="Cancel Request">
+            <Button variant="secondary" onClick={handleCancel} className="p-2 h-auto text-sm" title="Cancel Request">
                 Cancel
             </Button>
         </div>
     );
-};
+});
 
-const SuggestionItem: React.FC<{ suggestion: FriendSuggestion, onAdd: (username: string) => Promise<void> }> = ({ suggestion, onAdd }) => {
+const SuggestionItem: React.FC<{ suggestion: FriendSuggestion, onAdd: (username: string) => Promise<void> }> = React.memo(({ suggestion, onAdd }) => {
     const [isAdding, setIsAdding] = useState(false);
 
-    const handleAdd = async () => {
+    const handleAdd = useCallback(async () => {
         setIsAdding(true);
         await onAdd(suggestion.username);
-        // isAdding state doesn't need to be reset as the component will be removed.
-    };
+    }, [onAdd, suggestion.username]);
 
     return (
         <div className="flex items-center justify-between p-2 sm:p-3 bg-slate-800/60 rounded-lg">
@@ -162,7 +176,7 @@ const SuggestionItem: React.FC<{ suggestion: FriendSuggestion, onAdd: (username:
             </Button>
         </div>
     );
-};
+});
 
 
 const EmptyState: React.FC<{ icon: React.ReactNode, title: string, message: string }> = ({ icon, title, message }) => (
@@ -176,34 +190,39 @@ const EmptyState: React.FC<{ icon: React.ReactNode, title: string, message: stri
 const SkeletonItem: React.FC = () => (
     <div className="flex animate-pulse items-center justify-between p-2 sm:p-3 bg-slate-800/60 rounded-lg">
         <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-slate-700/50 flex-shrink-0" />
+            <div className="w-12 h-12 rounded-lg bg-accent flex-shrink-0" />
             <div className="space-y-2">
-                <div className="h-4 w-24 rounded bg-slate-800/20" />
-                <div className="h-3 w-16 rounded bg-slate-800/20" />
+                <div className="h-4 w-24 rounded bg-accent" />
+                <div className="h-3 w-16 rounded bg-accent" />
             </div>
         </div>
-        <div className="w-10 h-10 rounded bg-slate-800/30" />
+        <div className="w-10 h-10 rounded bg-accent" />
     </div>
 );
 
 
 const SocialHubContent: React.FC<{ onClose?: () => void, asScreen?: boolean }> = ({ onClose, asScreen }) => {
-    const { friends, friendRequests, sentFriendRequests, suggestions, addFriend, loadFullSocialData, isSocialLoading, loadSuggestionsData, isSuggestionsLoading } = useGame();
+    const { friendRequests, addFriend } = useGame();
     const [activeTab, setActiveTab] = useState('friends');
     const [newFriendName, setNewFriendName] = useState('');
     const [isAdding, setIsAdding] = useState(false);
 
+    const { data: friends = [], isLoading: isFriendsLoading } = useQuery({
+        queryKey: ['friends'],
+        queryFn: () => fetcher<Friend[]>('/social/friends'),
+    });
 
-    useEffect(() => {
-        loadFullSocialData();
-    }, [loadFullSocialData]);
+    const { data: sentFriendRequests = [], isLoading: isSentRequestsLoading } = useQuery({
+        queryKey: ['sentFriendRequests'],
+        queryFn: () => fetcher<FriendRequest[]>('/social/requests/sent'),
+        enabled: activeTab === 'requests',
+    });
 
-    useEffect(() => {
-        if (activeTab === 'add') {
-            loadSuggestionsData();
-        }
-    }, [activeTab, loadSuggestionsData]);
-
+    const { data: suggestions = [], isLoading: isSuggestionsLoading } = useQuery({
+        queryKey: ['suggestions'],
+        queryFn: () => fetcher<FriendSuggestion[]>('/social/suggestions'),
+        enabled: activeTab === 'add',
+    });
 
     const handleAddFriend = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -245,7 +264,7 @@ const SocialHubContent: React.FC<{ onClose?: () => void, asScreen?: boolean }> =
                 
                 <div className="flex-grow overflow-y-auto pr-2 scroll-hide">
                     <TabsContent value="friends" className="m-0 space-y-2">
-                         {isSocialLoading ? (
+                         {isFriendsLoading ? (
                             <div className="space-y-2">
                                 {Array.from({ length: 3 }).map((_, i) => <SkeletonItem key={i} />)}
                             </div>
@@ -264,7 +283,7 @@ const SocialHubContent: React.FC<{ onClose?: () => void, asScreen?: boolean }> =
                         </div>
                         <div className="pt-4 border-t border-slate-700">
                              <h3 className="font-bold text-lg text-yellow-400 mb-2">Sent Requests</h3>
-                             {isSocialLoading ? (
+                             {isSentRequestsLoading ? (
                                  <div className="space-y-2">
                                     {Array.from({ length: 2 }).map((_, i) => <SkeletonItem key={i} />)}
                                 </div>
@@ -303,9 +322,7 @@ const SocialHubContent: React.FC<{ onClose?: () => void, asScreen?: boolean }> =
                                             <SuggestionItem 
                                                 key={s.id} 
                                                 suggestion={s}
-                                                onAdd={async (username) => {
-                                                    await addFriend(username);
-                                                }}
+                                                onAdd={addFriend}
                                             />
                                         ))}
                                     </div>

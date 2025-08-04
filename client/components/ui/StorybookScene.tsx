@@ -29,11 +29,9 @@ const storySlides = [
 export const StorybookScene = ({ onSkip }: { onSkip: () => void }) => {
   const [index, setIndex] = useState(0);
   const { playSound, stopAllSfx } = useAudio();
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
   const handleNext = useCallback(() => {
     stopAllSfx();
-    setIsAutoPlaying(false); // Stop auto-play on manual navigation
     setIndex(prevIndex => {
       if (prevIndex < storySlides.length - 1) {
         return prevIndex + 1;
@@ -46,7 +44,6 @@ export const StorybookScene = ({ onSkip }: { onSkip: () => void }) => {
 
   const handleBack = useCallback(() => {
     stopAllSfx();
-    setIsAutoPlaying(false); // Stop auto-play on manual navigation
     setIndex(prevIndex => (prevIndex > 0 ? prevIndex - 1 : prevIndex));
   }, [stopAllSfx]);
 
@@ -56,11 +53,11 @@ export const StorybookScene = ({ onSkip }: { onSkip: () => void }) => {
 
     const playAndAdvance = async () => {
         await playSound(storySlides[index].audio, { manageBgm: false });
-        // Only advance if this effect is still active and auto-play is enabled
-        if (!isCancelled && isAutoPlaying) {
+        // Only advance if this effect is still active
+        if (!isCancelled) {
             setTimeout(() => {
                 // Check again in case state changed during timeout
-                if (isAutoPlaying && !isCancelled) {
+                if (!isCancelled) {
                    if (index < storySlides.length - 1) {
                         setIndex(i => i + 1);
                     } else {
@@ -77,7 +74,7 @@ export const StorybookScene = ({ onSkip }: { onSkip: () => void }) => {
       isCancelled = true;
       stopAllSfx();
     };
-  }, [index, playSound, stopAllSfx, onSkip, isAutoPlaying]);
+  }, [index, playSound, stopAllSfx, onSkip]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black text-white flex flex-col items-center justify-center p-6 overflow-hidden">

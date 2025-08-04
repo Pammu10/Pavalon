@@ -9,6 +9,9 @@ const api = axios.create({
     timeout: 30000, // 30 seconds
 });
 
+// Generic fetcher function for use with react-query
+export const fetcher = <T,>(url: string): Promise<T> => api.get<T>(url).then(res => res.data);
+
 const SERVER_ERROR_TOAST_ID = 'server-connection-error';
 
 // --- State for Smart Error Handling ---

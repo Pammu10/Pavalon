@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { GameState, GamePhase, Player, Message, Role, User, LoginCredentials, RegisterCredentials, Achievement, Friend, FriendRequest, GameInvite, FriendSuggestion } from '@/types';
 import { socketService } from '@/services/socketService';
-import api from '@/services/api';
+import api, { fetcher } from '@/services/api';
 import { toast } from 'sonner';
 import { useAudio } from './AudioContext';
 import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface Settings {
     skipIntro: boolean;
@@ -24,21 +25,13 @@ interface GameContextType {
     isConnected: boolean;
     hasViewedRole: boolean;
     settings: Settings;
-    achievementsVersion: number;
     hasViewedCurrentQuestResult: boolean;
     hasViewedEndGameResult: boolean;
     justJoined: boolean;
     // Social State
-    friends: Friend[];
     friendRequests: FriendRequest[];
-    sentFriendRequests: FriendRequest[];
-    suggestions: FriendSuggestion[];
     pendingInvites: GameInvite[];
     isSocialHubOpen: boolean;
-    isSocialLoading: boolean;
-    isSuggestionsLoading: boolean;
-    loadFullSocialData: () => Promise<void>;
-    loadSuggestionsData: () => Promise<void>;
     openSocialHub: () => void;
     closeSocialHub: () => void;
     setHasViewedRole: React.Dispatch<React.SetStateAction<boolean>>;
@@ -121,6 +114,7 @@ const SERVER_ERROR_TOAST_ID = 'server-connection-error'; // Must match the one i
 
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [gameState, setGameState] = useState<GameState>(initialGameState);
     const [playerId, setPlayerId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -128,25 +122,16 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [hasViewedRole, setHasViewedRole] = useState(false);
     const [viewedSessionKeys, setViewedSessionKeys] = useState<Set<string>>(new Set());
     const [settings, setSettings] = useState<Settings>(initialSettings);
-    const [achievementsVersion, setAchievementsVersion] = useState(0);
     const [justJoined, setJustJoined] = useState(false);
 
     // Social State
-    const [friends, setFriends] = useState<Friend[]>([]);
-    const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
-    const [sentFriendRequests, setSentFriendRequests] = useState<FriendRequest[]>([]);
-    const [suggestions, setSuggestions] = useState<FriendSuggestion[]>([]);
     const [pendingInvites, setPendingInvites] = useState<GameInvite[]>([]);
     const [isSocialHubOpen, setIsSocialHubOpen] = useState(false);
-    const [isSocialLoading, setIsSocialLoading] = useState(false);
-    const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
-    const socialDataLoaded = useRef(false);
-    const suggestionsDataLoaded = useRef(false);
     const [inviteCooldowns, setInviteCooldowns] = useState<Map<number, number>>(new Map());
     const [inviteQueue, setInviteQueue] = useState<number | null>(null);
 
 
-    const { playSound, setSystemMute } = useAudio();
+    const { playSound } = useAudio();
 
     // Auth state
     const [user, setUser] = useState<User | null>(null);
@@ -158,6 +143,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const prevRoomCode = useRef(gameState.roomCode);
     
+    // Fetch friend requests for notification badges using React Query
+    const { data: friendRequests = [] } = useQuery({
+        queryKey: ['friendRequests'],
+        queryFn: () => fetcher<FriendRequest[]>('/social/requests'),
+        enabled: isAuthenticated,
+    });
+
     const autoClearError = useCallback((setter: React.Dispatch<React.SetStateAction<string | null>>, message: string) => {
       setter(message);
       playSound('error', { manageBgm: false });
@@ -274,11 +266,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     setUser(data.user);
                     setIsAuthenticated(true);
                 } catch (error: any) {
-                    // If there's a response, it's an auth error from the server (e.g. 401).
-                    // If there's NO response, it's a network error (server is down).
                     if (error.response) {
                         console.error("Token verification failed (server responded with error), logging out.", error);
-                        // This is an actual authentication error (e.g. invalid token)
                         localStorage.removeItem('authToken');
                         localStorage.removeItem('user');
                         delete api.defaults.headers.common['Authorization'];
@@ -286,27 +275,20 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         setUser(null);
                         setIsAuthenticated(false);
                     } else {
-                        // This is likely a network error; the server is down or unreachable.
-                        // We should trust the locally stored token and user data for now
-                        // to avoid forcing a re-login when the connection is restored.
                         console.warn("Could not verify token (network error), keeping client-side auth state.", error);
-                        
-                        // Re-hydrate user from localStorage since the app just loaded.
                         const storedUser = localStorage.getItem('user');
                         if (storedUser) {
                             try {
                                 setUser(JSON.parse(storedUser));
                                 setToken(storedToken);
-                                setIsAuthenticated(true); // Assume authenticated until socket fails
+                                setIsAuthenticated(true);
                             } catch (e) {
-                                // If user data is corrupt, then we must log out.
                                 console.error("Failed to parse stored user data, logging out.", e);
                                 localStorage.removeItem('authToken');
                                 localStorage.removeItem('user');
                                 setIsAuthenticated(false);
                             }
                         } else {
-                            // If there's no stored user data, we can't maintain the session.
                             localStorage.removeItem('authToken');
                             setIsAuthenticated(false);
                         }
@@ -318,60 +300,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         verifyToken();
     }, []);
-
-    const fetchInitialSocialData = useCallback(async () => {
-        if (!isAuthenticated) return;
-        try {
-            // Only fetch friend requests initially for the notification dot
-            const requestsRes = await api.get('/social/requests');
-            setFriendRequests(requestsRes.data);
-        } catch (error) {
-            console.error("Failed to fetch initial social data", error);
-        }
-    }, [isAuthenticated]);
-
-    const loadFullSocialData = useCallback(async () => {
-        if (!isAuthenticated || socialDataLoaded.current || isSocialLoading) return;
-    
-        setIsSocialLoading(true);
-        try {
-            // Fetch the rest of the data
-            const [friendsRes, sentRequestsRes] = await Promise.all([
-                api.get('/social/friends'),
-                api.get('/social/requests/sent'),
-            ]);
-            setFriends(friendsRes.data);
-            setSentFriendRequests(sentRequestsRes.data);
-            socialDataLoaded.current = true;
-        } catch (error) {
-            console.error("Failed to fetch full social data", error);
-            toast.error("Could not load your social details.");
-        } finally {
-            setIsSocialLoading(false);
-        }
-    }, [isAuthenticated, isSocialLoading]);
-
-    const loadSuggestionsData = useCallback(async () => {
-        if (!isAuthenticated || suggestionsDataLoaded.current || isSuggestionsLoading) return;
-
-        setIsSuggestionsLoading(true);
-        try {
-            const { data } = await api.get('/social/suggestions');
-            setSuggestions(data);
-            suggestionsDataLoaded.current = true;
-        } catch (error) {
-            console.error("Failed to load suggestions", error);
-            toast.error("Could not load friend suggestions.");
-        } finally {
-            setIsSuggestionsLoading(false);
-        }
-    }, [isAuthenticated, isSuggestionsLoading]);
-    
-    useEffect(() => {
-        if (isAuthenticated) {
-            fetchInitialSocialData();
-        }
-    }, [isAuthenticated, fetchInitialSocialData]);
 
     // Effect to manage socket connection based on auth state
     useEffect(() => {
@@ -390,7 +318,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     useEffect(() => {
         const onConnect = () => {
             setIsConnected(true);
-            // On successful connection, dismiss any persistent connection error toasts
             toast.dismiss(SOCKET_ERROR_TOAST_ID);
             toast.dismiss(SERVER_ERROR_TOAST_ID);
         };
@@ -413,22 +340,14 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // --- Socket Event Handlers (wrapped in useCallback) ---
     const handleUpdate = useCallback((newState: GameState) => {
-        // Automatically mute BGM if the user is in a room to prevent audio conflicts on mobile.
-        // This respects the user's manual mute setting by not altering `isBgmMuted`.
-        setSystemMute(!!newState.roomCode);
-
         setGameState(prevState => {
-            // --- Sound Effect Logic ---
             if (newState.phase === GamePhase.LOBBY && prevState.phase === GamePhase.HOME) {
                 setJustJoined(true);
             }
-
-            // --- State Cleanup Logic ---
             const isNewGameStarting = (prevState.phase === GamePhase.END_GAME && newState.phase === GamePhase.LOBBY) || 
                                       (prevState.phase === GamePhase.LOBBY && newState.phase === GamePhase.ROLE_REVEAL);
             if (isNewGameStarting) {
                 setHasViewedRole(false);
-                // Clean up session state for the new game
                 if (prevState.roomCode) {
                     const keysToRemove: string[] = [];
                     for (let i = 0; i < sessionStorage.length; i++) {
@@ -444,7 +363,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return newState;
         });
         setMessages(newState.chat || []);
-    }, [setSystemMute]);
+    }, []);
 
     const handleChatMessage = useCallback((message: Message) => {
         setMessages(prev => [...prev, message]);
@@ -461,21 +380,16 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             description: `You've earned: ${achievement.rewards.map(r => r.name).join(', ')}`,
             duration: 8000,
         });
-        setAchievementsVersion(v => v + 1);
-    }, [playSound]);
+        queryClient.invalidateQueries({ queryKey: ['achievements'] });
+    }, [playSound, queryClient]);
 
     const handleKicked = useCallback((reason: string) => {
         toast.error(reason, {
             description: "You have been removed from the game."
         });
-        setGameState(initialGameState); // This will trigger the useEffect to redirect to '/'
+        setGameState(initialGameState);
         setMessages([]);
         setHasViewedRole(false);
-    }, []);
-
-    const invalidateSuggestions = useCallback(() => {
-        suggestionsDataLoaded.current = false;
-        setSuggestions([]); // Clear old data to ensure it refetches
     }, []);
 
     const logout = useCallback(() => {
@@ -492,43 +406,35 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setGameState(initialGameState);
         setHasViewedRole(false);
         setViewedSessionKeys(new Set());
-        // Reset social state on logout
-        setFriends([]);
-        setFriendRequests([]);
-        setSentFriendRequests([]);
-        setPendingInvites([]);
-        setSuggestions([]);
-        socialDataLoaded.current = false;
-        suggestionsDataLoaded.current = false;
+        queryClient.clear(); // Clear all cached data on logout
         router.push('/');
-    }, [gameState.roomCode, router]);
+    }, [gameState.roomCode, router, queryClient]);
 
     // --- Social Socket Handlers ---
     const handleSocialStatus = useCallback(({ userId, isOnline, isInGame, gamePhase }: { userId: number, isOnline: boolean, isInGame: boolean, gamePhase?: GamePhase | null }) => {
-        setFriends(prev => prev.map(f => f.id === userId ? { ...f, isOnline, isInGame, gamePhase } : f));
-    }, []);
+        queryClient.setQueryData<Friend[]>(['friends'], (oldData) => 
+            oldData?.map(f => f.id === userId ? { ...f, isOnline, isInGame, gamePhase } : f)
+        );
+    }, [queryClient]);
     
     const handleRequestReceived = useCallback((request: FriendRequest) => {
-        setFriendRequests(prev => [...prev, request]);
+        queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
         toast.info(`New friend request from ${request.username}!`);
-    }, []);
+    }, [queryClient]);
 
     const handleRequestAccepted = useCallback((newFriend: Friend) => {
-        setFriends(prev => [...prev, newFriend]);
-        // This event is fired for both users.
-        // If I was the requester, it removes from my sent list.
-        setSentFriendRequests(prev => prev.filter(req => req.id !== newFriend.id));
-        // If I was the recipient, it removes from my received list.
-        setFriendRequests(prev => prev.filter(req => req.id !== newFriend.id));
-        toast.success(`${newFriend.username} accepted your friend request!`);
-        invalidateSuggestions();
-    }, [invalidateSuggestions]);
+        queryClient.invalidateQueries({ queryKey: ['friends'] });
+        queryClient.invalidateQueries({ queryKey: ['sentFriendRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+        toast.success(`${newFriend.username} is now your friend!`);
+    }, [queryClient]);
     
     const handleFriendRemoved = useCallback(({ friendId }: { friendId: number }) => {
-        setFriends(prev => prev.filter(f => f.id !== friendId));
+        queryClient.invalidateQueries({ queryKey: ['friends'] });
+        queryClient.invalidateQueries({ queryKey: ['suggestions'] });
         toast.warning(`A user has removed you from their friends list.`);
-        invalidateSuggestions();
-    }, [invalidateSuggestions]);
+    }, [queryClient]);
     
     const declineInvite = useCallback((roomCode: string) => {
         setPendingInvites(prev => prev.filter(inv => inv.roomCode !== roomCode));
@@ -576,14 +482,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         socketService.on('error', handleError);
         socketService.on('achievementUnlocked', handleAchievementUnlocked);
         socketService.on('kicked', handleKicked);
-
-        // Social Listeners
         socketService.on('social:status', handleSocialStatus);
         socketService.on('social:request_received', handleRequestReceived);
         socketService.on('social:request_accepted', handleRequestAccepted);
         socketService.on('social:friend_removed', handleFriendRemoved);
         socketService.on('social:invite_received', handleInviteReceived);
-
 
         return () => {
             socketService.off('updateGameState', handleUpdate);
@@ -591,7 +494,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             socketService.off('error', handleError);
             socketService.off('achievementUnlocked', handleAchievementUnlocked);
             socketService.off('kicked', handleKicked);
-             // Social Listeners
             socketService.off('social:status', handleSocialStatus);
             socketService.off('social:request_received', handleRequestReceived);
             socketService.off('social:request_accepted', handleRequestAccepted);
@@ -600,30 +502,19 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         };
     }, [handleUpdate, handleChatMessage, handleError, handleAchievementUnlocked, handleKicked, handleSocialStatus, handleRequestReceived, handleRequestAccepted, handleFriendRemoved, handleInviteReceived]);
 
-    // This effect handles authentication failures on connection
     useEffect(() => {
         const handleConnectError = (err: Error) => {
-             // Only handle this if the user was supposed to be authenticated.
-            // This prevents firing the toast on the login screen if the server is down.
             if (isAuthenticated) {
                 console.error("Socket connection error:", err.message);
                 if (err.message.includes("Authentication error")) {
-                    toast.error("Your session is invalid or has expired.", {
-                        description: "You have been logged out. Please log in again."
-                    });
+                    toast.error("Your session is invalid or has expired.", { description: "You have been logged out. Please log in again." });
                     logout(); 
                 } else {
-                    // Generic connection error for an authenticated user trying to connect
-                    toast.error("Could not connect to the game server.", {
-                        id: SOCKET_ERROR_TOAST_ID,
-                        description: "Please check your internet connection and try again."
-                    });
+                    toast.error("Could not connect to the game server.", { id: SOCKET_ERROR_TOAST_ID, description: "Please check your internet connection and try again." });
                 }
             }
         };
-
         socketService.socket.on('connect_error', handleConnectError);
-
         return () => {
             socketService.socket.off('connect_error', handleConnectError);
         };
@@ -663,7 +554,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setAuthError(null);
             const { data } = await api.post('/register', credentials);
             const { token: new_token, user: new_user } = data;
-
             localStorage.setItem('authToken', new_token);
             localStorage.setItem('user', JSON.stringify(new_user));
             api.defaults.headers.common['Authorization'] = `Bearer ${new_token}`;
@@ -683,10 +573,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setAuthError(null);
             const { data } = await api.post('/user/username', { username: newUsername });
             const { token: newToken, user: newUser } = data;
-
             localStorage.setItem('authToken', newToken);
             localStorage.setItem('user', JSON.stringify(newUser));
-
             api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
             setToken(newToken);
             setUser(newUser);
@@ -705,11 +593,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const leaveRoom = useCallback(() => {
         socketService.emit('leaveRoom');
-        // The server will handle the state change and push an update with a null roomCode,
-        // which will trigger the useEffect to redirect to home.
     }, []);
     
-    // --- Social Functions ---
     const openSocialHub = () => setIsSocialHubOpen(true);
     const closeSocialHub = () => setIsSocialHubOpen(false);
 
@@ -717,10 +602,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         try {
             const response = await api.post('/social/add', { username });
             toast.success(response.data.message);
-            if (response.data.sentRequest) {
-                setSentFriendRequests(prev => [...prev, response.data.sentRequest]);
-            }
-            invalidateSuggestions();
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['suggestions'] }),
+                queryClient.invalidateQueries({ queryKey: ['sentFriendRequests'] })
+            ]);
         } catch (err: any) {
             const message = err.response?.data?.message || 'Failed to send friend request.';
             toast.error(message);
@@ -730,14 +615,16 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const respondToFriendRequest = async (requesterId: number, action: 'accept' | 'decline') => {
         try {
             await api.post('/social/respond', { requesterId, action });
-            setFriendRequests(prev => prev.filter(req => req.id !== requesterId));
+            await queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
             if (action === 'accept') {
-                // The socket `request_accepted` event will handle adding to the friends list
+                await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: ['friends'] }),
+                    queryClient.invalidateQueries({ queryKey: ['suggestions'] })
+                ]);
                 toast.success("Friend request accepted!");
             } else {
                 toast.info("Friend request declined.");
             }
-            invalidateSuggestions();
         } catch (err: any) {
              toast.error(err.response?.data?.message || 'Action failed.');
         }
@@ -746,9 +633,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const removeFriend = async (friendId: number) => {
         try {
             await api.delete(`/social/remove/${friendId}`);
-            setFriends(prev => prev.filter(f => f.id !== friendId));
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['friends'] }),
+                queryClient.invalidateQueries({ queryKey: ['suggestions'] })
+            ]);
             toast.success("Friend removed.");
-            invalidateSuggestions();
         } catch (err: any) {
              toast.error(err.response?.data?.message || 'Failed to remove friend.');
         }
@@ -757,9 +646,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const cancelFriendRequest = async (recipientId: number) => {
         try {
             await api.delete(`/social/request/cancel/${recipientId}`);
-            setSentFriendRequests(prev => prev.filter(req => req.id !== recipientId));
+            await queryClient.invalidateQueries({ queryKey: ['sentFriendRequests'] });
+            await queryClient.invalidateQueries({ queryKey: ['suggestions'] });
             toast.success("Friend request cancelled.");
-            invalidateSuggestions();
         } catch (err: any) {
             const message = (err as any).response?.data?.message || 'Failed to cancel request.';
             toast.error(message);
@@ -770,13 +659,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const now = Date.now();
         const lastInviteTime = inviteCooldowns.get(friendId);
 
-        if (lastInviteTime && (now - lastInviteTime) < 10000) { // 10 second cooldown
+        if (lastInviteTime && (now - lastInviteTime) < 10000) {
             const timeLeft = Math.ceil((10000 - (now - lastInviteTime)) / 1000);
             toast.warning(`Please wait ${timeLeft}s before inviting this player again.`);
             return;
         }
 
-        // Set cooldown immediately
         setInviteCooldowns(prev => new Map(prev).set(friendId, now));
         
         if (gameState.roomCode) {
@@ -785,12 +673,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else {
             toast.info("Creating a new room for your game...");
             setInviteQueue(friendId);
-            joinRoom(); // This will create a new room
+            joinRoom();
         }
     };
 
-
-    // --- Emitting Functions ---
     const kickPlayer = (playerIdToKick: string) => socketService.emit('kickPlayer', playerIdToKick);
     const sendMessage = (messageText: string) => socketService.emit('sendMessage', messageText);
     const startGame = (data: { selectedRoles: Role[] }) => {
@@ -808,7 +694,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const playerReadyForNextGame = () => socketService.emit('playerReadyForNextGame');
     const initiateRestart = () => socketService.emit('initiateRestart');
     const voteOnRestart = (vote: 'yes' | 'no') => socketService.emit('voteOnRestart', vote);
-    // Dragon's Breath Emitters
     const startDragonsBreath = () => socketService.emit('startDragonsBreath');
     const drawCard = () => socketService.emit('drawCard');
     const playCard = (cardId: string) => socketService.emit('playCard', cardId);
@@ -816,78 +701,21 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const endFutureView = () => socketService.emit('endFutureView');
     const returnToLobby = () => socketService.emit('returnToLobby');
 
-
     const hasViewedCurrentQuestResult = viewedSessionKeys.has(`viewedQuest-${gameState.roomCode}-${gameState.currentQuest}`);
     const hasViewedEndGameResult = viewedSessionKeys.has(`viewedEndGame-${gameState.roomCode}`);
 
     const value: GameContextType = {
-        gameState,
-        playerId,
-        error,
-        messages,
-        user,
-        token,
-        isAuthenticated,
-        authError,
-        isLoading,
-        isConnected,
-        hasViewedRole,
-        settings,
-        achievementsVersion,
-        hasViewedCurrentQuestResult,
-        hasViewedEndGameResult,
-        justJoined,
-        friends,
-        friendRequests,
-        sentFriendRequests,
-        suggestions,
-        pendingInvites,
-        isSocialHubOpen,
-        isSocialLoading,
-        isSuggestionsLoading,
-        loadFullSocialData,
-        loadSuggestionsData,
-        openSocialHub,
-        closeSocialHub,
-        setHasViewedRole,
-        markQuestResultAsViewed,
-        markEndGameAsViewed,
-        clearJustJoined,
-        updateSettings,
-        updateUser,
-        updateUsername,
-        login,
-        register,
-        logout,
-        joinRoom: joinRoom,
-        leaveRoom,
-        kickPlayer,
-        startGame,
-        updateSelectedRoles,
-        selectTeam,
-        updatePendingTeam,
-        updateAssassinationTarget,
-        voteOnTeam,
-        voteOnQuest,
-        assassinate,
-        playerReady,
-        playerReadyForNextGame,
-        sendMessage,
-        initiateRestart,
-        voteOnRestart,
-        startDragonsBreath,
-        drawCard,
-        playCard,
-        placeDragonCard,
-        endFutureView,
-        returnToLobby,
-        addFriend,
-        respondToFriendRequest,
-        removeFriend,
-        cancelFriendRequest,
-        inviteFriendToGame,
-        acceptInvite,
-        declineInvite,
+        gameState, playerId, error, messages, user, token, isAuthenticated, authError,
+        isLoading, isConnected, hasViewedRole, settings, hasViewedCurrentQuestResult,
+        hasViewedEndGameResult, justJoined, friendRequests, pendingInvites, isSocialHubOpen,
+        openSocialHub, closeSocialHub, setHasViewedRole, markQuestResultAsViewed,
+        markEndGameAsViewed, clearJustJoined, updateSettings, updateUser, updateUsername,
+        login, register, logout, joinRoom, leaveRoom, kickPlayer, startGame,
+        updateSelectedRoles, selectTeam, updatePendingTeam, updateAssassinationTarget,
+        voteOnTeam, voteOnQuest, assassinate, playerReady, playerReadyForNextGame, sendMessage,
+        initiateRestart, voteOnRestart, startDragonsBreath, drawCard, playCard, placeDragonCard,
+        endFutureView, returnToLobby, addFriend, respondToFriendRequest, removeFriend,
+        cancelFriendRequest, inviteFriendToGame, acceptInvite, declineInvite,
     };
 
     return (

@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { memo } from 'react';
 import { Player } from '@/types';
 import { useGame } from '../context/GameContext';
 import { useVoice } from '../context/VoiceContext';
@@ -123,4 +122,4 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
   );
 };
 
-export default PlayerTile;
+export default memo(PlayerTile);

@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useGame } from '@/components/context/GameContext';
 import { useAudio } from '@/components/context/AudioContext';
-import api from '@/services/api';
+import api, { fetcher } from '@/services/api';
 import { Achievement, AchievementReward, Player } from '@/types';
 import Card from './Card';
 import Spinner from './Spinner';
@@ -14,6 +13,7 @@ import PlayerTile from './PlayerTile';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuery } from '@tanstack/react-query';
 
 const icons: { [key: string]: React.ReactNode } = {
     Trophy: <Trophy className="w-8 h-8" />,
@@ -68,7 +68,7 @@ const BorderOption: React.FC<{
     );
 };
 
-const AchievementCardContent: React.FC<{ achievement: Achievement }> = ({ achievement }) => (
+const AchievementCardContent: React.FC<{ achievement: Achievement }> = React.memo(({ achievement }) => (
     <>
         <div className={`mt-1 flex-shrink-0 ${achievement.unlocked ? 'text-yellow-400' : 'text-slate-500'}`}>
             {icons[achievement.icon] || <Star className="w-8 h-8" />}
@@ -89,15 +89,17 @@ const AchievementCardContent: React.FC<{ achievement: Achievement }> = ({ achiev
             )}
         </div>
     </>
-);
+));
 
 
 const AchievementsTab: React.FC = () => {
-    const { user, updateUser, achievementsVersion } = useGame();
+    const { user, updateUser } = useGame();
     const { playSound } = useAudio();
-    const [achievements, setAchievements] = useState<Achievement[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    
+    const { data: achievements = [], isLoading: loading, isError: error } = useQuery({
+        queryKey: ['achievements'],
+        queryFn: () => fetcher<Achievement[]>('/achievements'),
+    });
 
     const [selectedTitle, setSelectedTitle] = useState('');
     const [selectedBorder, setSelectedBorder] = useState('');
@@ -106,24 +108,9 @@ const AchievementsTab: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     
     const themeScrollRef = useRef<HTMLDivElement>(null);
-    const gridRef = useRef<HTMLDivElement>(null); // Ref for the actual grid content
+    const gridRef = useRef<HTMLDivElement>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
-
-    useEffect(() => {
-        const fetchAchievements = async () => {
-            setLoading(true);
-            try {
-                const { data } = await api.get<Achievement[]>('/achievements');
-                setAchievements(data);
-            } catch (err) {
-                setError('Failed to load achievements.');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchAchievements();
-    }, [achievementsVersion]);
 
     useEffect(() => {
         if (user) {
@@ -235,14 +222,10 @@ const AchievementsTab: React.FC = () => {
         const gridEl = gridRef.current;
         if (!scrollEl || !gridEl) return;
 
-        // Observer watches the content grid for size changes (e.g., images loading)
         const observer = new ResizeObserver(checkScrollability);
         observer.observe(gridEl);
-
-        // Also check on scroll events
         scrollEl.addEventListener('scroll', checkScrollability, { passive: true });
         
-        // Initial check after a short delay
         const timeoutId = setTimeout(checkScrollability, 150);
 
         return () => {
@@ -305,7 +288,7 @@ const AchievementsTab: React.FC = () => {
     );
     
     if (loading) return <div className="flex justify-center items-center h-40"><Spinner /></div>;
-    if (error) return <p className="text-center text-red-500">{error}</p>;
+    if (error) return <p className="text-center text-red-500">Failed to load achievements.</p>;
 
     return (
         <div className="space-y-8">

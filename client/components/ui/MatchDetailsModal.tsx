@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import api from '@/services/api';
-import { Match, MatchPlayerPerformance, Alignment } from '@/types';
+import { fetcher } from '@/services/api';
+import { MatchPlayerPerformance, Alignment } from '@/types';
 import Spinner from './Spinner';
 import Card from './Card';
-import Button from './Button';
+import { useQuery } from '@tanstack/react-query';
 
 interface MatchDetailsModalProps {
     matchId: number;
@@ -11,26 +11,11 @@ interface MatchDetailsModalProps {
 }
 
 const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({ matchId, onClose }) => {
-    const [details, setDetails] = useState<MatchPlayerPerformance[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        const fetchDetails = async () => {
-            if (!matchId) return;
-            setLoading(true);
-            try {
-                const { data } = await api.get(`/match/${matchId}`);
-                setDetails(data);
-                setError(null);
-            } catch (err) {
-                setError('Failed to load match details.');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchDetails();
-    }, [matchId]);
+    const { data: details, isLoading: loading, isError: error } = useQuery<MatchPlayerPerformance[]>({
+        queryKey: ['matchDetails', matchId],
+        queryFn: () => fetcher(`/match/${matchId}`),
+        enabled: !!matchId,
+    });
 
     // Handle Escape key press
     useEffect(() => {
@@ -61,9 +46,9 @@ const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({ matchId, onClose 
                 
                 {loading && <div className="h-48 flex justify-center items-center"><Spinner /></div>}
                 
-                {error && <p className="text-center text-red-500">{error}</p>}
+                {error && <p className="text-center text-red-500">Failed to load match details.</p>}
                 
-                {!loading && !error && (
+                {!loading && !error && details && (
                     <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
                         {details.map((player, index) => {
                             const isGood = player.alignment === Alignment.GOOD;

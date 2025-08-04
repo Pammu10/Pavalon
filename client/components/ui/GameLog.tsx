@@ -1,6 +1,3 @@
-
-
-
 import React, { useRef, useEffect } from 'react';
 import { useGame } from '@/components/context/GameContext';
 import { LogEntry } from '@/types';
@@ -17,7 +14,7 @@ const logIcons: { [key in LogEntry['type']]: React.ReactNode } = {
   dragonsBreath: <Flame className="w-5 h-5 text-orange-400" />,
 };
 
-const LogItem: React.FC<{ entry: LogEntry }> = ({ entry }) => {
+const LogItem: React.FC<{ entry: LogEntry }> = React.memo(({ entry }) => {
     const getIcon = () => {
         if (entry.text.includes('Failed') || entry.text.includes('Rejected')) {
             return <XCircle className="w-5 h-5 text-red-400" />;
@@ -48,7 +45,7 @@ const LogItem: React.FC<{ entry: LogEntry }> = ({ entry }) => {
       </div>
     </motion.div>
   );
-};
+});
 
 const GameLog: React.FC<{ isMobileView?: boolean }> = ({ isMobileView }) => {
   const { gameState } = useGame();

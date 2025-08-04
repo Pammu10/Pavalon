@@ -12,7 +12,8 @@ interface AudioContextType {
   stopAllSfx: () => void;
   playLobbyMusic: () => void;
   playInGameMusic: () => void;
-  stopBackgroundMusic: () => void; // General purpose stop
+  stopBackgroundMusic: () => void;
+  setBgmDucked: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
@@ -44,6 +45,7 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return savedMute ? JSON.parse(savedMute) : false;
   });
   const [isSystemMuted, setIsSystemMuted] = useState(false);
+  const [isBgmDucked, setBgmDucked] = useState(false);
 
   const sfxRefs = useRef<Partial<Record<SoundEffect, HTMLAudioElement>>>({});
   const lobbyMusicRef = useRef<HTMLAudioElement | null>(null);
@@ -107,9 +109,16 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         localStorage.setItem('bgmMuted', JSON.stringify(isBgmMuted));
     }
     const shouldBeMuted = isBgmMuted || isSystemMuted;
-    if (lobbyMusicRef.current) lobbyMusicRef.current.muted = shouldBeMuted;
-    if (gameMusicRef.current) gameMusicRef.current.muted = shouldBeMuted;
-  }, [isBgmMuted, isSystemMuted]);
+
+    if (lobbyMusicRef.current) {
+        lobbyMusicRef.current.muted = shouldBeMuted;
+        lobbyMusicRef.current.volume = isBgmDucked ? 0.02 : 0.1;
+    }
+    if (gameMusicRef.current) {
+        gameMusicRef.current.muted = shouldBeMuted;
+        gameMusicRef.current.volume = isBgmDucked ? 0.05 : 0.25;
+    }
+  }, [isBgmMuted, isSystemMuted, isBgmDucked]);
 
   const playSound = useCallback(async (
     sound: SoundEffect,
@@ -228,7 +237,8 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     stopAllSfx,
     playLobbyMusic, 
     playInGameMusic,
-    stopBackgroundMusic
+    stopBackgroundMusic,
+    setBgmDucked,
   };
 
   return (

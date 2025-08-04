@@ -1,14 +1,13 @@
-
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { useGame } from "@/components/context/GameContext";
-import api from "@/services/api";
+import { fetcher } from "@/services/api";
 import { LeaderboardData, LeaderboardEntry, PlayerStats, Match, Alignment, DragonsBreathStats, DragonsBreathOpponentStats, DragonsBreathLeaderboardData } from "@/types";
 import Card from "@/components/ui/Card";
-import Spinner from "@/components/ui/Spinner";
 import { Crown, Trophy, Target, TrendingUp, ShieldCheck, Skull, User, Swords, Flame, Eye, Heart, Shield } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MatchDetailsModal from "../ui/MatchDetailsModal";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 
 // --- Skeleton Components ---
 const Skeleton = ({ className }: { className?: string }) => (
@@ -91,31 +90,36 @@ const WinRateBar: React.FC<{ rate: number; alignment: Alignment; totalGames: num
     );
 };
   
-const MatchHistoryRow: React.FC<{ match: Match; onSelect: (id: number) => void; }> = ({ match, onSelect }) => (
-    <button onClick={() => onSelect(match.id)} className={`w-full flex justify-between items-center p-3 rounded-lg text-left transition-colors duration-200 ${match.won ? "bg-green-800/20" : "bg-red-800/20"} hover:bg-slate-700/50`}>
-      <div>
-        <p className="font-bold text-white">{match.role}</p>
-        <p className="text-xs text-slate-400">{new Date(match.playedAt).toLocaleDateString()}</p>
-      </div>
-      <div className={`font-eagleLake font-bold px-3 py-1 rounded-full text-sm ${match.won ? "text-green-300 bg-green-900/50" : "text-red-300 bg-red-900/50"}`}>
-        {match.won ? "Victory" : "Defeat"}
-      </div>
-    </button>
-);
+const MatchHistoryRow: React.FC<{ match: Match; onSelect: (id: number) => void; }> = React.memo(({ match, onSelect }) => {
+    const handleClick = useCallback(() => {
+        onSelect(match.id);
+    }, [onSelect, match.id]);
 
-interface TabContentProps {
-    loading: boolean;
-    error: string | null;
-}
+    return (
+        <button onClick={handleClick} className={`w-full flex justify-between items-center p-3 rounded-lg text-left transition-colors duration-200 ${match.won ? "bg-green-800/20" : "bg-red-800/20"} hover:bg-slate-700/50`}>
+          <div>
+            <p className="font-bold text-white">{match.role}</p>
+            <p className="text-xs text-slate-400">{new Date(match.playedAt).toLocaleDateString()}</p>
+          </div>
+          <div className={`font-eagleLake font-bold px-3 py-1 rounded-full text-sm ${match.won ? "text-green-300 bg-green-900/50" : "text-red-300 bg-red-900/50"}`}>
+            {match.won ? "Victory" : "Defeat"}
+          </div>
+        </button>
+    );
+});
 
-interface MyStatsTabProps extends TabContentProps {
-    stats: PlayerStats | null;
-}
-
-const MyStatsTab: React.FC<MyStatsTabProps> = ({ stats, loading, error }) => {
+const MyStatsTab: React.FC = () => {
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
+    const { data: stats, isLoading, isError } = useQuery({
+        queryKey: ['myStats', 'pavalon'],
+        queryFn: () => fetcher<PlayerStats>('/stats'),
+    });
+    
+    const handleSelectMatch = useCallback((id: number) => {
+        setSelectedMatchId(id);
+    }, []);
 
-    if (loading) return (
+    if (isLoading) return (
          <Card>
             <Skeleton className="h-8 w-64 mb-6" />
             <div className="space-y-6">
@@ -138,7 +142,7 @@ const MyStatsTab: React.FC<MyStatsTabProps> = ({ stats, loading, error }) => {
             </div>
         </Card>
     );
-    if (error || !stats) return null; // Error is handled by parent
+    if (isError || !stats) return null;
 
     return (
         <>
@@ -164,7 +168,7 @@ const MyStatsTab: React.FC<MyStatsTabProps> = ({ stats, loading, error }) => {
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2 scroll-hide">
                     {stats.recentMatches.length > 0 ? (
                         stats.recentMatches.map((match) => (
-                        <MatchHistoryRow key={match.id} match={match} onSelect={setSelectedMatchId} />
+                        <MatchHistoryRow key={match.id} match={match} onSelect={handleSelectMatch} />
                         ))
                     ) : ( <p className="text-center text-slate-400 italic py-4">No matches played yet. The battlefield awaits!</p> )}
                     </div>
@@ -199,18 +203,19 @@ const HeadToHeadStatRow: React.FC<{ opponentStat: DragonsBreathOpponentStats }> 
     );
 };
 
-interface DragonsBreathStatsTabProps extends TabContentProps {
-    stats: DragonsBreathStats | null;
-}
+const DragonsBreathStatsTab: React.FC = () => {
+    const { data: stats, isLoading, isError } = useQuery({
+        queryKey: ['myStats', 'dragonsBreath'],
+        queryFn: () => fetcher<DragonsBreathStats>('/stats/dragons-breath'),
+    });
 
-const DragonsBreathStatsTab: React.FC<DragonsBreathStatsTabProps> = ({ stats, loading, error }) => {
-    if (loading) return (
+    if (isLoading) return (
         <div className="space-y-8">
             <Card><Skeleton className="h-8 w-64 mx-auto mb-6" /><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><StatCardSkeleton /><StatCardSkeleton /></div></Card>
             <Card><Skeleton className="h-8 w-64 mx-auto mb-6" /><MatchHistoryRowSkeleton /><MatchHistoryRowSkeleton /></Card>
         </div>
     );
-    if (error || !stats) return null;
+    if (isError || !stats) return null;
     if (stats.totalGames === 0) {
         return (
             <Card className="text-center py-12">
@@ -312,19 +317,20 @@ const LeaderboardList: React.FC<{ title: string; icon: React.ReactNode; entries:
 };
 
 
-interface LeaderboardTabProps extends TabContentProps {
-    data: LeaderboardData | null;
-}
+const LeaderboardTab: React.FC = () => {
+    const { data, isLoading, isError } = useQuery({
+        queryKey: ['leaderboard', 'pavalon'],
+        queryFn: () => fetcher<LeaderboardData>('/leaderboard'),
+    });
 
-const LeaderboardTab: React.FC<LeaderboardTabProps> = ({ data, loading, error }) => {
-    if (loading) return (
+    if (isLoading) return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 place-items-start">
             <LeaderboardListSkeleton />
             <LeaderboardListSkeleton />
             <LeaderboardListSkeleton />
         </div>
     );
-    if (error || !data) return null;
+    if (isError || !data) return null;
 
     const leaderboards = [
         { title: "Total Wins", icon: <Trophy size={24} className="text-yellow-400"/>, entries: data.totalWins },
@@ -344,19 +350,20 @@ const LeaderboardTab: React.FC<LeaderboardTabProps> = ({ data, loading, error })
     );
 };
 
-interface DragonsBreathRanksTabProps extends TabContentProps {
-    data: DragonsBreathLeaderboardData | null;
-}
+const DragonsBreathRanksTab: React.FC = () => {
+    const { data, isLoading, isError } = useQuery({
+        queryKey: ['leaderboard', 'dragonsBreath'],
+        queryFn: () => fetcher<DragonsBreathLeaderboardData>('/leaderboard/dragons-breath'),
+    });
 
-const DragonsBreathRanksTab: React.FC<DragonsBreathRanksTabProps> = ({ data, loading, error }) => {
-    if (loading) return (
+    if (isLoading) return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 place-items-start">
             <LeaderboardListSkeleton />
             <LeaderboardListSkeleton />
             <LeaderboardListSkeleton />
         </div>
     );
-    if (error || !data) return null;
+    if (isError || !data) return null;
     
     const leaderboards = [
         { title: "Most Wins", icon: <Trophy size={24} className="text-yellow-400"/>, entries: data.mostWins },
@@ -377,50 +384,6 @@ const DragonsBreathRanksTab: React.FC<DragonsBreathRanksTabProps> = ({ data, loa
 
 
 const LeaderboardScreen: React.FC = () => {
-    const { achievementsVersion } = useGame();
-    
-    const [myStats, setMyStats] = useState<PlayerStats | null>(null);
-    const [dbStats, setDbStats] = useState<DragonsBreathStats | null>(null);
-    const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
-    const [dbLeaderboard, setDbLeaderboard] = useState<DragonsBreathLeaderboardData | null>(null);
-    
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        const fetchAllData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const [
-                    myStatsRes,
-                    dbStatsRes,
-                    leaderboardRes,
-                    dbLeaderboardRes
-                ] = await Promise.all([
-                    api.get<PlayerStats>("/stats"),
-                    api.get<DragonsBreathStats>("/stats/dragons-breath"),
-                    api.get<LeaderboardData>("/leaderboard"),
-                    api.get<DragonsBreathLeaderboardData>("/leaderboard/dragons-breath")
-                ]);
-                
-                setMyStats(myStatsRes.data);
-                setDbStats(dbStatsRes.data);
-                setLeaderboard(leaderboardRes.data);
-                setDbLeaderboard(dbLeaderboardRes.data);
-
-            } catch (err) {
-                const errorMessage = "Failed to load Hall of Heroes data. The scrolls may have been misplaced.";
-                setError(errorMessage);
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        
-        fetchAllData();
-    }, [achievementsVersion]);
-
     const TABS_CONFIG = [
         { value: "my-stats", label: "Pavalon Stats", icon: <User size={18} /> },
         { value: "dragons-breath", label: "Dragon Breath", icon: <Flame size={18} /> },
@@ -433,7 +396,6 @@ const LeaderboardScreen: React.FC = () => {
             <Card>
                 <h1 className="font-eagleLake text-4xl text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Hall of Heroes</h1>
             </Card>
-            {error && <Card><p className="text-center text-red-500">{error}</p></Card>}
             <Tabs defaultValue="my-stats" className="w-full">
                 <TabsList className="w-full max-w-2xl mx-auto grid grid-cols-2 md:grid-cols-4 bg-slate-800/50 p-1 h-auto gap-1 rounded-lg">
                     {TABS_CONFIG.map(tab => (
@@ -450,16 +412,16 @@ const LeaderboardScreen: React.FC = () => {
                     ))}
                 </TabsList>
                 <TabsContent value="my-stats" className="mt-6">
-                    <MyStatsTab stats={myStats} loading={loading} error={error} />
+                    <MyStatsTab />
                 </TabsContent>
                 <TabsContent value="dragons-breath" className="mt-6">
-                    <DragonsBreathStatsTab stats={dbStats} loading={loading} error={error} />
+                    <DragonsBreathStatsTab />
                 </TabsContent>
                 <TabsContent value="leaderboard" className="mt-6">
-                    <LeaderboardTab data={leaderboard} loading={loading} error={error} />
+                    <LeaderboardTab />
                 </TabsContent>
                 <TabsContent value="db-ranks" className="mt-6">
-                    <DragonsBreathRanksTab data={dbLeaderboard} loading={loading} error={error} />
+                    <DragonsBreathRanksTab />
                 </TabsContent>
             </Tabs>
         </div>

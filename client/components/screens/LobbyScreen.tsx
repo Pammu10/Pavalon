@@ -10,19 +10,29 @@ import { Copy, LogOut, ShieldAlert, Flame, Check, Users } from "lucide-react";
 import PlayerTile from "@/components/ui/PlayerTile";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 const RoleToggle: React.FC<{
   role: Role;
   selected: boolean;
   onToggle: (role: Role) => void;
   disabled?: boolean;
-}> = ({ role, selected, onToggle, disabled = false }) => (
+  onDisabledClick?: () => void;
+}> = ({ role, selected, onToggle, disabled = false, onDisabledClick }) => (
   <label
-    className={`flex items-center p-3 rounded-lg border-2 transition-all cursor-pointer ${
+    onClick={(e) => {
+      if (disabled && onDisabledClick) {
+        e.preventDefault();
+        onDisabledClick();
+      }
+    }}
+    className={cn(
+      'flex items-center p-3 rounded-lg border-2 transition-all',
       selected
-        ? "bg-slate-700 border-yellow-500"
-        : "bg-slate-800 border-slate-700"
-    } ${disabled ? "opacity-50 cursor-not-allowed" : "hover:border-slate-500"}`}
+        ? "bg-emerald-500/20 border-emerald-400 shadow-lg shadow-emerald-500/10"
+        : "bg-slate-800 border-slate-700",
+      disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-slate-500"
+    )}
   >
     <input
       type="checkbox"
@@ -66,40 +76,42 @@ const FinalRosterDisplay: React.FC<{ finalRoles: Role[] }> = ({ finalRoles }) =>
   };
 
   const TeamPanel: React.FC<{ title: string, team: Role[], color: 'blue' | 'red' }> = ({ title, team, color }) => {
+    const baseClasses = 'p-4 rounded-xl border-2 shadow-2xl backdrop-blur-md transition-all duration-300';
+    
     const colorClasses = {
       blue: {
-        border: 'border-blue-500',
+        bg: 'bg-blue-950/30',
+        border: 'border-blue-500/50',
         text: 'text-blue-300',
-        dot: 'bg-blue-500',
+        dot: 'bg-blue-400',
+        shadow: 'shadow-blue-500/20'
       },
       red: {
-        border: 'border-red-600',
+        bg: 'bg-red-950/30',
+        border: 'border-red-500/50',
         text: 'text-red-300',
-        dot: 'bg-red-600',
+        dot: 'bg-red-400',
+        shadow: 'shadow-red-500/20'
       }
     };
     const classes = colorClasses[color];
-
-    const noisyBgStyle = {
-        backgroundImage: `
-            linear-gradient(rgba(17, 24, 39, 0.9), rgba(17, 24, 39, 0.9)),
-            url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")
-        `,
-    };
     
     // Sort roles by priority.
     const rolesString = [...team].sort((a, b) => (rolePriority[a] || 99) - (rolePriority[b] || 99)).join(', ');
 
     return (
-      <div style={noisyBgStyle} className={`p-4 rounded-xl border-2 ${classes.border} shadow-lg`}>
+      <div 
+        className={cn(baseClasses, classes.bg, classes.border, classes.shadow)}
+        style={{ textShadow: '1px 1px 4px rgba(0,0,0,0.7)' }}
+      >
         <h3 className={`font-eaglelake text-2xl font-bold ${classes.text} flex items-center gap-3 mb-2`}>
           <span className={`w-3 h-3 rounded-full ${classes.dot} shadow-md`}></span>
           {title}
         </h3>
-        <p className="text-slate-300 mb-3 text-sm italic min-h-[40px]">
+        <p className="text-slate-200 mb-3 text-sm italic min-h-[40px]">
           {rolesString}
         </p>
-        <p className="font-bold text-slate-200 border-t border-slate-700 pt-2">
+        <p className="font-bold text-slate-100 border-t border-slate-700 pt-2">
           Total: {team.length} players
         </p>
       </div>
@@ -125,10 +137,36 @@ const RoleCustomization: React.FC<{
   isPaused: boolean;
   selectedRoles: Set<Role>;
   onToggleRole: (role: Role) => void;
-  validation: { isValid: boolean, message: string };
-}> = ({ onStart, isPaused, selectedRoles, onToggleRole, validation }) => {
+  validation: { isValid: boolean; message: string };
+  disabledRoles: { good: boolean; evil: boolean };
+  playerCount: number;
+}> = ({ onStart, isPaused, selectedRoles, onToggleRole, validation, disabledRoles, playerCount }) => {
+  const { playSound } = useAudio();
   const availableSpecialGood = [Role.PERCIVAL];
   const availableSpecialEvil = [Role.MORGANA, Role.MORDRED, Role.OBERON];
+  const requiredEvilCount = EVIL_PLAYER_COUNT[playerCount as keyof typeof EVIL_PLAYER_COUNT] || 0;
+  const requiredGoodCount = playerCount - requiredEvilCount;
+
+  const handleDisabledGoodClick = () => {
+    toast.error("Good role limit reached!", {
+      description: `For ${playerCount} players, you can only have ${requiredGoodCount} Good roles (including Merlin).`
+    });
+    playSound('error', { manageBgm: false });
+  };
+  
+  const handleDisabledEvilClick = () => {
+    toast.error("Evil role limit reached!", {
+      description: `For ${playerCount} players, you can only have ${requiredEvilCount} Evil roles (including Assassin).`
+    });
+    playSound('error', { manageBgm: false });
+  };
+
+  const handleDisabledPercivalMorganaClick = () => {
+    toast.error("Cannot add Percival & Morgana.", {
+      description: "Not enough space for both a Good and an Evil role."
+    });
+    playSound('error', { manageBgm: false });
+  };
 
   return (
     <>
@@ -136,27 +174,65 @@ const RoleCustomization: React.FC<{
         <div>
           <h4 className="font-bold mb-2 text-blue-400">Special Good Roles</h4>
           <div className="space-y-2">
-            {availableSpecialGood.map((role) => (
-              <RoleToggle
-                key={role}
-                role={role}
-                selected={selectedRoles.has(role)}
-                onToggle={onToggleRole}
-              />
-            ))}
+            {availableSpecialGood.map((role) => {
+              const isPercival = role === Role.PERCIVAL;
+              const isSelected = selectedRoles.has(role);
+
+              let isDisabled = false;
+              if (isPercival) {
+                isDisabled = !isSelected && (disabledRoles.good || disabledRoles.evil);
+              } else {
+                isDisabled = !isSelected && disabledRoles.good;
+              }
+
+              let onDisabledClickHandler = handleDisabledGoodClick;
+              if (isPercival && isDisabled) {
+                onDisabledClickHandler = handleDisabledPercivalMorganaClick;
+              }
+              
+              return (
+                <RoleToggle
+                  key={role}
+                  role={role}
+                  selected={selectedRoles.has(role)}
+                  onToggle={onToggleRole}
+                  disabled={isDisabled}
+                  onDisabledClick={onDisabledClickHandler}
+                />
+              )
+            })}
           </div>
         </div>
         <div>
           <h4 className="font-bold mb-2 text-red-500">Special Evil Roles</h4>
           <div className="space-y-2">
-            {availableSpecialEvil.map((role) => (
-              <RoleToggle
-                key={role}
-                role={role}
-                selected={selectedRoles.has(role)}
-                onToggle={onToggleRole}
-              />
-            ))}
+            {availableSpecialEvil.map((role) => {
+               const isMorgana = role === Role.MORGANA;
+              const isSelected = selectedRoles.has(role);
+
+              let isDisabled = false;
+              if (isMorgana) {
+                isDisabled = !isSelected && (disabledRoles.good || disabledRoles.evil);
+              } else {
+                isDisabled = !isSelected && disabledRoles.evil;
+              }
+
+              let onDisabledClickHandler = handleDisabledEvilClick;
+              if (isMorgana && isDisabled) {
+                onDisabledClickHandler = handleDisabledPercivalMorganaClick;
+              }
+
+               return (
+                <RoleToggle
+                  key={role}
+                  role={role}
+                  selected={selectedRoles.has(role)}
+                  onToggle={onToggleRole}
+                  disabled={isDisabled}
+                  onDisabledClick={onDisabledClickHandler}
+                />
+               )
+            })}
           </div>
         </div>
       </div>
@@ -247,72 +323,96 @@ const LobbyView: React.FC = () => {
     }, [justJoined, clearJustJoined, playSound]);
 
     const handleToggleRole = useCallback((role: Role) => {
-        const currentRoles = new Set(gameState.selectedRoles || []);
-        const isAdding = !currentRoles.has(role);
+        const rolesToUpdate = new Set(gameState.selectedRoles || []);
+        const isAdding = !rolesToUpdate.has(role);
 
-        // Symmetrical logic for Percival and Morgana
         if (role === Role.PERCIVAL || role === Role.MORGANA) {
+            // This logic ensures both are added or removed together
             if (isAdding) {
-                currentRoles.add(Role.PERCIVAL);
-                currentRoles.add(Role.MORGANA);
+                rolesToUpdate.add(Role.PERCIVAL);
+                rolesToUpdate.add(Role.MORGANA);
             } else {
-                currentRoles.delete(Role.PERCIVAL);
-                currentRoles.delete(Role.MORGANA);
+                rolesToUpdate.delete(Role.PERCIVAL);
+                rolesToUpdate.delete(Role.MORGANA);
             }
         } else {
-            // Standard toggle for other roles
-            if (currentRoles.has(role)) {
-                currentRoles.delete(role);
+            if (isAdding) {
+                rolesToUpdate.add(role);
             } else {
-                currentRoles.add(role);
+                rolesToUpdate.delete(role);
             }
         }
-        updateSelectedRoles(Array.from(currentRoles));
+        updateSelectedRoles(Array.from(rolesToUpdate));
     }, [gameState.selectedRoles, updateSelectedRoles]);
     
     const selectedRolesSet = useMemo(() => new Set(gameState.selectedRoles || []), [gameState.selectedRoles]);
 
-    const { finalRoles, validation } = useMemo(() => {
+    const { finalRoles, validation, disabledRoles } = useMemo(() => {
         const playerCount = players.length;
-        const rolesWithDefaults = new Set(selectedRolesSet);
-        if (playerCount >= 5) {
-            rolesWithDefaults.add(Role.MERLIN);
-            rolesWithDefaults.add(Role.ASSASSIN);
+        if (playerCount < 5) {
+            return {
+                finalRoles: [],
+                validation: { isValid: false, message: 'Need at least 5 players.' },
+                disabledRoles: { good: true, evil: true }
+            };
         }
-
+        
         const requiredEvilCount = EVIL_PLAYER_COUNT[playerCount as keyof typeof EVIL_PLAYER_COUNT] || 0;
-        const currentEvilRoles = [...rolesWithDefaults].filter(
-            (r: Role) => ROLES[r].alignment === Alignment.EVIL
-        );
-        const currentGoodRoles = [...rolesWithDefaults].filter(
-            (r: Role) => ROLES[r].alignment === Alignment.GOOD
-        );
+        const requiredGoodCount = playerCount - requiredEvilCount;
+        
+        // Check if adding another special role would exceed the alignment counts
+        const currentSpecialGoodRolesCount = [...selectedRolesSet].filter(
+            r => ROLES[r].alignment === Alignment.GOOD && r !== Role.MERLIN
+        ).length;
+        const currentSpecialEvilRolesCount = [...selectedRolesSet].filter(
+            r => ROLES[r].alignment === Alignment.EVIL && r !== Role.ASSASSIN
+        ).length;
+
+        // +1 for the mandatory roles (Merlin, Assassin)
+        const isGoodFull = (1 + currentSpecialGoodRolesCount) >= requiredGoodCount;
+        const isEvilFull = (1 + currentSpecialEvilRolesCount) >= requiredEvilCount;
+
+        const disabled = {
+            good: isGoodFull,
+            evil: isEvilFull
+        };
+        
+        // --- Calculate final roles and validation for the start button ---
+        const rolesWithDefaults = new Set(selectedRolesSet);
+        rolesWithDefaults.add(Role.MERLIN);
+        rolesWithDefaults.add(Role.ASSASSIN);
+        
+        const currentEvilRoles = [...rolesWithDefaults].filter(r => ROLES[r].alignment === Alignment.EVIL);
+        const currentGoodRoles = [...rolesWithDefaults].filter(r => ROLES[r].alignment === Alignment.GOOD);
 
         const evilSlotsToFill = requiredEvilCount - currentEvilRoles.length;
-        const goodSlotsToFill =
-        playerCount - requiredEvilCount - currentGoodRoles.length;
-
+        const goodSlotsToFill = playerCount - requiredEvilCount - currentGoodRoles.length;
+        
         let validationError = "";
         if (evilSlotsToFill < 0) {
-        validationError = "Too many evil roles selected.";
+          validationError = "Too many evil roles selected.";
         } else if (goodSlotsToFill < 0) {
-        validationError = "Too many good roles selected.";
+          validationError = "Too many good roles selected.";
         }
 
-        const finalEvil = [
-        ...currentEvilRoles,
-        ...Array(Math.max(0, evilSlotsToFill)).fill(Role.MINION),
-        ];
-        const finalGood = [
-        ...currentGoodRoles,
-        ...Array(Math.max(0, goodSlotsToFill)).fill(Role.LOYAL_SERVANT),
-        ];
+        const finalEvil = [...currentEvilRoles, ...Array(Math.max(0, evilSlotsToFill)).fill(Role.MINION)];
+        const finalGood = [...currentGoodRoles, ...Array(Math.max(0, goodSlotsToFill)).fill(Role.LOYAL_SERVANT)];
 
         const finalRolesList = [...finalGood, ...finalEvil];
+        
+        const hasMorgana = selectedRolesSet.has(Role.MORGANA);
+        const hasPercival = selectedRolesSet.has(Role.PERCIVAL);
+
+        if (finalRolesList.length !== playerCount) {
+            validationError = `Role selection count (${finalRolesList.length}) must match player count (${playerCount}).`;
+        } else if (hasMorgana !== hasPercival) {
+            validationError = "Morgana and Percival must be in the game together.";
+        }
 
         return {
-        finalRoles: finalRolesList,
-        validation: { isValid: validationError === "", message: validationError },
+            finalRoles: finalRolesList,
+            validation: { isValid: validationError === "", message: validationError },
+            disabledRoles: disabled,
         };
     }, [selectedRolesSet, players.length]);
 
@@ -429,6 +529,8 @@ const LobbyView: React.FC = () => {
                     selectedRoles={selectedRolesSet}
                     onToggleRole={handleToggleRole}
                     validation={validation}
+                    disabledRoles={disabledRoles}
+                    playerCount={players.length}
                   />
               </div>
             ) : (

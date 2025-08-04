@@ -223,7 +223,7 @@ const QuestVote: React.FC = () => {
   return (
     <Card className="w-full">
       <div className="mb-4">
-        <h3 className="font-eaglelake text-lg text-center mb-2">
+        <h3 className="font-eaglelake text-lg text-center mb-2 text-slate-400">
           Approved Team
         </h3>
         {currentQuest.approvedVote && (

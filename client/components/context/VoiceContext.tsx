@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { useGame } from './GameContext';
 import { socketService } from '@/services/socketService';
 import { toast } from 'sonner';
+import { useAudio } from './AudioContext';
 
 // --- Types ---
 
@@ -95,6 +96,7 @@ const ICE_SERVERS = {
 
 export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { gameState, playerId } = useGame();
+    const { setBgmDucked } = useAudio();
     
     // --- State and Refs ---
     const [permissionState, setPermissionState] = useState<'prompt' | 'granted' | 'denied'>('prompt');
@@ -339,6 +341,14 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }, [closePeerConnection, processedStream]);
     
     // --- Effects ---
+
+    // NEW: Logic to determine if anyone is speaking
+    const isAnyoneSpeaking = isSelfSpeaking || Object.values(peerStates).some(p => p.isSpeaking);
+
+    // NEW: Effect to control audio ducking
+    useEffect(() => {
+        setBgmDucked(isAnyoneSpeaking);
+    }, [isAnyoneSpeaking, setBgmDucked]);
     
     useEffect(() => {
         if (!gameState.roomCode) return;
