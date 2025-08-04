@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useGame } from '@/components/context/GameContext';
-import Button from './Button';
 import Card from './Card';
 import PlayerStatusList from './PlayerStatusList';
+import SwipeableCard from "@/components/ui/SwipeableCard";
 
 const RestartVoteOverlay: React.FC = () => {
     const { gameState, playerId, voteOnRestart } = useGame();
@@ -50,9 +50,14 @@ const RestartVoteOverlay: React.FC = () => {
                 </div>
 
                 {!playerVoted ? (
-                    <div className="flex justify-center gap-4">
-                        <Button variant="success" onClick={() => voteOnRestart('yes')}>Yes, Restart</Button>
-                        <Button variant="fail" onClick={() => voteOnRestart('no')}>No, Continue</Button>
+                    <div className="flex justify-center">
+                         <SwipeableCard
+                            title="Restart Game?"
+                            onSwipeRight={() => voteOnRestart('yes')}
+                            onSwipeLeft={() => voteOnRestart('no')}
+                            rightLabel="Yes"
+                            leftLabel="No"
+                        />
                     </div>
                 ) : (
                     <p className="text-center text-lg text-slate-400 font-bold">Waiting for other players to vote...</p>

@@ -15,6 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import Spinner from "../ui/Spinner";
 import { toast } from "sonner";
 import { useAudio } from "@/components/context/AudioContext";
+import SwipeableCard from "@/components/ui/SwipeableCard";
 
 // --- Reusable UI Components ---
 
@@ -185,23 +186,15 @@ const TeamVote: React.FC = () => {
       </div>
 
       {player && !player.hasVoted ? (
-        <div id="team-vote-buttons" className="flex justify-center gap-4 sm:gap-8 mt-6">
-          <Button
-            variant="success"
-            onClick={() => voteOnTeam("APPROVE")}
+        <div id="team-vote-buttons" className="flex justify-center mt-6">
+          <SwipeableCard
+            title="Vote on Team"
+            onSwipeRight={() => voteOnTeam("APPROVE")}
+            onSwipeLeft={() => voteOnTeam("REJECT")}
+            rightLabel="Approve"
+            leftLabel="Reject"
             disabled={isPaused}
-            className="flex-1 max-w-xs py-4 sm:py-5 text-xl sm:text-2xl"
-          >
-            Approve
-          </Button>
-          <Button
-            variant="fail"
-            onClick={() => voteOnTeam("REJECT")}
-            disabled={isPaused}
-            className="flex-1 max-w-xs py-4 sm:py-5 text-xl sm:text-2xl"
-          >
-            Reject
-          </Button>
+          />
         </div>
       ) : (
         <p className="text-center mt-6 text-slate-400 font-bold text-xl">
@@ -219,11 +212,12 @@ const QuestVote: React.FC = () => {
   const isOnTeam = currentQuest.team.some((p) => p.id === playerId);
   const isPaused = !!gameState.reconnectingPlayer;
   const votedPlayerIds = currentQuest.team.filter(p => p.hasVoted).map(p => p.id);
+  const canFail = player?.alignment === Alignment.EVIL;
 
   return (
     <Card className="w-full">
       <div className="mb-4">
-        <h3 className="font-eaglelake text-lg text-center mb-2 text-slate-400">
+        <h3 className="font-eaglelake text-lg text-center mb-2 text-white">
           Approved Team
         </h3>
         {currentQuest.approvedVote && (
@@ -283,25 +277,16 @@ const QuestVote: React.FC = () => {
       {isOnTeam ? (
         <>
           {player && !player.hasVoted ? (
-            <div id="quest-vote-buttons" className="flex justify-center gap-4 sm:gap-8 mt-6">
-              <Button
-                variant="success"
-                onClick={() => voteOnQuest("SUCCESS")}
+            <div id="quest-vote-buttons" className="flex justify-center mt-6">
+              <SwipeableCard
+                title="Vote on Quest"
+                onSwipeRight={() => voteOnQuest("SUCCESS")}
+                onSwipeLeft={() => voteOnQuest("FAIL")}
+                rightLabel="Success"
+                leftLabel="Fail"
                 disabled={isPaused}
-                className="flex-1 max-w-xs py-4 sm:py-5 text-xl sm:text-2xl"
-              >
-                Success
-              </Button>
-              {player.alignment === Alignment.EVIL && (
-                <Button
-                  variant="fail"
-                  onClick={() => voteOnQuest("FAIL")}
-                  disabled={isPaused}
-                  className="flex-1 max-w-xs py-4 sm:py-5 text-xl sm:text-2xl"
-                >
-                  Fail
-                </Button>
-              )}
+                leftSwipeDisabled={!canFail}
+              />
             </div>
           ) : (
             <p className="text-center mt-6 text-slate-400">

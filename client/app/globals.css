@@ -359,3 +359,35 @@
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7);
     border-radius: 12px;
 }
+
+/* Vote fill glow pulse */
+@keyframes vote-glow-blue {
+  50% {
+    box-shadow: 0 0 25px 5px rgba(96, 165, 250, 0.6); /* blue-400 */
+  }
+}
+.animate-vote-glow-blue {
+    animation: vote-glow-blue 2s ease-in-out infinite;
+}
+
+@keyframes vote-glow-red {
+  50% {
+    box-shadow: 0 0 25px 5px rgba(248, 113, 113, 0.6); /* red-400 */
+  }
+}
+.animate-vote-glow-red {
+    animation: vote-glow-red 2s ease-in-out infinite;
+}
+
+/* Vote text bounce */
+@keyframes bounce-vote-text {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+.animate-bounce-vote-text {
+  animation: bounce-vote-text 1.5s ease-in-out infinite;
+}
