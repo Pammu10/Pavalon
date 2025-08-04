@@ -462,6 +462,67 @@ socialRouter.get('/requests/sent', async (req, res) => {
     }
 });
 
+socialRouter.get('/suggestions', async (req, res) => {
+    const userId = (req as any).user.id;
+    try {
+        const suggestions = await db.all<{ id: number, username: string, mutual_friends: string }>(`
+            WITH user_friends AS (
+                SELECT
+                    CASE
+                        WHEN user1_id = $1 THEN user2_id
+                        ELSE user1_id
+                    END AS friend_id
+                FROM friends
+                WHERE (user1_id = $1 OR user2_id = $1) AND status = 'accepted'
+            ),
+            friends_of_friends AS (
+                SELECT
+                    CASE
+                        WHEN f.user1_id = uf.friend_id THEN f.user2_id
+                        ELSE f.user1_id
+                    END AS fof_id,
+                    uf.friend_id as mutual_friend_id
+                FROM friends f
+                JOIN user_friends uf ON (f.user1_id = uf.friend_id OR f.user2_id = uf.friend_id)
+                WHERE f.status = 'accepted'
+            )
+            SELECT
+                fof.fof_id as id,
+                u.username,
+                COUNT(DISTINCT fof.mutual_friend_id) as mutual_friends
+            FROM friends_of_friends fof
+            JOIN users u ON u.id = fof.fof_id
+            WHERE
+                fof.fof_id != $1
+                AND fof.fof_id NOT IN (SELECT friend_id FROM user_friends)
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM friends
+                    WHERE
+                        status = 'pending' AND
+                        (
+                            (user1_id = $1 AND user2_id = fof.fof_id) OR
+                            (user1_id = fof.fof_id AND user2_id = $1)
+                        )
+                )
+            GROUP BY fof.fof_id, u.username
+            ORDER BY mutual_friends DESC, u.username ASC
+            LIMIT 10;
+        `, [userId]);
+
+        const parsedSuggestions = suggestions.map(s => ({
+            ...s,
+            mutual_friends: parseInt(s.mutual_friends, 10)
+        }));
+
+        res.json(parsedSuggestions);
+    } catch (error) {
+        console.error("Failed to fetch friend suggestions:", error);
+        res.status(500).json({ message: "Failed to fetch friend suggestions." });
+    }
+});
+
+
 socialRouter.post('/add', async (req, res) => {
     const userId = (req as any).user.id;
     const { username } = req.body;

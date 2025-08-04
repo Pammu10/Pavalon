@@ -296,6 +296,12 @@ export interface FriendRequest {
     username: string;
 }
 
+export interface FriendSuggestion {
+    id: number;
+    username: string;
+    mutual_friends: number;
+}
+
 export interface GameInvite {
     from: User;
     roomCode: string;

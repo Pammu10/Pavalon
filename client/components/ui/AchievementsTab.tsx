@@ -1,4 +1,6 @@
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { useGame } from '@/components/context/GameContext';
 import { useAudio } from '@/components/context/AudioContext';
 import api from '@/services/api';
@@ -104,7 +106,9 @@ const AchievementsTab: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     
     const themeScrollRef = useRef<HTMLDivElement>(null);
-    const [showScrollButtons, setShowScrollButtons] = useState(false);
+    const gridRef = useRef<HTMLDivElement>(null); // Ref for the actual grid content
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
 
     useEffect(() => {
         const fetchAchievements = async () => {
@@ -214,19 +218,40 @@ const AchievementsTab: React.FC = () => {
         { id: 'bluedrag', name: "Azure Tempest Dragon", image: '/background/bluedrag.png' },
         { id: 'purpledrag', name: "Amethyst Wyrm Dragon", image: '/background/purpledrag.png' },
     ], []);
-    
-    const checkScroll = useCallback(() => {
+
+    const checkScrollability = useCallback(() => {
         const el = themeScrollRef.current;
-        if (el) {
-            setShowScrollButtons(el.scrollWidth > el.clientWidth);
-        }
+        if (!el) return;
+        
+        const tolerance = 1; // To handle sub-pixel rendering issues
+        const hasOverflow = el.scrollWidth > el.clientWidth + tolerance;
+        
+        setCanScrollLeft(hasOverflow && el.scrollLeft > tolerance);
+        setCanScrollRight(hasOverflow && el.scrollLeft < el.scrollWidth - el.clientWidth - tolerance);
     }, []);
-    
+
     useEffect(() => {
-        checkScroll();
-        window.addEventListener('resize', checkScroll);
-        return () => window.removeEventListener('resize', checkScroll);
-    }, [checkScroll]);
+        const scrollEl = themeScrollRef.current;
+        const gridEl = gridRef.current;
+        if (!scrollEl || !gridEl) return;
+
+        // Observer watches the content grid for size changes (e.g., images loading)
+        const observer = new ResizeObserver(checkScrollability);
+        observer.observe(gridEl);
+
+        // Also check on scroll events
+        scrollEl.addEventListener('scroll', checkScrollability, { passive: true });
+        
+        // Initial check after a short delay
+        const timeoutId = setTimeout(checkScrollability, 150);
+
+        return () => {
+            observer.disconnect();
+            scrollEl.removeEventListener('scroll', checkScrollability);
+            clearTimeout(timeoutId);
+        };
+    }, [checkScrollability]);
+
     
     const handleScroll = (direction: 'left' | 'right') => {
         const el = themeScrollRef.current;
@@ -284,7 +309,7 @@ const AchievementsTab: React.FC = () => {
 
     return (
         <div className="space-y-8">
-            <Card className='bg-transparent' id="profile-customization-card">
+            <Card id="profile-customization-card">
                 <h2 className="font-eagleLake text-3xl mb-4 text-center text-yellow-500">Profile Customization</h2>
                 
                 <div className="mb-8">
@@ -358,19 +383,25 @@ const AchievementsTab: React.FC = () => {
                     
                     <TabsContent value="theme" className="mt-4">
                         <div className="relative">
-                            {showScrollButtons && (
-                                <>
-                                    <button onClick={() => handleScroll('left')} className="hidden md:flex absolute top-1/2 -translate-y-1/2 left-0 z-10 w-10 h-10 bg-slate-900/50 hover:bg-slate-800 backdrop-blur-sm rounded-full items-center justify-center border border-slate-600">
-                                        <ChevronLeft />
-                                    </button>
-                                    <button onClick={() => handleScroll('right')} className="hidden md:flex absolute top-1/2 -translate-y-1/2 right-0 z-10 w-10 h-10 bg-slate-900/50 hover:bg-slate-800 backdrop-blur-sm rounded-full items-center justify-center border border-slate-600">
-                                        <ChevronRight />
-                                    </button>
-                                </>
-                            )}
+                            <button
+                                onClick={() => handleScroll('left')}
+                                disabled={!canScrollLeft}
+                                className="absolute top-1/2 -translate-y-1/2 left-1 z-10 w-8 h-8 md:w-10 md:h-10 bg-primary/80 hover:bg-primary backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-primary-foreground/50 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-110 active:scale-100 disabled:opacity-40 disabled:pointer-events-none disabled:hover:scale-100"
+                                aria-label="Scroll left"
+                            >
+                                <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
+                            </button>
+                            <button
+                                onClick={() => handleScroll('right')}
+                                disabled={!canScrollRight}
+                                className="absolute top-1/2 -translate-y-1/2 right-1 z-10 w-8 h-8 md:w-10 md:h-10 bg-primary/80 hover:bg-primary backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-primary-foreground/50 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-110 active:scale-100 disabled:opacity-40 disabled:pointer-events-none disabled:hover:scale-100"
+                                aria-label="Scroll right"
+                            >
+                                <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
+                            </button>
                             <div ref={themeScrollRef} className="overflow-x-auto scroll-hide bg-slate-900/40 border-2 border-slate-700 rounded-md p-3 scroll-smooth">
-                                <div className="grid grid-rows-2 grid-flow-col auto-cols-[48%] sm:auto-cols-[31%] md:auto-cols-[23.5%] gap-3">
-                                    {themes.map(theme => {
+                                <div ref={gridRef} className="grid grid-rows-2 grid-flow-col auto-cols-[48%] sm:auto-cols-[31%] md:auto-cols-[23.5%] gap-3">
+                                    {themes.map((theme, index) => {
                                         const isSelectedForPreview = selectedBackground === theme.id;
                                         const isApplied = (user?.selectedBackground || '') === theme.id;
                                         const achievementToUnlock = themeToAchievementMap.get(theme.id);
@@ -403,7 +434,15 @@ const AchievementsTab: React.FC = () => {
                                                 )}
                                                 title={isUnlocked ? theme.name : `Unlock by completing: "${achievementToUnlock?.name}"`}
                                             >
-                                                <img src={theme.image} alt={theme.name} className={cn("w-full h-full object-cover rounded-md transition-transform duration-300 group-hover:scale-110", !isUnlocked && "grayscale")} />
+                                                <Image 
+                                                    src={theme.image} 
+                                                    alt={theme.name}
+                                                    fill
+                                                    sizes="(max-width: 640px) 48vw, (max-width: 1024px) 24vw, 15vw"
+                                                    priority={index < 8}
+                                                    className={cn("object-cover rounded-md transition-transform duration-300 group-hover:scale-110", !isUnlocked && "grayscale")} 
+                                                    onLoad={checkScrollability}
+                                                />
                                                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent pointer-events-none"></div>
                                                 <span className={cn(
                                                     "absolute bottom-1 left-1 right-1 text-xs sm:text-sm text-center font-bold truncate p-1",

@@ -1,7 +1,7 @@
 import React from "react";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "danger" | "success" | "fail";
+  variant?: "primary" | "secondary" | "danger" | "success" | "fail" | "icon-primary" | "icon-success" | "icon-danger";
   children: React.ReactNode;
 }
 
@@ -25,6 +25,9 @@ const Button: React.FC<ButtonProps> = ({
       "text-lg font-bold py-3 px-6 bg-blue-700 text-white hover:bg-blue-600 active:bg-blue-800 focus:ring-blue-500/50 hover:shadow-xl hover:shadow-blue-600/20 active:scale-95 active:brightness-90",
     fail:
       "text-lg font-bold py-3 px-6 bg-red-700 text-white hover:bg-red-600 active:bg-red-800 focus:ring-red-500/50 hover:shadow-xl hover:shadow-red-600/20 active:scale-95 active:brightness-90",
+    "icon-primary": "bg-slate-800/60 text-yellow-500 hover:bg-slate-700/80 active:bg-slate-900/80 focus:ring-yellow-500/50 border border-slate-700 hover:border-slate-600",
+    "icon-success": "bg-slate-800/60 text-green-500 hover:bg-slate-700/80 active:bg-slate-900/80 focus:ring-green-500/50 border border-slate-700 hover:border-slate-600",
+    "icon-danger": "bg-slate-800/60 text-red-500 hover:bg-slate-700/80 active:bg-slate-900/80 focus:ring-red-500/50 border border-slate-700 hover:border-slate-600",
   };
 
   return (

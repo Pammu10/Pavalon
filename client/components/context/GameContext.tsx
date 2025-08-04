@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { GameState, GamePhase, Player, Message, Role, User, LoginCredentials, RegisterCredentials, Achievement, Friend, FriendRequest, GameInvite } from '@/types';
+import { GameState, GamePhase, Player, Message, Role, User, LoginCredentials, RegisterCredentials, Achievement, Friend, FriendRequest, GameInvite, FriendSuggestion } from '@/types';
 import { socketService } from '@/services/socketService';
 import api from '@/services/api';
 import { toast } from 'sonner';
@@ -32,8 +32,13 @@ interface GameContextType {
     friends: Friend[];
     friendRequests: FriendRequest[];
     sentFriendRequests: FriendRequest[];
+    suggestions: FriendSuggestion[];
     pendingInvites: GameInvite[];
     isSocialHubOpen: boolean;
+    isSocialLoading: boolean;
+    isSuggestionsLoading: boolean;
+    loadFullSocialData: () => Promise<void>;
+    loadSuggestionsData: () => Promise<void>;
     openSocialHub: () => void;
     closeSocialHub: () => void;
     setHasViewedRole: React.Dispatch<React.SetStateAction<boolean>>;
@@ -130,13 +135,18 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [friends, setFriends] = useState<Friend[]>([]);
     const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
     const [sentFriendRequests, setSentFriendRequests] = useState<FriendRequest[]>([]);
+    const [suggestions, setSuggestions] = useState<FriendSuggestion[]>([]);
     const [pendingInvites, setPendingInvites] = useState<GameInvite[]>([]);
     const [isSocialHubOpen, setIsSocialHubOpen] = useState(false);
+    const [isSocialLoading, setIsSocialLoading] = useState(false);
+    const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
+    const socialDataLoaded = useRef(false);
+    const suggestionsDataLoaded = useRef(false);
     const [inviteCooldowns, setInviteCooldowns] = useState<Map<number, number>>(new Map());
     const [inviteQueue, setInviteQueue] = useState<number | null>(null);
 
 
-    const { playSound } = useAudio();
+    const { playSound, setSystemMute } = useAudio();
 
     // Auth state
     const [user, setUser] = useState<User | null>(null);
@@ -309,28 +319,59 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         verifyToken();
     }, []);
 
-    const fetchFriendsAndRequests = useCallback(async () => {
+    const fetchInitialSocialData = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
-            const [friendsRes, requestsRes, sentRequestsRes] = await Promise.all([
-                api.get('/social/friends'),
-                api.get('/social/requests'),
-                api.get('/social/requests/sent'),
-            ]);
-            setFriends(friendsRes.data);
+            // Only fetch friend requests initially for the notification dot
+            const requestsRes = await api.get('/social/requests');
             setFriendRequests(requestsRes.data);
-            setSentFriendRequests(sentRequestsRes.data);
         } catch (error) {
-            console.error("Failed to fetch social data", error);
-            toast.error("Could not load your friends list.");
+            console.error("Failed to fetch initial social data", error);
         }
     }, [isAuthenticated]);
 
+    const loadFullSocialData = useCallback(async () => {
+        if (!isAuthenticated || socialDataLoaded.current || isSocialLoading) return;
+    
+        setIsSocialLoading(true);
+        try {
+            // Fetch the rest of the data
+            const [friendsRes, sentRequestsRes] = await Promise.all([
+                api.get('/social/friends'),
+                api.get('/social/requests/sent'),
+            ]);
+            setFriends(friendsRes.data);
+            setSentFriendRequests(sentRequestsRes.data);
+            socialDataLoaded.current = true;
+        } catch (error) {
+            console.error("Failed to fetch full social data", error);
+            toast.error("Could not load your social details.");
+        } finally {
+            setIsSocialLoading(false);
+        }
+    }, [isAuthenticated, isSocialLoading]);
+
+    const loadSuggestionsData = useCallback(async () => {
+        if (!isAuthenticated || suggestionsDataLoaded.current || isSuggestionsLoading) return;
+
+        setIsSuggestionsLoading(true);
+        try {
+            const { data } = await api.get('/social/suggestions');
+            setSuggestions(data);
+            suggestionsDataLoaded.current = true;
+        } catch (error) {
+            console.error("Failed to load suggestions", error);
+            toast.error("Could not load friend suggestions.");
+        } finally {
+            setIsSuggestionsLoading(false);
+        }
+    }, [isAuthenticated, isSuggestionsLoading]);
+    
     useEffect(() => {
         if (isAuthenticated) {
-            fetchFriendsAndRequests();
+            fetchInitialSocialData();
         }
-    }, [isAuthenticated, fetchFriendsAndRequests]);
+    }, [isAuthenticated, fetchInitialSocialData]);
 
     // Effect to manage socket connection based on auth state
     useEffect(() => {
@@ -372,6 +413,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // --- Socket Event Handlers (wrapped in useCallback) ---
     const handleUpdate = useCallback((newState: GameState) => {
+        // Automatically mute BGM if the user is in a room to prevent audio conflicts on mobile.
+        // This respects the user's manual mute setting by not altering `isBgmMuted`.
+        setSystemMute(!!newState.roomCode);
+
         setGameState(prevState => {
             // --- Sound Effect Logic ---
             if (newState.phase === GamePhase.LOBBY && prevState.phase === GamePhase.HOME) {
@@ -399,7 +444,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return newState;
         });
         setMessages(newState.chat || []);
-    }, []);
+    }, [setSystemMute]);
 
     const handleChatMessage = useCallback((message: Message) => {
         setMessages(prev => [...prev, message]);
@@ -428,6 +473,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setHasViewedRole(false);
     }, []);
 
+    const invalidateSuggestions = useCallback(() => {
+        suggestionsDataLoaded.current = false;
+        setSuggestions([]); // Clear old data to ensure it refetches
+    }, []);
+
     const logout = useCallback(() => {
         if (gameState.roomCode && socketService.socket.connected) {
             socketService.emit('leaveRoom');
@@ -447,6 +497,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setFriendRequests([]);
         setSentFriendRequests([]);
         setPendingInvites([]);
+        setSuggestions([]);
+        socialDataLoaded.current = false;
+        suggestionsDataLoaded.current = false;
         router.push('/');
     }, [gameState.roomCode, router]);
 
@@ -468,12 +521,14 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // If I was the recipient, it removes from my received list.
         setFriendRequests(prev => prev.filter(req => req.id !== newFriend.id));
         toast.success(`${newFriend.username} accepted your friend request!`);
-    }, []);
+        invalidateSuggestions();
+    }, [invalidateSuggestions]);
     
     const handleFriendRemoved = useCallback(({ friendId }: { friendId: number }) => {
         setFriends(prev => prev.filter(f => f.id !== friendId));
         toast.warning(`A user has removed you from their friends list.`);
-    }, []);
+        invalidateSuggestions();
+    }, [invalidateSuggestions]);
     
     const declineInvite = useCallback((roomCode: string) => {
         setPendingInvites(prev => prev.filter(inv => inv.roomCode !== roomCode));
@@ -665,6 +720,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (response.data.sentRequest) {
                 setSentFriendRequests(prev => [...prev, response.data.sentRequest]);
             }
+            invalidateSuggestions();
         } catch (err: any) {
             const message = err.response?.data?.message || 'Failed to send friend request.';
             toast.error(message);
@@ -681,6 +737,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             } else {
                 toast.info("Friend request declined.");
             }
+            invalidateSuggestions();
         } catch (err: any) {
              toast.error(err.response?.data?.message || 'Action failed.');
         }
@@ -691,6 +748,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await api.delete(`/social/remove/${friendId}`);
             setFriends(prev => prev.filter(f => f.id !== friendId));
             toast.success("Friend removed.");
+            invalidateSuggestions();
         } catch (err: any) {
              toast.error(err.response?.data?.message || 'Failed to remove friend.');
         }
@@ -701,6 +759,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await api.delete(`/social/request/cancel/${recipientId}`);
             setSentFriendRequests(prev => prev.filter(req => req.id !== recipientId));
             toast.success("Friend request cancelled.");
+            invalidateSuggestions();
         } catch (err: any) {
             const message = (err as any).response?.data?.message || 'Failed to cancel request.';
             toast.error(message);
@@ -781,8 +840,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         friends,
         friendRequests,
         sentFriendRequests,
+        suggestions,
         pendingInvites,
         isSocialHubOpen,
+        isSocialLoading,
+        isSuggestionsLoading,
+        loadFullSocialData,
+        loadSuggestionsData,
         openSocialHub,
         closeSocialHub,
         setHasViewedRole,

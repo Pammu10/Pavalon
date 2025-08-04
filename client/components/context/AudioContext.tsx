@@ -6,6 +6,7 @@ type SoundEffect = 'transition' | 'quest-success' | 'quest-fail' | 'victory' | '
 
 interface AudioContextType {
   isBgmMuted: boolean;
+  setSystemMute: React.Dispatch<React.SetStateAction<boolean>>;
   toggleBgm: () => void;
   playSound: (sound: SoundEffect, options?: { manageBgm?: boolean }) => Promise<void>;
   stopAllSfx: () => void;
@@ -42,6 +43,7 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const savedMute = localStorage.getItem('bgmMuted');
     return savedMute ? JSON.parse(savedMute) : false;
   });
+  const [isSystemMuted, setIsSystemMuted] = useState(false);
 
   const sfxRefs = useRef<Partial<Record<SoundEffect, HTMLAudioElement>>>({});
   const lobbyMusicRef = useRef<HTMLAudioElement | null>(null);
@@ -104,9 +106,10 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (typeof window !== 'undefined') {
         localStorage.setItem('bgmMuted', JSON.stringify(isBgmMuted));
     }
-    if (lobbyMusicRef.current) lobbyMusicRef.current.muted = isBgmMuted;
-    if (gameMusicRef.current) gameMusicRef.current.muted = isBgmMuted;
-  }, [isBgmMuted]);
+    const shouldBeMuted = isBgmMuted || isSystemMuted;
+    if (lobbyMusicRef.current) lobbyMusicRef.current.muted = shouldBeMuted;
+    if (gameMusicRef.current) gameMusicRef.current.muted = shouldBeMuted;
+  }, [isBgmMuted, isSystemMuted]);
 
   const playSound = useCallback(async (
     sound: SoundEffect,
@@ -180,7 +183,7 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     stopInGameMusic();
     if (lobbyMusicRef.current) {
       if (lobbyMusicRef.current.paused) {
-        lobbyMusicRef.current.muted = isBgmMuted;
+        lobbyMusicRef.current.muted = isBgmMuted || isSystemMuted;
         lobbyMusicRef.current.play().catch(e => {
             if (e.name !== 'NotAllowedError') {
                 console.error("Error playing lobby music:", e);
@@ -189,13 +192,13 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
       activeMusicRef.current = lobbyMusicRef.current;
     }
-  }, [isBgmMuted, stopInGameMusic]);
+  }, [isBgmMuted, isSystemMuted, stopInGameMusic]);
   
   const playInGameMusic = useCallback(() => {
     stopLobbyMusic();
     if (gameMusicRef.current) {
       if (gameMusicRef.current.paused) {
-        gameMusicRef.current.muted = isBgmMuted;
+        gameMusicRef.current.muted = isBgmMuted || isSystemMuted;
         gameMusicRef.current.play().catch(e => {
             if (e.name !== 'NotAllowedError') {
                 console.error("Error playing game music:", e);
@@ -204,7 +207,7 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
       activeMusicRef.current = gameMusicRef.current;
     }
-  }, [isBgmMuted, stopLobbyMusic]);
+  }, [isBgmMuted, isSystemMuted, stopLobbyMusic]);
   
   const stopBackgroundMusic = useCallback(() => {
     stopLobbyMusic();
@@ -218,7 +221,8 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const value = { 
-    isBgmMuted, 
+    isBgmMuted,
+    setSystemMute: setIsSystemMuted,
     toggleBgm, 
     playSound, 
     stopAllSfx,

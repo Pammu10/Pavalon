@@ -348,7 +348,7 @@ const LobbyView: React.FC = () => {
               <p className="text-slate-400">Waiting for players to join...</p>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
-                 <Button variant="secondary" onClick={openSocialHub} className="relative text-sm py-1.5 px-4 flex-1 flex items-center gap-2 justify-center">
+                 <Button variant="icon-primary" onClick={openSocialHub} className="relative text-sm py-1.5 px-4 flex-[3] flex items-center gap-2 justify-center">
                     <Users size={16} />
                     Invite Friends
                      {friendRequests.length > 0 && (
@@ -357,7 +357,7 @@ const LobbyView: React.FC = () => {
                         </span>
                     )}
                 </Button>
-                <Button variant="danger" onClick={leaveRoom} className="text-sm py-1.5 px-4 flex-1 flex items-center gap-2 justify-center">
+                <Button variant="danger" onClick={leaveRoom} className="text-sm py-1.5 px-4 flex-[1] flex items-center gap-2 justify-center">
                     <LogOut size={16} />
                     Leave
                 </Button>

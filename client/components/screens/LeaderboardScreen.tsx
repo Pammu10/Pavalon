@@ -1,17 +1,68 @@
 
-
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useGame } from "@/components/context/GameContext";
 import api from "@/services/api";
 import { LeaderboardData, LeaderboardEntry, PlayerStats, Match, Alignment, DragonsBreathStats, DragonsBreathOpponentStats, DragonsBreathLeaderboardData } from "@/types";
 import Card from "@/components/ui/Card";
 import Spinner from "@/components/ui/Spinner";
-import { Crown, Trophy, Target, TrendingUp, ShieldCheck, Skull, User, Download, Swords, Star, Flame, Eye, Heart, Shield } from 'lucide-react';
+import { Crown, Trophy, Target, TrendingUp, ShieldCheck, Skull, User, Swords, Flame, Eye, Heart, Shield } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Button from "../ui/Button";
 import MatchDetailsModal from "../ui/MatchDetailsModal";
 import { cn } from "@/lib/utils";
+
+// --- Skeleton Components ---
+const Skeleton = ({ className }: { className?: string }) => (
+    <div className={cn("bg-slate-700/50 rounded-md animate-pulse", className)} />
+);
+
+const StatCardSkeleton = () => (
+    <div className="bg-slate-800/50 p-4 rounded-lg flex flex-col items-center justify-center gap-2">
+        <Skeleton className="w-8 h-8 rounded-full" />
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-10 w-16" />
+    </div>
+);
+
+const WinRateBarSkeleton = () => (
+    <div>
+        <div className="flex justify-between items-baseline mb-1">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-6 w-20" />
+        </div>
+        <Skeleton className="h-2.5 w-full" />
+    </div>
+);
+
+const MatchHistoryRowSkeleton = () => (
+    <div className="flex justify-between items-center p-3 rounded-lg bg-slate-800/20">
+        <div>
+            <Skeleton className="h-5 w-24 mb-1" />
+            <Skeleton className="h-3 w-16" />
+        </div>
+        <Skeleton className="h-8 w-20 rounded-full" />
+    </div>
+);
+
+const LeaderboardListSkeleton = () => (
+    <Card className="flex-1 min-w-[300px] w-full flex flex-col bg-slate-900/70">
+        <div className="flex items-center gap-3 border-b-2 border-slate-700 pb-3 mb-4">
+            <Skeleton className="w-12 h-12 rounded-full" />
+            <Skeleton className="h-7 w-48" />
+        </div>
+        <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-800/30">
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-6 w-6" />
+                        <Skeleton className="h-5 w-32" />
+                    </div>
+                    <Skeleton className="h-6 w-12" />
+                </div>
+            ))}
+        </div>
+    </Card>
+);
+
 
 // --- Pavalon Stats Components ---
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({ title, value, icon }) => (
@@ -52,29 +103,42 @@ const MatchHistoryRow: React.FC<{ match: Match; onSelect: (id: number) => void; 
     </button>
 );
 
-const MyStatsTab: React.FC = () => {
-    const { user } = useGame();
-    const [stats, setStats] = useState<PlayerStats | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+interface TabContentProps {
+    loading: boolean;
+    error: string | null;
+}
+
+interface MyStatsTabProps extends TabContentProps {
+    stats: PlayerStats | null;
+}
+
+const MyStatsTab: React.FC<MyStatsTabProps> = ({ stats, loading, error }) => {
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
 
-    useEffect(() => {
-        const fetchStats = async () => {
-          try {
-            const { data } = await api.get("/stats");
-            setStats(data);
-          } catch (err) {
-            setError("Failed to load stats.");
-          } finally {
-            setLoading(false);
-          }
-        };
-        fetchStats();
-    }, []);
-    
-      if (loading) return <div className="flex justify-center items-center h-40"><Spinner /></div>;
-      if (error || !stats) return <p className="text-center text-red-500">{error || "Could not load stats."}</p>;
+    if (loading) return (
+         <Card>
+            <Skeleton className="h-8 w-64 mb-6" />
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <StatCardSkeleton />
+                    <StatCardSkeleton />
+                    <StatCardSkeleton />
+                </div>
+                <div className="space-y-4 pt-4">
+                    <Skeleton className="h-6 w-56 mx-auto my-4" />
+                    <WinRateBarSkeleton />
+                    <WinRateBarSkeleton />
+                </div>
+                <div className="space-y-2 pt-4">
+                    <Skeleton className="h-6 w-56 mx-auto my-4" />
+                    <MatchHistoryRowSkeleton />
+                    <MatchHistoryRowSkeleton />
+                    <MatchHistoryRowSkeleton />
+                </div>
+            </div>
+        </Card>
+    );
+    if (error || !stats) return null; // Error is handled by parent
 
     return (
         <>
@@ -135,27 +199,18 @@ const HeadToHeadStatRow: React.FC<{ opponentStat: DragonsBreathOpponentStats }> 
     );
 };
 
-const DragonsBreathStatsTab: React.FC = () => {
-    const [stats, setStats] = useState<DragonsBreathStats | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+interface DragonsBreathStatsTabProps extends TabContentProps {
+    stats: DragonsBreathStats | null;
+}
 
-    useEffect(() => {
-        const fetchStats = async () => {
-          try {
-            const { data } = await api.get("/stats/dragons-breath");
-            setStats(data);
-          } catch (err) {
-            setError("Failed to load Dragon's Breath stats.");
-          } finally {
-            setLoading(false);
-          }
-        };
-        fetchStats();
-    }, []);
-    
-    if (loading) return <div className="flex justify-center items-center h-40"><Spinner /></div>;
-    if (error || !stats) return <p className="text-center text-red-500">{error || "Could not load stats."}</p>;
+const DragonsBreathStatsTab: React.FC<DragonsBreathStatsTabProps> = ({ stats, loading, error }) => {
+    if (loading) return (
+        <div className="space-y-8">
+            <Card><Skeleton className="h-8 w-64 mx-auto mb-6" /><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><StatCardSkeleton /><StatCardSkeleton /></div></Card>
+            <Card><Skeleton className="h-8 w-64 mx-auto mb-6" /><MatchHistoryRowSkeleton /><MatchHistoryRowSkeleton /></Card>
+        </div>
+    );
+    if (error || !stats) return null;
     if (stats.totalGames === 0) {
         return (
             <Card className="text-center py-12">
@@ -257,10 +312,21 @@ const LeaderboardList: React.FC<{ title: string; icon: React.ReactNode; entries:
 };
 
 
-const LeaderboardTab: React.FC<{ data: LeaderboardData | null }> = ({ data }) => {
-    if (!data) return null;
+interface LeaderboardTabProps extends TabContentProps {
+    data: LeaderboardData | null;
+}
 
-     const leaderboards = [
+const LeaderboardTab: React.FC<LeaderboardTabProps> = ({ data, loading, error }) => {
+    if (loading) return (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 place-items-start">
+            <LeaderboardListSkeleton />
+            <LeaderboardListSkeleton />
+            <LeaderboardListSkeleton />
+        </div>
+    );
+    if (error || !data) return null;
+
+    const leaderboards = [
         { title: "Total Wins", icon: <Trophy size={24} className="text-yellow-400"/>, entries: data.totalWins },
         { title: "Highest Win Rate", icon: <TrendingUp size={24} className="text-green-400"/>, entries: data.winRate, isPercent: true },
         { title: "Top Assassins", icon: <Target size={24} className="text-red-400"/>, entries: data.topAssassins },
@@ -268,7 +334,6 @@ const LeaderboardTab: React.FC<{ data: LeaderboardData | null }> = ({ data }) =>
         { title: "Best of Good", icon: <ShieldCheck size={24} className="text-blue-400"/>, entries: data.bestGood },
         { title: "Best of Evil", icon: <Skull size={24} className="text-purple-400"/>, entries: data.bestEvil },
     ];
-
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 place-items-start">
@@ -279,27 +344,19 @@ const LeaderboardTab: React.FC<{ data: LeaderboardData | null }> = ({ data }) =>
     );
 };
 
-const DragonsBreathRanksTab: React.FC = () => {
-    const [data, setData] = useState<DragonsBreathLeaderboardData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+interface DragonsBreathRanksTabProps extends TabContentProps {
+    data: DragonsBreathLeaderboardData | null;
+}
 
-    useEffect(() => {
-        const fetchRanks = async () => {
-            try {
-                const res = await api.get('/leaderboard/dragons-breath');
-                setData(res.data);
-            } catch (err) {
-                setError("Failed to load Dragon's Breath ranks.");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchRanks();
-    }, []);
-
-    if (loading) return <div className="flex justify-center items-center h-full min-h-[50vh]"><Spinner /></div>;
-    if (error || !data) return <Card><p className="text-center text-red-500">{error || "Could not load ranks."}</p></Card>;
+const DragonsBreathRanksTab: React.FC<DragonsBreathRanksTabProps> = ({ data, loading, error }) => {
+    if (loading) return (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 place-items-start">
+            <LeaderboardListSkeleton />
+            <LeaderboardListSkeleton />
+            <LeaderboardListSkeleton />
+        </div>
+    );
+    if (error || !data) return null;
     
     const leaderboards = [
         { title: "Most Wins", icon: <Trophy size={24} className="text-yellow-400"/>, entries: data.mostWins },
@@ -320,23 +377,49 @@ const DragonsBreathRanksTab: React.FC = () => {
 
 
 const LeaderboardScreen: React.FC = () => {
+    const { achievementsVersion } = useGame();
+    
+    const [myStats, setMyStats] = useState<PlayerStats | null>(null);
+    const [dbStats, setDbStats] = useState<DragonsBreathStats | null>(null);
     const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
+    const [dbLeaderboard, setDbLeaderboard] = useState<DragonsBreathLeaderboardData | null>(null);
+    
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchLeaderboard = async () => {
+        const fetchAllData = async () => {
+            setLoading(true);
+            setError(null);
             try {
-                const { data } = await api.get<LeaderboardData>("/leaderboard");
-                setLeaderboard(data);
+                const [
+                    myStatsRes,
+                    dbStatsRes,
+                    leaderboardRes,
+                    dbLeaderboardRes
+                ] = await Promise.all([
+                    api.get<PlayerStats>("/stats"),
+                    api.get<DragonsBreathStats>("/stats/dragons-breath"),
+                    api.get<LeaderboardData>("/leaderboard"),
+                    api.get<DragonsBreathLeaderboardData>("/leaderboard/dragons-breath")
+                ]);
+                
+                setMyStats(myStatsRes.data);
+                setDbStats(dbStatsRes.data);
+                setLeaderboard(leaderboardRes.data);
+                setDbLeaderboard(dbLeaderboardRes.data);
+
             } catch (err) {
-                setError("Failed to load the leaderboard.");
+                const errorMessage = "Failed to load Hall of Heroes data. The scrolls may have been misplaced.";
+                setError(errorMessage);
+                console.error(err);
             } finally {
                 setLoading(false);
             }
         };
-        fetchLeaderboard();
-    }, []);
+        
+        fetchAllData();
+    }, [achievementsVersion]);
 
     const TABS_CONFIG = [
         { value: "my-stats", label: "Pavalon Stats", icon: <User size={18} /> },
@@ -346,10 +429,11 @@ const LeaderboardScreen: React.FC = () => {
     ];
 
     return (
-        <div className="animate-fadeIn max-w-7xl mx-auto space-y-6  pb-16 md:pb-0">
-            <Card className="bg-transparent">
-            <h1 className="font-eagleLake text-4xl text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Hall of Heroes</h1>
+        <div className="animate-fadeIn max-w-7xl mx-auto space-y-6 pb-16 md:pb-0">
+            <Card>
+                <h1 className="font-eagleLake text-4xl text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Hall of Heroes</h1>
             </Card>
+            {error && <Card><p className="text-center text-red-500">{error}</p></Card>}
             <Tabs defaultValue="my-stats" className="w-full">
                 <TabsList className="w-full max-w-2xl mx-auto grid grid-cols-2 md:grid-cols-4 bg-slate-800/50 p-1 h-auto gap-1 rounded-lg">
                     {TABS_CONFIG.map(tab => (
@@ -366,31 +450,18 @@ const LeaderboardScreen: React.FC = () => {
                     ))}
                 </TabsList>
                 <TabsContent value="my-stats" className="mt-6">
-                     {loading ? (
-                        <div className="flex justify-center items-center h-full min-h-[50vh]"><Spinner /></div>
-                    ) : error ? (
-                        <p className="text-center text-red-500">{error}</p>
-                    ) : (
-                        <MyStatsTab />
-                    )}
+                    <MyStatsTab stats={myStats} loading={loading} error={error} />
                 </TabsContent>
-                 <TabsContent value="dragons-breath" className="mt-6">
-                    <DragonsBreathStatsTab />
+                <TabsContent value="dragons-breath" className="mt-6">
+                    <DragonsBreathStatsTab stats={dbStats} loading={loading} error={error} />
                 </TabsContent>
                 <TabsContent value="leaderboard" className="mt-6">
-                     {loading ? (
-                        <div className="flex justify-center items-center h-full min-h-[50vh]"><Spinner /></div>
-                    ) : error ? (
-                        <Card><p className="text-center text-red-500">{error}</p></Card>
-                    ) : (
-                        <LeaderboardTab data={leaderboard} />
-                    )}
+                    <LeaderboardTab data={leaderboard} loading={loading} error={error} />
                 </TabsContent>
-                 <TabsContent value="db-ranks" className="mt-6">
-                    <DragonsBreathRanksTab />
+                <TabsContent value="db-ranks" className="mt-6">
+                    <DragonsBreathRanksTab data={dbLeaderboard} loading={loading} error={error} />
                 </TabsContent>
             </Tabs>
-            
         </div>
     );
 };

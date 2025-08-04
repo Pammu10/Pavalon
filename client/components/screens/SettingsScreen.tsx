@@ -73,8 +73,8 @@ const SettingsScreen: React.FC = () => {
 
   return (
     <div className="animate-fadeIn max-w-2xl mx-auto space-y-6 pb-16 md:pb-0">
-      <Card className="bg-transparent">
-        <h2 className="font-eagleLake text-3xl mb-6 text-center text-yellow-500">Settings</h2>
+      <Card>
+        <h2 className="font-eagleLake text-3xl mb-6 text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Settings</h2>
         <div className="space-y-3">
             <Toggle label="Skip Intro Story" enabled={settings.skipIntro} onToggle={handleToggleSkipIntro} />
             <Toggle label="Mute Background Music" enabled={isBgmMuted} onToggle={toggleBgm} />

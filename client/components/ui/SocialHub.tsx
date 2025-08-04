@@ -1,22 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
-import { Friend, FriendRequest, GamePhase } from '@/types';
+import { Friend, FriendRequest, GamePhase, FriendSuggestion } from '@/types';
 import Button from './Button';
 import Spinner from './Spinner';
-import { X, Users, UserPlus, Mail, Gamepad2, Send, Check, Trash2, Gem } from 'lucide-react';
+import { X, Users, UserPlus, Mail, Gamepad2, Send, Check, Trash2, Gem, MessageSquare, Sword, Info } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ICON_MAP } from './AvailableIcons';
 import Card from './Card';
 import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 
 const FriendItem: React.FC<{ friend: Friend }> = ({ friend }) => {
-    const { removeFriend, inviteFriendToGame, gameState, user, pendingInvites, acceptInvite } = useGame();
+    const { removeFriend, inviteFriendToGame, gameState, pendingInvites, acceptInvite } = useGame();
     const IconComponent = friend.selectedIcon ? ICON_MAP[friend.selectedIcon] : Gem;
     const borderClass = friend.selectedBorder ? `border-style-${friend.selectedBorder}` : 'border-slate-600';
     
     const pendingInvite = pendingInvites.find(inv => inv.from.id === friend.id);
-    const canAccept = !gameState.roomCode;
+    
+    const nonSwitchablePhases: (GamePhase | null)[] = [
+        GamePhase.ROLE_REVEAL,
+        GamePhase.TEAM_SELECTION,
+        GamePhase.TEAM_VOTE,
+        GamePhase.QUEST_VOTE,
+        GamePhase.QUEST_RESULT,
+        GamePhase.ASSASSINATION,
+    ];
+    const canAccept = !gameState.roomCode || !nonSwitchablePhases.includes(gameState.phase);
 
     const invitablePhases: (GamePhase | null)[] = [
         GamePhase.LOBBY,
@@ -32,41 +43,64 @@ const FriendItem: React.FC<{ friend: Friend }> = ({ friend }) => {
         (invitablePhases.includes(friend.gamePhase ?? null)) &&
         gameState.phase === GamePhase.LOBBY;
 
+    const getStatusText = () => {
+        if (!friend.isOnline) return 'Offline';
+        if (isAlreadyInRoom) return 'In your party';
+        if (friend.isInGame) {
+            switch(friend.gamePhase) {
+                case GamePhase.LOBBY: return 'In Lobby';
+                case GamePhase.DRAGONS_BREATH: return "Dragon's Breath";
+                case null: return 'In Game';
+                default: return 'In Game';
+            }
+        }
+        return 'Online';
+    }
 
     return (
-        <div className="flex items-center justify-between p-3 bg-slate-800/60 rounded-lg">
-            <div className="flex items-center gap-3">
-                 <div className={`relative w-12 h-12 rounded-lg border-2 ${borderClass} bg-slate-900/50 flex items-center justify-center flex-shrink-0`}>
+        <div className="flex items-center justify-between p-2 sm:p-3 bg-slate-800/60 rounded-lg transition-colors hover:bg-slate-800">
+            <div className="flex items-center gap-3 min-w-0">
+                 <div className={cn(
+                    `relative w-12 h-12 rounded-lg border-2 bg-slate-900/50 flex items-center justify-center flex-shrink-0`,
+                    borderClass
+                 )}>
                     <IconComponent className="w-8 h-8 text-slate-300" />
+                     {friend.isOnline && (
+                        <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center">
+                            <div className="relative w-3 h-3 flex items-center justify-center">
+                                <span className="absolute inset-0 rounded-full bg-green-400/80 blur-sm animate-pulse"></span>
+                                <span className="w-2 h-2 rounded-full bg-green-400"></span>
+                            </div>
+                        </div>
+                    )}
                 </div>
-                <div>
-                    <p className="font-bold text-white">{friend.username}</p>
+                <div className="min-w-0">
+                    <p className="font-bold text-white truncate">{friend.username}</p>
                     <div className="flex items-center gap-1.5 text-xs">
-                        <span className={`w-2 h-2 rounded-full ${friend.isOnline ? 'bg-green-400' : 'bg-slate-500'}`}></span>
                         <span className={friend.isOnline ? 'text-green-400' : 'text-slate-500'}>
-                             {friend.isOnline ? (isAlreadyInRoom ? 'In Party' : (friend.gamePhase ? friend.gamePhase : 'Online')) : 'Offline'}
+                             {getStatusText()}
                         </span>
                     </div>
                 </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
                  {pendingInvite ? (
                     <Button 
-                        variant="success" 
+                        variant="icon-success" 
                         onClick={() => acceptInvite(pendingInvite.roomCode)}
                         disabled={!canAccept}
-                        className="p-2 h-auto animate-pulse-glow" 
+                        className="w-10 h-10 p-0 flex items-center justify-center" 
                         title={canAccept ? `Join ${friend.username}'s game` : "Cannot accept, you are in a game."}
                     >
-                        <Gamepad2 size={16} />
+                        <Gamepad2 size={20} />
                     </Button>
                 ) : isInvitable ? (
-                    <Button onClick={() => inviteFriendToGame(friend.id)} className="p-2 h-auto" title="Invite to Game">
-                        <Gamepad2 size={16} />
+                    <Button variant="icon-primary" onClick={() => inviteFriendToGame(friend.id)} className="w-10 h-10 p-0 flex items-center justify-center" title="Invite to Game">
+                        <Gamepad2 size={20} />
                     </Button>
                 ) : null}
-                <Button variant="danger" onClick={() => removeFriend(friend.id)} className="p-2 h-auto" title="Remove Friend">
-                    <Trash2 size={16} />
+                <Button variant="icon-danger" onClick={() => removeFriend(friend.id)} className="w-10 h-10 p-0 flex items-center justify-center" title="Remove Friend">
+                    <Trash2 size={20} />
                 </Button>
             </div>
         </div>
@@ -76,14 +110,14 @@ const FriendItem: React.FC<{ friend: Friend }> = ({ friend }) => {
 const RequestItem: React.FC<{ request: FriendRequest }> = ({ request }) => {
     const { respondToFriendRequest } = useGame();
     return (
-        <div className="flex items-center justify-between p-3 bg-slate-800/60 rounded-lg">
+        <div className="flex items-center justify-between p-2 sm:p-3 bg-slate-800/60 rounded-lg">
             <p className="font-bold text-white">{request.username}</p>
             <div className="flex items-center gap-2">
-                <Button variant="success" onClick={() => respondToFriendRequest(request.id, 'accept')} className="p-2 h-auto" title="Accept Request">
-                    <Check size={16} />
+                <Button variant="icon-success" onClick={() => respondToFriendRequest(request.id, 'accept')} className="w-10 h-10 p-0 flex items-center justify-center" title="Accept Request">
+                    <Check size={20} />
                 </Button>
-                <Button variant="danger" onClick={() => respondToFriendRequest(request.id, 'decline')} className="p-2 h-auto" title="Decline Request">
-                    <X size={16} />
+                <Button variant="icon-danger" onClick={() => respondToFriendRequest(request.id, 'decline')} className="w-10 h-10 p-0 flex items-center justify-center" title="Decline Request">
+                    <X size={20} />
                 </Button>
             </div>
         </div>
@@ -93,20 +127,83 @@ const RequestItem: React.FC<{ request: FriendRequest }> = ({ request }) => {
 const SentRequestItem: React.FC<{ request: FriendRequest }> = ({ request }) => {
     const { cancelFriendRequest } = useGame();
     return (
-        <div className="flex items-center justify-between p-3 bg-slate-800/60 rounded-lg">
+        <div className="flex items-center justify-between p-2 sm:p-3 bg-slate-800/60 rounded-lg">
             <p className="font-bold text-white">{request.username}</p>
-            <Button variant="danger" onClick={() => cancelFriendRequest(request.id)} className="p-2 h-auto flex items-center gap-1.5 text-sm" title="Cancel Request">
-                <X size={16} /> Cancel
+            <Button variant="secondary" onClick={() => cancelFriendRequest(request.id)} className="p-2 h-auto text-sm" title="Cancel Request">
+                Cancel
             </Button>
         </div>
     );
 };
 
+const SuggestionItem: React.FC<{ suggestion: FriendSuggestion, onAdd: (username: string) => Promise<void> }> = ({ suggestion, onAdd }) => {
+    const [isAdding, setIsAdding] = useState(false);
+
+    const handleAdd = async () => {
+        setIsAdding(true);
+        await onAdd(suggestion.username);
+        // isAdding state doesn't need to be reset as the component will be removed.
+    };
+
+    return (
+        <div className="flex items-center justify-between p-2 sm:p-3 bg-slate-800/60 rounded-lg">
+            <div>
+                <p className="font-bold text-white">{suggestion.username}</p>
+                <p className="text-xs text-slate-400">{suggestion.mutual_friends} mutual friend{suggestion.mutual_friends > 1 ? 's' : ''}</p>
+            </div>
+            <Button
+                variant="icon-success"
+                onClick={handleAdd}
+                disabled={isAdding}
+                className="w-10 h-10 p-0 flex items-center justify-center"
+                title={`Add ${suggestion.username}`}
+            >
+                {isAdding ? <Spinner size="sm" /> : <UserPlus size={20} />}
+            </Button>
+        </div>
+    );
+};
+
+
+const EmptyState: React.FC<{ icon: React.ReactNode, title: string, message: string }> = ({ icon, title, message }) => (
+    <div className="flex flex-col items-center justify-center text-center text-slate-500 py-8 sm:py-12">
+        <div className="mb-4">{icon}</div>
+        <h3 className="font-bold text-lg text-slate-400">{title}</h3>
+        <p className="text-sm max-w-xs">{message}</p>
+    </div>
+);
+
+const SkeletonItem: React.FC = () => (
+    <div className="flex animate-pulse items-center justify-between p-2 sm:p-3 bg-slate-800/60 rounded-lg">
+        <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-lg bg-slate-700/50 flex-shrink-0" />
+            <div className="space-y-2">
+                <div className="h-4 w-24 rounded bg-slate-800/20" />
+                <div className="h-3 w-16 rounded bg-slate-800/20" />
+            </div>
+        </div>
+        <div className="w-10 h-10 rounded bg-slate-800/30" />
+    </div>
+);
+
+
 const SocialHubContent: React.FC<{ onClose?: () => void, asScreen?: boolean }> = ({ onClose, asScreen }) => {
-    const { friends, friendRequests, sentFriendRequests, addFriend } = useGame();
+    const { friends, friendRequests, sentFriendRequests, suggestions, addFriend, loadFullSocialData, isSocialLoading, loadSuggestionsData, isSuggestionsLoading } = useGame();
     const [activeTab, setActiveTab] = useState('friends');
     const [newFriendName, setNewFriendName] = useState('');
     const [isAdding, setIsAdding] = useState(false);
+
+
+    useEffect(() => {
+        loadFullSocialData();
+    }, [loadFullSocialData]);
+
+    useEffect(() => {
+        if (activeTab === 'add') {
+            loadSuggestionsData();
+        }
+    }, [activeTab, loadSuggestionsData]);
+
 
     const handleAddFriend = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -118,19 +215,22 @@ const SocialHubContent: React.FC<{ onClose?: () => void, asScreen?: boolean }> =
     };
 
     return (
-        <Card>
+        <Card className={cn(
+            "flex flex-col",
+            asScreen ? "bg-transparent border-none shadow-none p-0" : "p-3 sm:p-4 md:p-6 h-[85vh] max-h-[700px]"
+        )}>
             <div className="flex justify-between items-center mb-4">
-                <h1 className="font-eagleLake text-3xl text-yellow-500">Social Hub</h1>
+                <h1 className="font-eagleLake text-2xl sm:text-3xl text-yellow-500">Social Hub</h1>
                 {!asScreen && onClose && (
-                    <Button variant="danger" onClick={onClose} className="p-2 h-auto rounded-full aspect-square"><X size={20} /></Button>
+                    <Button variant="icon-danger" onClick={onClose} className="w-10 h-10 p-0 flex items-center justify-center rounded-full"><X size={20} /></Button>
                 )}
             </div>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-grow">
                 <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 p-1 h-auto rounded-lg mb-4">
-                    <TabsTrigger value="friends" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
+                    <TabsTrigger value="friends" className="flex items-center justify-center gap-1 sm:gap-2 py-2 sm:py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold text-xs sm:text-sm">
                         <Users size={16} /> Friends ({friends.length})
                     </TabsTrigger>
-                    <TabsTrigger value="requests" className="relative flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
+                    <TabsTrigger value="requests" className="relative flex items-center justify-center gap-1 sm:gap-2 py-2 sm:py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold text-xs sm:text-sm">
                         <Mail size={16} /> Requests
                         {friendRequests.length > 0 && (
                             <span className="absolute top-1 right-1 w-5 h-5 text-xs flex items-center justify-center bg-blue-500 text-white font-sans font-bold rounded-full">
@@ -138,14 +238,20 @@ const SocialHubContent: React.FC<{ onClose?: () => void, asScreen?: boolean }> =
                             </span>
                         )}
                     </TabsTrigger>
-                    <TabsTrigger value="add" className="flex items-center gap-2 py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold">
-                        <UserPlus size={16} /> Add Friend
+                    <TabsTrigger value="add" className="flex items-center justify-center gap-1 sm:gap-2 py-2 sm:py-2.5 data-[state=active]:bg-slate-700 data-[state=active]:text-yellow-400 text-slate-300 font-bold text-xs sm:text-sm">
+                        <UserPlus size={16} /> Add
                     </TabsTrigger>
                 </TabsList>
                 
-                <div className="min-h-[400px] max-h-[60vh] overflow-y-auto pr-2 scroll-hide">
+                <div className="flex-grow overflow-y-auto pr-2 scroll-hide">
                     <TabsContent value="friends" className="m-0 space-y-2">
-                        {friends.length > 0 ? friends.map(f => <FriendItem key={f.id} friend={f} />) : <p className="text-center text-slate-400 p-8">Your friends list is empty. Add some friends to get started!</p>}
+                         {isSocialLoading ? (
+                            <div className="space-y-2">
+                                {Array.from({ length: 3 }).map((_, i) => <SkeletonItem key={i} />)}
+                            </div>
+                         ) : (
+                            friends.length > 0 ? friends.map(f => <FriendItem key={f.id} friend={f} />) : <EmptyState icon={<Users size={48} />} title="Your friends list is empty" message="Use the 'Add' tab to find and add friends by their username."/>
+                         )}
                     </TabsContent>
                     <TabsContent value="requests" className="m-0 space-y-4">
                         <div>
@@ -154,18 +260,24 @@ const SocialHubContent: React.FC<{ onClose?: () => void, asScreen?: boolean }> =
                                 <div className="space-y-2">
                                     {friendRequests.map(r => <RequestItem key={r.id} request={r} />)}
                                 </div>
-                            ) : <p className="text-center text-slate-400 p-4">No pending friend requests.</p>}
+                            ) : <EmptyState icon={<Mail size={48} />} title="No pending requests" message="You have no new friend requests at this time."/>}
                         </div>
                         <div className="pt-4 border-t border-slate-700">
                              <h3 className="font-bold text-lg text-yellow-400 mb-2">Sent Requests</h3>
-                             {sentFriendRequests.length > 0 ? (
-                                <div className="space-y-2">
-                                    {sentFriendRequests.map(r => <SentRequestItem key={r.id} request={r} />)}
+                             {isSocialLoading ? (
+                                 <div className="space-y-2">
+                                    {Array.from({ length: 2 }).map((_, i) => <SkeletonItem key={i} />)}
                                 </div>
-                             ) : <p className="text-center text-slate-400 p-4">You have no pending sent requests.</p>}
+                             ) : (
+                                 sentFriendRequests.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {sentFriendRequests.map(r => <SentRequestItem key={r.id} request={r} />)}
+                                    </div>
+                                 ) : <EmptyState icon={<Send size={48} />} title="No sent requests" message="You haven't sent any friend requests that are still pending."/>
+                             )}
                         </div>
                     </TabsContent>
-                    <TabsContent value="add" className="m-0">
+                    <TabsContent value="add" className="m-0 pt-4 space-y-6">
                         <form onSubmit={handleAddFriend} className="space-y-4">
                             <input
                                 type="text"
@@ -174,10 +286,32 @@ const SocialHubContent: React.FC<{ onClose?: () => void, asScreen?: boolean }> =
                                 placeholder="Enter username..."
                                 className="w-full bg-slate-800 border-2 border-slate-700 rounded-lg p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition"
                             />
-                            <Button type="submit" className="w-full flex items-center justify-center gap-2" disabled={isAdding || !newFriendName.trim()}>
-                                {isAdding ? <Spinner size="sm" /> : <><Send size={16} /> Send Request</>}
+                            <Button type="submit" className="w-full flex items-center justify-center gap-2 text-lg py-3" disabled={isAdding || !newFriendName.trim()}>
+                                {isAdding ? <Spinner size="sm" /> : <><UserPlus size={20} /> Send Request</>}
                             </Button>
                         </form>
+                        <div className="border-t border-slate-700 pt-4">
+                            <h3 className="font-bold text-lg text-yellow-400 mb-2">People You May Know</h3>
+                             {isSuggestionsLoading ? (
+                                <div className="space-y-2">
+                                    {Array.from({ length: 3 }).map((_, i) => <SkeletonItem key={i} />)}
+                                </div>
+                             ) : (
+                                suggestions.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {suggestions.map(s => (
+                                            <SuggestionItem 
+                                                key={s.id} 
+                                                suggestion={s}
+                                                onAdd={async (username) => {
+                                                    await addFriend(username);
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : <EmptyState icon={<Users size={48} />} title="No Suggestions" message="We couldn't find any friend suggestions for you right now. Try adding more friends!" />
+                            )}
+                        </div>
                     </TabsContent>
                 </div>
             </Tabs>
