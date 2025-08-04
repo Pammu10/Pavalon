@@ -5,7 +5,7 @@ import { fetcher } from "@/services/api";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 
 import Card from "@/components/ui/Card";
 import Spinner from "@/components/ui/Spinner";
@@ -86,7 +86,7 @@ const GameManagementTab: React.FC = () => {
         totalPages: number;
         currentPage: number;
       }>(`/admin/matches?page=${currentPage}&limit=10`),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   useEffect(() => {
