@@ -1,4 +1,4 @@
-import { Role, Alignment, RoleDescription } from './types';
+import { Role, Alignment} from './types';
 
 export const ROLES: Record<Role, { alignment: Alignment, description: string, vision: string, img: string, strategy: string, color: string,  bgColor: string }> = {
     [Role.MERLIN]: {

@@ -1,5 +1,3 @@
-
-
 import React, { useState, useRef, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { Send, X, ScrollText, MessageSquare, Mic } from "lucide-react";

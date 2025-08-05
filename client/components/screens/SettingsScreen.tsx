@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { useAudio } from "@/components/context/AudioContext";
@@ -6,7 +5,6 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import AchievementsTab from "../ui/AchievementsTab";
 import Spinner from "../ui/Spinner";
-import { toast } from "sonner";
 
 const RESTART_COOLDOWN_MS = 120000; // 2 minutes
 

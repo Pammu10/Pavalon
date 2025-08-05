@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { fetcher } from "@/services/api";
 import api from "@/services/api";
@@ -19,9 +19,6 @@ import {
   Trash2,
   Edit,
   Award,
-  ShieldCheck,
-  ShieldAlert,
-  KeyRound,
   ChevronsLeft,
   ChevronLeft,
   ChevronRight,

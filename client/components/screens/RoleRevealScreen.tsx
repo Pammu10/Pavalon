@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { useAudio } from "@/components/context/AudioContext";
 import { ROLES } from "@/constants";
-import { Role, Alignment, Player } from "@/types";
+import { Alignment } from "@/types";
 import Button from "@/components/ui/Button";
 import Spinner from "@/components/ui/Spinner";
 import { Star, Zap, Eye } from "lucide-react";

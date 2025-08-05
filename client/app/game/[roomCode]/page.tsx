@@ -423,14 +423,13 @@ export default function GamePage() {
       return;
     }
 
-    // This handles cases where the game has ended, the user was kicked,
-    // or they manually entered a URL for a game they aren't in.
+    
     if (gameState.roomCode !== roomCodeFromUrl) {
       router.replace("/");
     }
   }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router]);
 
-  // Render a loading state while checks are performed
+
   if (isLoading || !isAuthenticated || gameState.roomCode !== roomCodeFromUrl) {
     return (
       <div className="flex items-center justify-center h-screen w-screen">
@@ -439,6 +438,6 @@ export default function GamePage() {
     );
   }
 
-  // If all checks pass, render the main game content.
+  
   return <MainContent />;
 }

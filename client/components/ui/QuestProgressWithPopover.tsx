@@ -1,5 +1,3 @@
-
-
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { CheckCircle, XCircle, Swords, HelpCircle } from "lucide-react";
 

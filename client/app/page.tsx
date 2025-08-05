@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
@@ -230,9 +229,6 @@ export default function Home() {
   });
 
   useEffect(() => {
-    // If a user is already in a game when they hit the home page (e.g., new tab),
-    // automatically mark the intro as completed for this session.
-    // This prevents showing the intro if they log out and back in within the same session.
     if (isAuthenticated && gameState.roomCode && !introCompleted) {
       sessionStorage.setItem("introCompleted", "true");
       setIntroCompleted(true);

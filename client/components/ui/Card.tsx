@@ -1,6 +1,4 @@
 import React from 'react';
-
-// Allow any standard div attributes to be passed, including 'id'.
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }

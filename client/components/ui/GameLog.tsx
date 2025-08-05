@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useGame } from '@/components/context/GameContext';
 import { LogEntry } from '@/types';
-import { Crown, Swords, Vote, CheckCircle, XCircle, Shield, Skull, Info, UserX, UserCheck, Users, ScrollText, Flame } from 'lucide-react';
+import { Crown, Swords, Vote, CheckCircle, XCircle, Skull, Info, UserX, UserCheck, Users, ScrollText, Flame } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const logIcons: { [key in LogEntry['type']]: React.ReactNode } = {

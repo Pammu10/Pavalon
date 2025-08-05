@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { useAudio } from '@/components/context/AudioContext';
 
 const TriskelionSymbol = ({ className }: { className?: string }) => (
     <div

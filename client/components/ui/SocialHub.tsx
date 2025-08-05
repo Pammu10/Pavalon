@@ -3,13 +3,12 @@ import { useGame } from '../context/GameContext';
 import { Friend, FriendRequest, GamePhase, FriendSuggestion } from '@/types';
 import Button from './Button';
 import Spinner from './Spinner';
-import { X, Users, UserPlus, Mail, Gamepad2, Send, Check, Trash2, Gem, MessageSquare, Sword, Info } from 'lucide-react';
+import { X, Users, UserPlus, Mail, Gamepad2, Send, Check, Trash2, Gem } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ICON_MAP } from './AvailableIcons';
 import Card from './Card';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { fetcher } from '@/services/api';
 

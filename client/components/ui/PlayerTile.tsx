@@ -2,9 +2,8 @@ import React, { memo } from 'react';
 import { Player } from '@/types';
 import { useGame } from '../context/GameContext';
 import { useVoice } from '../context/VoiceContext';
-import { Crown, Ghost, Shield, Swords, Eye, Mic, Gem } from 'lucide-react';
+import { Crown, Ghost, Swords, Eye, Mic, Gem } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ROLES } from '@/constants';
 import { ICON_MAP } from './AvailableIcons';
 import { motion, AnimatePresence } from 'framer-motion';
 

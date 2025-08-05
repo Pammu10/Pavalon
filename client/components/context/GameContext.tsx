@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { GameState, GamePhase, Player, Message, Role, User, LoginCredentials, RegisterCredentials, Achievement, Friend, FriendRequest, GameInvite, FriendSuggestion } from '@/types';
+import { GameState, GamePhase, Player, Message, Role, User, LoginCredentials, RegisterCredentials, Achievement, Friend, FriendRequest, GameInvite} from '@/types';
 import { socketService } from '@/services/socketService';
 import api, { fetcher } from '@/services/api';
 import { toast } from 'sonner';

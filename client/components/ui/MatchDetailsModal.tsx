@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { fetcher } from '@/services/api';
 import { MatchPlayerPerformance, Alignment } from '@/types';
 import Spinner from './Spinner';

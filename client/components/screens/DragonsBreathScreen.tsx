@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useGame } from '@/components/context/GameContext';
 import { Player, DragonCard, DragonCardType } from '@/types';
 import Button from '@/components/ui/Button';
-import { AnimatePresence, motion, MotionProps } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Flame, Shield, Swords, Eye, Shuffle, SkipForward, Heart, HelpCircle, User, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Spinner from '../ui/Spinner';

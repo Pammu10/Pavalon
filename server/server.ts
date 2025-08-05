@@ -9,7 +9,6 @@ import {
   GamePhase,
   Role,
   Alignment,
-  Quest,
   Message,
   ClientToServerEvents,
   ServerToClientEvents,
@@ -24,7 +23,6 @@ import {
   Match,
   DragonCardType,
   DragonCard,
-  DragonsBreathState,
   DragonsBreathStats,
   OnlineUser,
   GameInvite,
@@ -33,7 +31,7 @@ import {
 import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES, DEFAULT_ICONS, DEFAULT_BACKGROUNDS } from "./constants";
 import db from "./db";
 import { authMiddleware, generateToken, authMiddlewareSocket, adminMiddleware } from "./auth";
-import { ALL_ACHIEVEMENTS, Achievement } from "./achievements";
+import { ALL_ACHIEVEMENTS } from "./achievements";
 
 const app = express();
 
