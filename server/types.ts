@@ -326,6 +326,7 @@ export interface ServerToClientEvents {
     'social:request_received': (data: FriendRequest) => void;
     'social:request_accepted': (data: Friend) => void;
     'social:friend_removed': (data: { friendId: number }) => void;
+    'social:request_cancelled': (data: { requesterId: number }) => void;
     'social:invite_received': (data: GameInvite) => void;
 
     // Voice Chat

@@ -48,8 +48,8 @@ interface GameContextType {
     updateUsername: (newUsername: string) => Promise<void>;
     login: (credentials: LoginCredentials, onSuccess?: () => void) => Promise<void>;
     register: (credentials: RegisterCredentials, onSuccess?: () => void) => Promise<void>;
-    googleLogin: (credential: string) => Promise<void>;
-    linkGoogleAccount: (credential: string) => Promise<void>;
+    googleLogin: (accessToken: string) => Promise<void>;
+    linkGoogleAccount: (accessToken: string) => Promise<void>;
     logout: () => void;
     joinRoom: (roomCode?: string) => void;
     leaveRoom: () => void;
@@ -453,6 +453,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         queryClient.invalidateQueries({ queryKey: ['suggestions'] });
         toast.warning(`A user has removed you from their friends list.`);
     }, [queryClient]);
+
+    const handleSocialRequestCancelled = useCallback(({ requesterId }: { requesterId: number }) => {
+        queryClient.setQueryData<FriendRequest[]>(['friendRequests'], (oldData) =>
+            oldData?.filter(req => req.id !== requesterId)
+        );
+        toast.info("A friend request was cancelled.");
+    }, [queryClient]);
     
     const declineInvite = useCallback((roomCode: string) => {
         setPendingInvites(prev => prev.filter(inv => inv.roomCode !== roomCode));
@@ -504,6 +511,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         socketService.on('social:request_received', handleRequestReceived);
         socketService.on('social:request_accepted', handleRequestAccepted);
         socketService.on('social:friend_removed', handleFriendRemoved);
+        socketService.on('social:request_cancelled', handleSocialRequestCancelled);
         socketService.on('social:invite_received', handleInviteReceived);
 
         return () => {
@@ -516,9 +524,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             socketService.off('social:request_received', handleRequestReceived);
             socketService.off('social:request_accepted', handleRequestAccepted);
             socketService.off('social:friend_removed', handleFriendRemoved);
+            socketService.off('social:request_cancelled', handleSocialRequestCancelled);
             socketService.off('social:invite_received', handleInviteReceived);
         };
-    }, [handleUpdate, handleChatMessage, handleError, handleAchievementUnlocked, handleKicked, handleSocialStatus, handleRequestReceived, handleRequestAccepted, handleFriendRemoved, handleInviteReceived]);
+    }, [handleUpdate, handleChatMessage, handleError, handleAchievementUnlocked, handleKicked, handleSocialStatus, handleRequestReceived, handleRequestAccepted, handleFriendRemoved, handleSocialRequestCancelled, handleInviteReceived]);
 
     useEffect(() => {
         const handleConnectError = (err: Error) => {
@@ -586,10 +595,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
     
-    const googleLogin = async (credential: string) => {
+    const googleLogin = async (accessToken: string) => {
         try {
             setAuthError(null);
-            const { data } = await api.post('/auth/google', { credential });
+            const { data } = await api.post('/auth/google', { accessToken });
             const { token: new_token, user: new_user, isNewUser } = data;
             
             localStorage.setItem('authToken', new_token);
@@ -610,9 +619,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const linkGoogleAccount = async (credential: string) => {
+    const linkGoogleAccount = async (accessToken: string) => {
         try {
-            const { data } = await api.post('/user/link-google', { credential });
+            const { data } = await api.post('/user/link-google', { accessToken });
             setUser(prev => prev ? { ...prev, isGoogleLinked: true } : null);
             toast.success("Google account linked successfully!");
         } catch(err: any) {

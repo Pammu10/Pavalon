@@ -1,11 +1,9 @@
-
-
 import React, { useState, useRef, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Spinner from "@/components/ui/Spinner";
-import { GoogleLogin } from '@react-oauth/google';
+import { useGoogleLogin } from '@react-oauth/google';
 import { toast } from "sonner";
 
 interface AuthScreenProps {
@@ -21,39 +19,6 @@ const GoogleIcon = () => (
         <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C42.021,35.596,44,30.138,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path>
     </svg>
 );
-
-const ThemedGoogleButton: React.FC<{
-    isLogin: boolean;
-    onSuccess: (credential: string) => void;
-    onError: () => void;
-}> = ({ isLogin, onSuccess, onError }) => {
-    return (
-        <div className="relative w-full h-14 group">
-            <Button
-                variant="secondary"
-                className="w-full h-full !text-lg flex items-center justify-center gap-3 transition-all"
-                disabled // Visually disabled, but the overlay is clickable
-                aria-hidden="true"
-                tabIndex={-1}
-            >
-                <GoogleIcon />
-                {isLogin ? 'Sign in with Google' : 'Sign up with Google'}
-            </Button>
-            {/* The GoogleLogin component is rendered invisibly on top */}
-            <div className="absolute inset-0 opacity-0.01 w-full h-full overflow-hidden rounded-lg">
-                <GoogleLogin
-                    onSuccess={(res) => res.credential && onSuccess(res.credential)}
-                    onError={onError}
-                    theme="filled_black"
-                    shape="rectangular"
-                    logo_alignment="center"
-                    containerProps={{ style: { display: 'block', height: '100%', width: '100%', borderRadius: '8px' } }}
-                />
-            </div>
-        </div>
-    );
-};
-
 
 const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -102,16 +67,23 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
     }
   };
   
-  const handleGoogleSuccess = async (credential: string) => {
+  const handleGoogleSuccess = async (tokenResponse: any) => {
       setIsSubmitting(true);
       try {
-          await googleLogin(credential);
+          await googleLogin(tokenResponse.access_token);
       } catch (error) {
           // Error is handled and toasted in context
       } finally {
           setIsSubmitting(false);
       }
   }
+
+  const handleGoogleLogin = useGoogleLogin({
+      onSuccess: handleGoogleSuccess,
+      onError: () => {
+        toast.error("Google login failed. Please try again.");
+      }
+  });
 
   if (isLoading) {
     return (
@@ -137,13 +109,15 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
           </h2>
           
            <div className="flex justify-center">
-                <ThemedGoogleButton
-                    isLogin={isLogin}
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => {
-                        toast.error("Google login failed. Please try again.");
-                    }}
-                />
+                <Button
+                    variant="secondary"
+                    onClick={() => handleGoogleLogin()}
+                    className="w-full h-14 !text-lg flex items-center justify-center gap-3"
+                    disabled={isSubmitting}
+                >
+                    <GoogleIcon />
+                    {isLogin ? 'Sign in with Google' : 'Sign up with Google'}
+                </Button>
            </div>
 
            <div className="flex items-center text-slate-500">

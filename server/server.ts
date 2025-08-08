@@ -1,9 +1,9 @@
 import express from "express";
 import http from "http";
+import https from "https";
 import { Server, Socket } from "socket.io";
 import cors from "cors";
 import bcrypt from "bcrypt";
-import { OAuth2Client } from "google-auth-library";
 import {
   GameState,
   Player,
@@ -35,7 +35,6 @@ import { authMiddleware, generateToken, authMiddlewareSocket, adminMiddleware } 
 import { ALL_ACHIEVEMENTS } from "./achievements";
 
 const app = express();
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // --- CORS Configuration ---
 const allowedOrigins = [
@@ -100,6 +99,44 @@ const getFullUser = async (userId: number): Promise<User | null> => {
         selectedBackground: userRow.selected_background,
         isGoogleLinked: !!userRow.google_id,
     };
+};
+
+
+// --- Google Auth Helper ---
+const getGoogleUserInfo = (accessToken: string): Promise<any> => {
+    return new Promise((resolve, reject) => {
+        const options = {
+            hostname: 'www.googleapis.com',
+            path: '/oauth2/v3/userinfo',
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        };
+
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                try {
+                    const parsedData = JSON.parse(data);
+                    if (res.statusCode !== 200) {
+                        reject(new Error(parsedData.error_description || 'Failed to get user info from Google.'));
+                    } else {
+                        resolve(parsedData);
+                    }
+                } catch (e) {
+                    reject(new Error('Failed to parse Google user info response.'));
+                }
+            });
+        });
+
+        req.on('error', (e) => {
+            reject(new Error('Request to Google user info endpoint failed.'));
+        });
+
+        req.end();
+    });
 };
 
 
@@ -168,21 +205,15 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post('/api/auth/google', async (req, res) => {
-    const { credential } = req.body;
+    const { accessToken } = req.body;
     try {
-        const ticket = await googleClient.verifyIdToken({
-            idToken: credential,
-            audience: process.env.GOOGLE_CLIENT_ID,
-        });
-        const payload = ticket.getPayload();
+        const payload = await getGoogleUserInfo(accessToken);
         if (!payload || !payload.sub || !payload.email) {
             return res.status(400).json({ message: 'Invalid Google token.' });
         }
 
         const { sub: google_id, email, name } = payload;
         
-        let isNewUser = false;
-
         // 1. Find user by Google ID
         let userRecord = await db.get<{ id: number }>("SELECT id FROM users WHERE google_id = $1", [google_id]);
 
@@ -200,24 +231,14 @@ app.post('/api/auth/google', async (req, res) => {
 
         // 3. If still not found, create a new user
         if (!userRecord) {
-            isNewUser = true;
             const username = name?.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10) || `user${Date.now()}`;
             // Ensure username is unique
-            let finalUsername = username.substring(0, 10);
-            let userExists = await db.get("SELECT id FROM users WHERE username = $1", [finalUsername]);
-            let attempts = 0;
-            while (userExists && attempts < 10) {
-                 finalUsername = `${username.substring(0, 8)}${Math.floor(Math.random() * 100)}`;
-                 userExists = await db.get("SELECT id FROM users WHERE username = $1", [finalUsername]);
-                 attempts++;
-            }
-            if (userExists) { // Extremely unlikely case
-                finalUsername = `user${Date.now()}`;
-            }
+            const existingUser = await db.get("SELECT id FROM users WHERE username = $1", [username]);
+            const finalUsername = existingUser ? `${username}${Math.floor(Math.random() * 100)}` : username;
 
             const result = await db.run(
                 "INSERT INTO users (username, email, google_id) VALUES ($1, $2, $3) RETURNING id",
-                [finalUsername, email, google_id]
+                [finalUsername.substring(0, 10), email, google_id]
             );
             userRecord = { id: result.rows[0].id };
         }
@@ -228,7 +249,7 @@ app.post('/api/auth/google', async (req, res) => {
         }
 
         const token = generateToken({ id: user.id, username: user.username, is_admin: user.is_admin });
-        res.json({ token, user, isNewUser });
+        res.json({ token, user });
 
     } catch (error) {
         console.error("Google Auth Error:", error);
@@ -239,14 +260,9 @@ app.post('/api/auth/google', async (req, res) => {
 
 app.post('/api/user/link-google', authMiddleware, async (req, res) => {
     const userId = (req as any).user.id;
-    const { credential } = req.body;
+    const { accessToken } = req.body;
     try {
-        const ticket = await googleClient.verifyIdToken({
-            idToken: credential,
-            audience: process.env.GOOGLE_CLIENT_ID,
-        });
-        const payload = ticket.getPayload();
-
+        const payload = await getGoogleUserInfo(accessToken);
         if (!payload || !payload.sub || !payload.email) {
             return res.status(400).json({ message: 'Invalid Google token.' });
         }
@@ -506,35 +522,6 @@ app.post("/api/user/username", authMiddleware, async (req, res) => {
     }
 });
 
-app.get("/api/user/check-username", authMiddleware, async (req, res) => {
-    const { username } = req.query;
-    const currentUserId = (req as any).user.id;
-    
-    if (!username || typeof username !== 'string') {
-        return res.status(400).json({ available: false, message: "Username query parameter is required." });
-    }
-
-    if (username.length < 3 || username.length > 10) {
-        return res.status(400).json({ available: false, message: "Username must be between 3 and 10 characters." });
-    }
-
-    try {
-        const existingUser = await db.get<{id: number}>("SELECT id FROM users WHERE username = $1", [username]);
-        if (existingUser) {
-            if (existingUser.id === currentUserId) {
-                return res.json({ available: true, message: "This is your current username." });
-            }
-            return res.json({ available: false, message: "Username is already taken." });
-        } else {
-            return res.json({ available: true, message: "Username is available!" });
-        }
-    } catch (error) {
-        console.error("Username check error:", error);
-        res.status(500).json({ available: false, message: "Server error while checking username." });
-    }
-});
-
-
 // --- SOCIAL ROUTES ---
 const socialRouter = express.Router();
 socialRouter.use(authMiddleware);
@@ -760,6 +747,7 @@ socialRouter.delete('/request/cancel/:recipientId', async (req, res) => {
             "DELETE FROM friends WHERE user1_id = $1 AND user2_id = $2 AND status = 'pending' AND action_user_id = $3",
             [user1_id, user2_id, userId]
         );
+        socialService.notifyFriendRequestCancelled(userId, recipientId);
         res.json({ message: 'Friend request cancelled.' });
     } catch (error) {
         console.error("Error cancelling friend request:", error);
@@ -1232,6 +1220,14 @@ class SocialService {
     notifyFriendRemoved(removedByUserId: number, removedUserId: number) {
         if (this.isUserOnline(removedUserId)) {
             this.io.to(`user-${removedUserId}`).emit('social:friend_removed', { friendId: removedByUserId });
+        }
+    }
+
+    notifyFriendRequestCancelled(fromUserId: number, toUserId: number) {
+        if (this.isUserOnline(toUserId)) {
+            this.io.to(`user-${toUserId}`).emit('social:request_cancelled', {
+                requesterId: fromUserId,
+            });
         }
     }
 

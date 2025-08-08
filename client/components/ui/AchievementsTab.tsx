@@ -369,7 +369,7 @@ const AchievementsTab: React.FC = () => {
                             <button
                                 onClick={() => handleScroll('left')}
                                 disabled={!canScrollLeft}
-                                className="absolute top-1/2 -translate-y-1/2 left-1 z-10 w-8 h-8 md:w-10 md:h-10 bg-primary/80 hover:bg-primary backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-primary-foreground/50 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-110 active:scale-100 disabled:opacity-40 disabled:pointer-events-none disabled:hover:scale-100"
+                                className="absolute top-1/2 -translate-y-1/2 left-1 z-10 w-8 h-8 md:w-10 md:h-10 bg-yellow-900/60 hover:bg-yellow-800/80 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-yellow-500/80 text-yellow-300 shadow-lg shadow-yellow-500/20 transition-all hover:scale-110 active:scale-100 disabled:opacity-40 disabled:pointer-events-none disabled:hover:scale-100"
                                 aria-label="Scroll left"
                             >
                                 <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
@@ -377,7 +377,7 @@ const AchievementsTab: React.FC = () => {
                             <button
                                 onClick={() => handleScroll('right')}
                                 disabled={!canScrollRight}
-                                className="absolute top-1/2 -translate-y-1/2 right-1 z-10 w-8 h-8 md:w-10 md:h-10 bg-primary/80 hover:bg-primary backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-primary-foreground/50 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-110 active:scale-100 disabled:opacity-40 disabled:pointer-events-none disabled:hover:scale-100"
+                                className="absolute top-1/2 -translate-y-1/2 right-1 z-10 w-8 h-8 md:w-10 md:h-10 bg-yellow-900/60 hover:bg-yellow-800/80 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-yellow-500/80 text-yellow-300 shadow-lg shadow-yellow-500/20 transition-all hover:scale-110 active:scale-100 disabled:opacity-40 disabled:pointer-events-none disabled:hover:scale-100"
                                 aria-label="Scroll right"
                             >
                                 <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
