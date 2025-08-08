@@ -32,6 +32,7 @@ function SwipeableCard({
   const [constraints, setConstraints] = useState({ left: 0, right: 0 });
   const [maxOffset, setMaxOffset] = useState(0);
   const [isAtEnd, setIsAtEnd] = useState<'left' | 'right' | null>(null);
+  const [lockedChoice, setLockedChoice] = useState<'left' | 'right' | null>(null);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -59,13 +60,16 @@ function SwipeableCard({
 
   const handleDragEnd = (event: any, info: any) => {
     const tolerance = 5; // px tolerance to count as reaching the end
-    if (!disabled) {
+    if (!disabled && !lockedChoice) {
         if (info.offset.x >= maxOffset - tolerance) {
+            setLockedChoice('right');
             onSwipeRight();
         } else if (info.offset.x <= -maxOffset + tolerance) {
-            if (!leftSwipeDisabled) onSwipeLeft();
+            if (!leftSwipeDisabled) {
+              setLockedChoice('left');
+              onSwipeLeft();
+            }
         } else {
-            // Snap back to center
             animate(x, 0, { type: "spring", stiffness: 300, damping: 25 });
         }
     }
@@ -78,7 +82,7 @@ function SwipeableCard({
   // Orb transformations
   const centerContentOpacity = useTransform(x, [-maxOffset * 0.5, 0, maxOffset * 0.5], [0, 1, 0]);
   const rightIconOpacity = useTransform(x, [maxOffset * 0.2, maxOffset * 0.8], [0, 1]);
-  const leftIconOpacity = useTransform(x, [-maxOffset * 0.8, -maxOffset * 0.2], [1, 0]); // Fades in as you move left
+  const leftIconOpacity = useTransform(x, [-maxOffset * 0.8, -maxOffset * 0.2], [1, 0]);
   const orbBgOpacity = useTransform(x, [-maxOffset * 0.8, 0, maxOffset * 0.8], [0.1, 0.4, 0.1]);
 
   return (
@@ -88,38 +92,31 @@ function SwipeableCard({
           ref={containerRef} 
           className="relative w-full h-16 rounded-full bg-slate-900/80 border border-slate-400/30 shadow-inner shadow-black/50 overflow-hidden flex items-center"
         >
-            {/* Background Fills & Labels */}
             <AnimatePresence>
             {!disabled && (
                 <>
-                {/* Left (Reject) Fill */}
                 <motion.div 
                     style={{ width: leftFillWidth }} 
                     className={cn(
                         "absolute top-0 left-0 bottom-0 bg-red-600 flex items-center justify-start pl-6 overflow-hidden",
-                        isAtEnd === 'left' && "animate-vote-glow-red"
+                        isAtEnd === 'left' && "animate-vote-glow-red",
+                        lockedChoice && lockedChoice !== 'left' && 'opacity-30'
                     )}
                 >
-                    <div className={cn(
-                        "flex items-center gap-2 text-slate-100 font-bold text-lg font-eaglelake whitespace-nowrap",
-                        isAtEnd === 'left' && "animate-bounce-vote-text"
-                    )}>
+                    <div className={cn( "flex items-center gap-2 text-slate-100 font-bold text-lg font-eaglelake whitespace-nowrap", isAtEnd === 'left' && "animate-bounce-vote-text" )}>
                         {leftIcon} {leftLabel}
                     </div>
                 </motion.div>
                 
-                {/* Right (Approve) Fill */}
                 <motion.div 
                     style={{ width: rightFillWidth }} 
                     className={cn(
                         "absolute top-0 right-0 bottom-0 bg-blue-600 flex items-center justify-end pr-6 overflow-hidden",
-                         isAtEnd === 'right' && "animate-vote-glow-blue"
+                         isAtEnd === 'right' && "animate-vote-glow-blue",
+                         lockedChoice && lockedChoice !== 'right' && 'opacity-30'
                     )}
                 >
-                     <div className={cn(
-                        "flex items-center gap-2 text-slate-100 font-bold text-lg font-eaglelake whitespace-nowrap",
-                        isAtEnd === 'right' && "animate-bounce-vote-text"
-                     )}>
+                     <div className={cn( "flex items-center gap-2 text-slate-100 font-bold text-lg font-eaglelake whitespace-nowrap", isAtEnd === 'right' && "animate-bounce-vote-text" )}>
                         {rightLabel} {rightIcon}
                     </div>
                 </motion.div>
@@ -127,9 +124,8 @@ function SwipeableCard({
             )}
             </AnimatePresence>
 
-            {/* The Draggable Orb */}
             <motion.div
-                drag={disabled ? false : "x"}
+                drag={disabled || !!lockedChoice ? false : "x"}
                 dragConstraints={constraints}
                 dragElastic={0.1}
                 onDragEnd={handleDragEnd}
@@ -137,7 +133,8 @@ function SwipeableCard({
                 className={cn(
                   "absolute top-0 bottom-0 my-auto left-1/2 -ml-7 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl z-10",
                   "border-2 border-white/30 backdrop-blur-sm",
-                  disabled ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'
+                  disabled ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing',
+                  lockedChoice && 'animate-lock-in'
                 )}
             >
                 <motion.div 
@@ -145,20 +142,28 @@ function SwipeableCard({
                     style={{ opacity: orbBgOpacity }}
                 />
                 
-                {/* Crown Icon (Center) */}
-                <motion.div className="absolute" style={{ opacity: centerContentOpacity }}>
-                    <Crown className="w-8 h-8 text-yellow-400" style={{ filter: 'drop-shadow(0 0 8px rgba(250, 204, 21, 0.8))'}} />
-                </motion.div>
-
-                {/* Approve Icon (Right) */}
-                <motion.div className="absolute" style={{ opacity: rightIconOpacity }}>
-                     <Check className="w-8 h-8 text-blue-300" style={{ filter: 'drop-shadow(0 0 8px rgba(147, 197, 253, 0.8))'}} />
-                </motion.div>
-
-                {/* Reject Icon (Left) */}
-                <motion.div className="absolute" style={{ opacity: leftIconOpacity }}>
-                    <X className="w-8 h-8 text-red-300" style={{ filter: 'drop-shadow(0 0 8px rgba(252, 165, 165, 0.8))'}} />
-                </motion.div>
+                <AnimatePresence>
+                  {!lockedChoice && (
+                    <>
+                      <motion.div className="absolute" style={{ opacity: centerContentOpacity }}>
+                          <Crown className="w-8 h-8 text-yellow-400" style={{ filter: 'drop-shadow(0 0 8px rgba(250, 204, 21, 0.8))'}} />
+                      </motion.div>
+                      <motion.div className="absolute" style={{ opacity: rightIconOpacity }}>
+                          <Check className="w-8 h-8 text-blue-300" style={{ filter: 'drop-shadow(0 0 8px rgba(147, 197, 253, 0.8))'}} />
+                      </motion.div>
+                      <motion.div className="absolute" style={{ opacity: leftIconOpacity }}>
+                          <X className="w-8 h-8 text-red-300" style={{ filter: 'drop-shadow(0 0 8px rgba(252, 165, 165, 0.8))'}} />
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+                
+                 {lockedChoice === 'right' && (
+                    <Check className="w-8 h-8 text-blue-300" style={{ filter: 'drop-shadow(0 0 8px rgba(147, 197, 253, 0.8))'}} />
+                 )}
+                 {lockedChoice === 'left' && (
+                     <X className="w-8 h-8 text-red-300" style={{ filter: 'drop-shadow(0 0 8px rgba(252, 165, 165, 0.8))'}} />
+                 )}
             </motion.div>
         </div>
     </div>

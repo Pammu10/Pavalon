@@ -154,7 +154,7 @@ export default function HomeScreen({ onEnter, shouldSkipStory }: { onEnter: () =
                 <span className="text-xl sm:text-3xl font-bold text-amber-100 tracking-wide sm:tracking-wider">
                   BEGIN QUEST
                 </span>
-                <Sword className="w-6 sm:w-8 h-6 sm:h-8 text-steel-300 group-hover:-rotate-12 transition-transform duration-300" />
+                <Sword className="w-6 sm:w-8 h-6 sm:h-8 text-yellow-300 group-hover:-rotate-12 transition-transform duration-300" />
               </span>
             </button>
       
@@ -166,14 +166,14 @@ export default function HomeScreen({ onEnter, shouldSkipStory }: { onEnter: () =
         >
           
           <div className="relative">
-            <div className="w-12 sm:w-16 h-12 sm:h-16 border-2 border-amber-500 rounded-full flex items-center justify-center animate-spin-slow bg-gradient-to-br from-amber-800 to-amber-900">
+            <div className="w-12 sm:w-16 h-12 sm:h-16 border-2 border-amber-500 rounded-full flex items-center justify-center animate-spin-superslow bg-gradient-to-br from-amber-800 to-amber-900">
               <Crown className="w-6 sm:w-8 h-6 sm:h-8 text-yellow-400" />
             </div>
             <div className="absolute -top-1 -left-1 w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
           </div>
 
           <div className="relative" style={{ animationDelay: "1s" }}>
-            <div className="w-12 sm:w-16 h-12 sm:h-16 border-2 border-emerald-500 rounded-full flex items-center justify-center animate-spin-slow bg-gradient-to-br from-emerald-800 to-emerald-900">
+            <div className="w-12 sm:w-16 h-12 sm:h-16 border-2 border-emerald-500 rounded-full flex items-center justify-center animate-spin-superslow bg-gradient-to-br from-emerald-800 to-emerald-900">
               <Shield className="w-6 sm:w-8 h-6 sm:h-8 text-emerald-400" />
             </div>
             <div
@@ -183,7 +183,7 @@ export default function HomeScreen({ onEnter, shouldSkipStory }: { onEnter: () =
           </div>
 
           <div className="relative" style={{ animationDelay: "2s" }}>
-            <div className="w-12 sm:w-16 h-12 sm:h-16 border-2 border-red-500 rounded-full flex items-center justify-center animate-spin-slow bg-gradient-to-br from-red-800 to-red-900">
+            <div className="w-12 sm:w-16 h-12 sm:h-16 border-2 border-red-500 rounded-full flex items-center justify-center animate-spin-superslow bg-gradient-to-br from-red-800 to-red-900">
               <Sword className="w-6 sm:w-8 h-6 sm:h-8 text-red-400" />
             </div>
             <div
