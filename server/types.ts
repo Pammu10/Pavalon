@@ -170,6 +170,7 @@ export interface User {
     selectedBorder?: string | null;
     selectedIcon?: string | null;
     selectedBackground?: string | null;
+    isGoogleLinked?: boolean;
 }
 export interface Match {
   id: number;

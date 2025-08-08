@@ -280,33 +280,11 @@ const MainContent: React.FC = () => {
       )}
       {gameState.restartVote && <RestartVoteOverlay />}
 
-      {/* HEADER: Player info + Desktop Nav */}
+     
       <header className="w-full bg-slate-900/70 backdrop-blur-md border-b border-slate-700 z-30 flex-shrink-0">
         {showPlayerInfo && (
           <PlayerInfoBar onNavigateToProfile={handleNavigateToProfile} />
         )}
-
-        <TabsList className="hidden md:flex bg-transparent p-0 rounded-none h-auto">
-          {desktopTabs.map(({ id, label }) => (
-            <TabsTrigger
-              key={id}
-              value={id}
-              className="relative flex-1 py-6 font-eagleLake text-lg capitalize transition-colors duration-200 rounded-none 
-                        text-slate-400 data-[state=active]:text-yellow-500 
-                        data-[state=active]:border-b-2 data-[state=active]:border-yellow-500
-                        hover:text-white focus-visible:ring-0 focus-visible:ring-offset-0 
-                        data-[state=active]:shadow-none data-[state=active]:bg-transparent p-0"
-            >
-              {label}
-              {id === "chat" && unreadMessages > 0 && (
-                <span className="absolute top-2 right-4 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-800"></span>
-              )}
-               {id === "social" && friendRequests.length > 0 && (
-                <span className="absolute top-2 right-4 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-800"></span>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
       </header>
 
       <main

@@ -27,7 +27,9 @@ async function initializeDb() {
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             username TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
+            password_hash TEXT NULL,
+            email TEXT UNIQUE NULL,
+            google_id TEXT UNIQUE NULL,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             is_admin BOOLEAN NOT NULL DEFAULT FALSE,
             win_streak INTEGER NOT NULL DEFAULT 0,

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { GameState, GamePhase, Player, Message, Role, User, LoginCredentials, RegisterCredentials, Achievement, Friend, FriendRequest, GameInvite} from '@/types';
+import { GameState, GamePhase, Player, Message, Role, User, LoginCredentials, RegisterCredentials, Achievement, Friend, FriendRequest, GameInvite, FriendSuggestion } from '@/types';
 import { socketService } from '@/services/socketService';
 import api, { fetcher } from '@/services/api';
 import { toast } from 'sonner';
@@ -28,6 +28,11 @@ interface GameContextType {
     hasViewedCurrentQuestResult: boolean;
     hasViewedEndGameResult: boolean;
     justJoined: boolean;
+    // Username Modal State
+    isUsernameModalOpen: boolean;
+    suggestedUsername: string;
+    openUsernameModal: (username: string) => void;
+    closeUsernameModal: () => void;
     // Social State
     friendRequests: FriendRequest[];
     pendingInvites: GameInvite[];
@@ -43,6 +48,8 @@ interface GameContextType {
     updateUsername: (newUsername: string) => Promise<void>;
     login: (credentials: LoginCredentials, onSuccess?: () => void) => Promise<void>;
     register: (credentials: RegisterCredentials, onSuccess?: () => void) => Promise<void>;
+    googleLogin: (credential: string) => Promise<void>;
+    linkGoogleAccount: (credential: string) => Promise<void>;
     logout: () => void;
     joinRoom: (roomCode?: string) => void;
     leaveRoom: () => void;
@@ -124,6 +131,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [settings, setSettings] = useState<Settings>(initialSettings);
     const [justJoined, setJustJoined] = useState(false);
 
+    // Username Modal State
+    const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
+    const [suggestedUsername, setSuggestedUsername] = useState('');
+
     // Social State
     const [pendingInvites, setPendingInvites] = useState<GameInvite[]>([]);
     const [isSocialHubOpen, setIsSocialHubOpen] = useState(false);
@@ -169,6 +180,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         socketService.emit('joinRoom', { roomCode });
         setPendingInvites([]); // Clear pending invites when joining a room
     }, [isAuthenticated, token, autoClearError, router]);
+
+    const openUsernameModal = (username: string) => {
+        setSuggestedUsername(username);
+        setIsUsernameModalOpen(true);
+    };
+    const closeUsernameModal = () => setIsUsernameModalOpen(false);
+
 
     useEffect(() => {
         if (gameState.roomCode && gameState.roomCode !== prevRoomCode.current) {
@@ -567,6 +585,41 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             toast.error(message);
         }
     };
+    
+    const googleLogin = async (credential: string) => {
+        try {
+            setAuthError(null);
+            const { data } = await api.post('/auth/google', { credential });
+            const { token: new_token, user: new_user, isNewUser } = data;
+            
+            localStorage.setItem('authToken', new_token);
+            localStorage.setItem('user', JSON.stringify(new_user));
+            api.defaults.headers.common['Authorization'] = `Bearer ${new_token}`;
+            setToken(new_token);
+            setUser(new_user);
+            setIsAuthenticated(true);
+
+            if (isNewUser) {
+                openUsernameModal(new_user.username);
+            }
+        } catch (err: any) {
+            const message = err.response?.data?.message || 'Google login failed.';
+            autoClearError(setAuthError, message);
+            toast.error(message);
+            throw err;
+        }
+    };
+
+    const linkGoogleAccount = async (credential: string) => {
+        try {
+            const { data } = await api.post('/user/link-google', { credential });
+            setUser(prev => prev ? { ...prev, isGoogleLinked: true } : null);
+            toast.success("Google account linked successfully!");
+        } catch(err: any) {
+            const message = err.response?.data?.message || 'Failed to link account.';
+            toast.error(message);
+        }
+    };
 
     const updateUsername = async (newUsername: string) => {
         try {
@@ -707,7 +760,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const value: GameContextType = {
         gameState, playerId, error, messages, user, token, isAuthenticated, authError,
         isLoading, isConnected, hasViewedRole, settings, hasViewedCurrentQuestResult,
-        hasViewedEndGameResult, justJoined, friendRequests, pendingInvites, isSocialHubOpen,
+        hasViewedEndGameResult, justJoined, isUsernameModalOpen, suggestedUsername, openUsernameModal,
+        closeUsernameModal, friendRequests, pendingInvites, isSocialHubOpen,
         openSocialHub, closeSocialHub, setHasViewedRole, markQuestResultAsViewed,
         markEndGameAsViewed, clearJustJoined, updateSettings, updateUser, updateUsername,
         login, register, logout, joinRoom, leaveRoom, kickPlayer, startGame,
@@ -715,7 +769,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         voteOnTeam, voteOnQuest, assassinate, playerReady, playerReadyForNextGame, sendMessage,
         initiateRestart, voteOnRestart, startDragonsBreath, drawCard, playCard, placeDragonCard,
         endFutureView, returnToLobby, addFriend, respondToFriendRequest, removeFriend,
-        cancelFriendRequest, inviteFriendToGame, acceptInvite, declineInvite,
+        cancelFriendRequest, inviteFriendToGame, acceptInvite, declineInvite, googleLogin, linkGoogleAccount,
     };
 
     return (

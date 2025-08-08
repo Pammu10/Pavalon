@@ -198,6 +198,7 @@ export interface User {
   selectedBorder?: string | null;
   selectedIcon?: string | null;
   selectedBackground?: string | null;
+  isGoogleLinked?: boolean;
 }
 export type RegisterCredentials = {
   username: string;

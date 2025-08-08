@@ -2,11 +2,13 @@
 
 import React from "react";
 import { AudioProvider, useAudio } from "./AudioContext";
-import { GameProvider } from "./GameContext";
+import { GameProvider, useGame } from "./GameContext";
 import { Toaster } from "@/components/ui/sonner";
 import { VoiceProvider } from "./VoiceContext";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import UsernameSetupModal from "../ui/UsernameSetupModal";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -48,22 +50,41 @@ const InteractionProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 };
 
+const ModalRenderer: React.FC = () => {
+    const { isUsernameModalOpen, closeUsernameModal, suggestedUsername } = useGame();
+    if (!isUsernameModalOpen) return null;
+
+    return <UsernameSetupModal suggestedUsername={suggestedUsername} onClose={closeUsernameModal} />;
+}
+
+
 export const useInteraction = () => React.useContext(InteractionContext);
 
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
+    const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+    if (!googleClientId) {
+        console.error("Google Client ID is not configured. Google login will not work.");
+        // You might want to render an error message or a fallback UI here
+        return <div>Error: Google Login is not configured.</div>;
+    }
+
     return (
-        <QueryClientProvider client={queryClient}>
-            <AudioProvider>
-                <GameProvider>
-                    <VoiceProvider>
-                        <InteractionProvider>
-                            {children}
-                            <Toaster richColors position="top-right" />
-                        </InteractionProvider>
-                    </VoiceProvider>
-                </GameProvider>
-            </AudioProvider>
-            <ReactQueryDevtools initialIsOpen={false} />
-        </QueryClientProvider>
+        <GoogleOAuthProvider clientId={googleClientId}>
+            <QueryClientProvider client={queryClient}>
+                <AudioProvider>
+                    <GameProvider>
+                        <VoiceProvider>
+                            <InteractionProvider>
+                                {children}
+                                <Toaster richColors position="top-right" />
+                                <ModalRenderer />
+                            </InteractionProvider>
+                        </VoiceProvider>
+                    </GameProvider>
+                </AudioProvider>
+                <ReactQueryDevtools initialIsOpen={false} />
+            </QueryClientProvider>
+        </GoogleOAuthProvider>
     );
 }

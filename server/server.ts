@@ -3,6 +3,7 @@ import http from "http";
 import { Server, Socket } from "socket.io";
 import cors from "cors";
 import bcrypt from "bcrypt";
+import { OAuth2Client } from "google-auth-library";
 import {
   GameState,
   Player,
@@ -34,6 +35,7 @@ import { authMiddleware, generateToken, authMiddlewareSocket, adminMiddleware } 
 import { ALL_ACHIEVEMENTS } from "./achievements";
 
 const app = express();
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // --- CORS Configuration ---
 const allowedOrigins = [
@@ -70,6 +72,37 @@ const RECONNECT_TIMEOUT = 60000; // 60 seconds
 const RESTART_COOLDOWN = 120000; // 2 minutes
 const RESTART_VOTE_DURATION = 30000; // 30 seconds
 
+// --- Full User Object Fetch ---
+const getFullUser = async (userId: number): Promise<User | null> => {
+    const userRow = await db.get<{
+        id: number;
+        username: string;
+        is_admin: boolean;
+        selected_title: string | null;
+        selected_border: string | null;
+        selected_icon: string | null;
+        selected_background: string | null;
+        google_id: string | null;
+    }>(
+        "SELECT id, username, is_admin, selected_title, selected_border, selected_icon, selected_background, google_id FROM users WHERE id = $1",
+        [userId]
+    );
+
+    if (!userRow) return null;
+
+    return {
+        id: userRow.id,
+        username: userRow.username,
+        is_admin: userRow.is_admin,
+        selectedTitle: userRow.selected_title,
+        selectedBorder: userRow.selected_border || '',
+        selectedIcon: userRow.selected_icon,
+        selectedBackground: userRow.selected_background,
+        isGoogleLinked: !!userRow.google_id,
+    };
+};
+
+
 // --- API ROUTES ---
 app.post("/api/register", async (req, res) => {
   const { username, password } = req.body;
@@ -87,7 +120,7 @@ app.post("/api/register", async (req, res) => {
     const { id, is_admin } = result.rows[0];
     const user: User = { id, username, is_admin };
     const token = generateToken(user);
-    res.status(201).json({ token, user: { ...user, selectedTitle: null, selectedBorder: '', selectedIcon: null, selectedBackground: null } });
+    res.status(201).json({ token, user: { ...user, selectedTitle: null, selectedBorder: '', selectedIcon: null, selectedBackground: null, isGoogleLinked: false } });
   } catch (error: any) {
     if (error.code === "23505") { // Unique constraint violation
       return res.status(409).json({ message: "Username already exists." });
@@ -106,19 +139,13 @@ app.post("/api/login", async (req, res) => {
   try {
     const userRow = await db.get<{
         id: number;
-        username: string;
-        password_hash: string;
-        is_admin: boolean;
-        selected_title: string | null;
-        selected_border: string | null;
-        selected_icon: string | null;
-        selected_background: string | null;
+        password_hash: string | null;
     }>(
-      "SELECT id, username, password_hash, is_admin, selected_title, selected_border, selected_icon, selected_background FROM users WHERE username = $1",
+      "SELECT id, password_hash FROM users WHERE username = $1",
       [username]
     );
-    if (!userRow) {
-      return res.status(401).json({ message: "Invalid credentials." });
+    if (!userRow || !userRow.password_hash) {
+      return res.status(401).json({ message: "Invalid credentials or account uses Google Sign-In." });
     }
     const match = await bcrypt.compare(
       password,
@@ -127,15 +154,12 @@ app.post("/api/login", async (req, res) => {
     if (!match) {
       return res.status(401).json({ message: "Invalid credentials." });
     }
-    const user: User = { 
-        id: userRow.id, 
-        username: userRow.username,
-        is_admin: userRow.is_admin,
-        selectedTitle: userRow.selected_title,
-        selectedBorder: userRow.selected_border || '',
-        selectedIcon: userRow.selected_icon,
-        selectedBackground: userRow.selected_background,
-    };
+
+    const user = await getFullUser(userRow.id);
+    if (!user) {
+         return res.status(404).json({ message: "User not found after login." });
+    }
+
     const token = generateToken({ id: user.id, username: user.username, is_admin: user.is_admin });
     res.json({ token, user });
   } catch (error) {
@@ -143,37 +167,118 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
+app.post('/api/auth/google', async (req, res) => {
+    const { credential } = req.body;
+    try {
+        const ticket = await googleClient.verifyIdToken({
+            idToken: credential,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        if (!payload || !payload.sub || !payload.email) {
+            return res.status(400).json({ message: 'Invalid Google token.' });
+        }
+
+        const { sub: google_id, email, name } = payload;
+        
+        let isNewUser = false;
+
+        // 1. Find user by Google ID
+        let userRecord = await db.get<{ id: number }>("SELECT id FROM users WHERE google_id = $1", [google_id]);
+
+        // 2. If not found, find by email to link account
+        if (!userRecord) {
+            const userByEmail = await db.get<{ id: number, google_id: string | null }>("SELECT id, google_id FROM users WHERE email = $1", [email]);
+            if (userByEmail) {
+                // If user exists but google_id is null, link it
+                if (!userByEmail.google_id) {
+                     await db.run("UPDATE users SET google_id = $1 WHERE id = $2", [google_id, userByEmail.id]);
+                }
+                userRecord = userByEmail;
+            }
+        }
+
+        // 3. If still not found, create a new user
+        if (!userRecord) {
+            isNewUser = true;
+            const username = name?.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10) || `user${Date.now()}`;
+            // Ensure username is unique
+            let finalUsername = username.substring(0, 10);
+            let userExists = await db.get("SELECT id FROM users WHERE username = $1", [finalUsername]);
+            let attempts = 0;
+            while (userExists && attempts < 10) {
+                 finalUsername = `${username.substring(0, 8)}${Math.floor(Math.random() * 100)}`;
+                 userExists = await db.get("SELECT id FROM users WHERE username = $1", [finalUsername]);
+                 attempts++;
+            }
+            if (userExists) { // Extremely unlikely case
+                finalUsername = `user${Date.now()}`;
+            }
+
+            const result = await db.run(
+                "INSERT INTO users (username, email, google_id) VALUES ($1, $2, $3) RETURNING id",
+                [finalUsername, email, google_id]
+            );
+            userRecord = { id: result.rows[0].id };
+        }
+        
+        const user = await getFullUser(userRecord.id);
+        if (!user) {
+             return res.status(404).json({ message: "User not found after Google auth." });
+        }
+
+        const token = generateToken({ id: user.id, username: user.username, is_admin: user.is_admin });
+        res.json({ token, user, isNewUser });
+
+    } catch (error) {
+        console.error("Google Auth Error:", error);
+        res.status(500).json({ message: "Server error during Google authentication." });
+    }
+});
+
+
+app.post('/api/user/link-google', authMiddleware, async (req, res) => {
+    const userId = (req as any).user.id;
+    const { credential } = req.body;
+    try {
+        const ticket = await googleClient.verifyIdToken({
+            idToken: credential,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+
+        if (!payload || !payload.sub || !payload.email) {
+            return res.status(400).json({ message: 'Invalid Google token.' });
+        }
+
+        const { sub: google_id, email } = payload;
+        
+        // Check if this Google account is already linked to another user
+        const existingLink = await db.get("SELECT id FROM users WHERE google_id = $1 AND id != $2", [google_id, userId]);
+        if (existingLink) {
+            return res.status(409).json({ message: "This Google account is already linked to another user." });
+        }
+        
+        // Update the current user
+        await db.run("UPDATE users SET google_id = $1, email = COALESCE(email, $2) WHERE id = $3", [google_id, email, userId]);
+        
+        res.json({ success: true, message: "Account linked successfully." });
+
+    } catch (error) {
+        console.error("Google Link Error:", error);
+        res.status(500).json({ message: "Server error while linking Google account." });
+    }
+});
+
+
 app.get("/api/verify-token", authMiddleware, async (req, res) => {
     const userId = (req as any).user.id;
     try {
-        const userRow = await db.get<{
-            id: number;
-            username: string;
-            is_admin: boolean;
-            selected_title: string | null;
-            selected_border: string | null;
-            selected_icon: string | null;
-            selected_background: string | null;
-        }>(
-            "SELECT id, username, is_admin, selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1",
-            [userId]
-        );
-
-        if (!userRow) {
+        const user = await getFullUser(userId);
+        if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
-
-        const user: User = { 
-            id: userRow.id, 
-            username: userRow.username,
-            is_admin: userRow.is_admin,
-            selectedTitle: userRow.selected_title,
-            selectedBorder: userRow.selected_border || '',
-            selectedIcon: userRow.selected_icon,
-            selectedBackground: userRow.selected_background,
-        };
         res.json({ user });
-
     } catch (error) {
         res.status(500).json({ message: "Server error during token verification." });
     }
@@ -386,20 +491,10 @@ app.post("/api/user/username", authMiddleware, async (req, res) => {
         
         gameService.updatePlayerUsername(userId, username);
         
-        const userRow = await db.get<{ is_admin: boolean; selected_title: string | null; selected_border: string | null; selected_icon: string | null; selected_background: string | null; }>(
-             "SELECT is_admin, selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1",
-             [userId]
-        );
-
-        const fullUserObject: User = {
-            id: userId,
-            username,
-            is_admin: userRow?.is_admin,
-            selectedTitle: userRow?.selected_title,
-            selectedBorder: userRow?.selected_border || '',
-            selectedIcon: userRow?.selected_icon,
-            selectedBackground: userRow?.selected_background
-        };
+        const fullUserObject = await getFullUser(userId);
+        if (!fullUserObject) {
+            return res.status(404).json({ message: "Failed to retrieve updated user profile." });
+        }
         
         const token = generateToken({ id: fullUserObject.id, username: fullUserObject.username, is_admin: fullUserObject.is_admin });
 
@@ -410,6 +505,35 @@ app.post("/api/user/username", authMiddleware, async (req, res) => {
         res.status(500).json({ message: "Server error during username update." });
     }
 });
+
+app.get("/api/user/check-username", authMiddleware, async (req, res) => {
+    const { username } = req.query;
+    const currentUserId = (req as any).user.id;
+    
+    if (!username || typeof username !== 'string') {
+        return res.status(400).json({ available: false, message: "Username query parameter is required." });
+    }
+
+    if (username.length < 3 || username.length > 10) {
+        return res.status(400).json({ available: false, message: "Username must be between 3 and 10 characters." });
+    }
+
+    try {
+        const existingUser = await db.get<{id: number}>("SELECT id FROM users WHERE username = $1", [username]);
+        if (existingUser) {
+            if (existingUser.id === currentUserId) {
+                return res.json({ available: true, message: "This is your current username." });
+            }
+            return res.json({ available: false, message: "Username is already taken." });
+        } else {
+            return res.json({ available: true, message: "Username is available!" });
+        }
+    } catch (error) {
+        console.error("Username check error:", error);
+        res.status(500).json({ available: false, message: "Server error while checking username." });
+    }
+});
+
 
 // --- SOCIAL ROUTES ---
 const socialRouter = express.Router();
@@ -1074,8 +1198,8 @@ class SocialService {
 
     async notifyFriendAccepted(acceptedByUserId: number, requesterId: number) {
         const [acceptedByUser, requester] = await Promise.all([
-            db.get<User>('SELECT id, username, selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1', [acceptedByUserId]),
-            db.get<User>('SELECT id, username, selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1', [requesterId])
+            getFullUser(acceptedByUserId),
+            getFullUser(requesterId)
         ]);
 
         const createPayload = (friendUser: User): Friend => {
@@ -2920,4 +3044,4 @@ const cleanupStaleFriendRequests = async () => {
 setInterval(cleanupStaleFriendRequests, 60 * 60 * 1000);
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

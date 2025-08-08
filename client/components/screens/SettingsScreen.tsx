@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { useAudio } from "@/components/context/AudioContext";
@@ -5,6 +7,8 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import AchievementsTab from "../ui/AchievementsTab";
 import Spinner from "../ui/Spinner";
+import { toast } from "sonner";
+import { GoogleLogin } from '@react-oauth/google';
 
 const RESTART_COOLDOWN_MS = 120000; // 2 minutes
 
@@ -18,7 +22,7 @@ const Toggle: React.FC<{ label: string; enabled: boolean; onToggle: () => void }
 );
 
 const SettingsScreen: React.FC = () => {
-  const { settings, updateSettings, logout, gameState, playerId, initiateRestart, kickPlayer, user, updateUsername } = useGame();
+  const { settings, updateSettings, logout, gameState, playerId, initiateRestart, kickPlayer, user, updateUsername, linkGoogleAccount } = useGame();
   const { isBgmMuted, toggleBgm } = useAudio();
   const [cooldownTime, setCooldownTime] = useState(0);
   
@@ -72,7 +76,7 @@ const SettingsScreen: React.FC = () => {
   return (
     <div className="animate-fadeIn max-w-2xl mx-auto space-y-6 pb-16 md:pb-0">
       <Card>
-        <h2 className="font-eagleLake text-3xl mb-6 text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Settings</h2>
+        <h2 className="font-eagleLake text-3xl mb-6 text-center text-yellow-500">Settings</h2>
         <div className="space-y-3">
             <Toggle label="Skip Intro Story" enabled={settings.skipIntro} onToggle={handleToggleSkipIntro} />
             <Toggle label="Mute Background Music" enabled={isBgmMuted} onToggle={toggleBgm} />
@@ -107,6 +111,24 @@ const SettingsScreen: React.FC = () => {
                 </>
             )}
         </div>
+
+        {user && !user.isGoogleLinked && (
+            <div className="mt-6 border-t-2 border-slate-700 pt-4">
+                <h3 className="font-eagleLake text-xl mb-4 text-center text-yellow-500">Link Account</h3>
+                <p className="text-center text-slate-400 text-sm mb-4">Connect your Google account for a faster login experience.</p>
+                <div className="flex justify-center">
+                    <GoogleLogin
+                        onSuccess={(credentialResponse) => {
+                            if (credentialResponse.credential) {
+                                linkGoogleAccount(credentialResponse.credential);
+                            }
+                        }}
+                        onError={() => toast.error("Failed to link Google Account.")}
+                        text="continue_with"
+                    />
+                </div>
+            </div>
+        )}
         
         {isHost && isGameInProgress && (
             <div className="mt-6 border-t-2 border-slate-700 pt-4 space-y-4">
