@@ -31,7 +31,6 @@ import AdminPage from "@/app/admin/page";
 import { useInteraction } from "@/components/context/ClientProviders";
 import DragonsBreathScreen from "@/components/screens/DragonsBreathScreen";
 import SocialHub from "@/components/ui/SocialHub";
-import TutorialOverlay from "@/components/ui/TutorialOverlay";
 
 type Tab =
   | "game"
@@ -287,7 +286,7 @@ const MainContent: React.FC = () => {
       )}
       {gameState.restartVote && <RestartVoteOverlay />}
 
-     
+      {/* HEADER: Player info + Desktop Nav */}
       <header className="w-full bg-slate-900/70 backdrop-blur-md border-b border-slate-700 z-30 flex-shrink-0">
         {showPlayerInfo && (
           <PlayerInfoBar onNavigateToProfile={handleNavigateToProfile} />
@@ -419,7 +418,7 @@ const MainContent: React.FC = () => {
 export default function GamePage() {
   const params = useParams();
   const router = useRouter();
-  const { gameState, isAuthenticated, isLoading, isTutorialActive } = useGame();
+  const { gameState, isAuthenticated, isLoading } = useGame();
   const roomCodeFromUrl = params.roomCode as string;
 
   useEffect(() => {
@@ -429,28 +428,18 @@ export default function GamePage() {
       router.replace(`/join/${roomCodeFromUrl}`);
       return;
     }
-
-    // If in a real game, but URL is for tutorial, go to real game
-    if (gameState.roomCode && gameState.roomCode !== 'TUTORIAL' && roomCodeFromUrl === 'TUTORIAL') {
-        router.replace(`/game/${gameState.roomCode}`);
-        return;
+    
+    if (!gameState.roomCode) {
+      router.replace('/');
+      return;
     }
-
-    // If not in a game or tutorial, but on a game page, go home
-    if (!gameState.roomCode && !isTutorialActive) {
-        router.replace('/');
-        return;
+    
+    if (gameState.roomCode !== roomCodeFromUrl) {
+      router.replace(`/game/${gameState.roomCode}`);
     }
+  }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router]);
 
-    // This handles cases where the game has ended, the user was kicked,
-    // or they manually entered a URL for a game they aren't in.
-    if (!isTutorialActive && gameState.roomCode !== roomCodeFromUrl) {
-      router.replace("/");
-    }
-  }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router, isTutorialActive]);
-
-  // Render a loading state while checks are performed
-  if (isLoading || !isAuthenticated || (!isTutorialActive && gameState.roomCode !== roomCodeFromUrl)) {
+  if (isLoading || !isAuthenticated || gameState.roomCode !== roomCodeFromUrl) {
     return (
       <div className="flex items-center justify-center h-screen w-screen">
         <Spinner size="lg" />
@@ -458,11 +447,5 @@ export default function GamePage() {
     );
   }
 
-  // If all checks pass, render the main game content.
-  return (
-    <>
-      <MainContent />
-      {isTutorialActive && <TutorialOverlay />}
-    </>
-  );
+  return <MainContent />;
 }

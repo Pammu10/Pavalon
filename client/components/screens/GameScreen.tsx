@@ -146,7 +146,7 @@ const TeamSelection: React.FC = () => {
       </div>
 
       {isLeader && (
-        <div className="text-center mt-6">
+        <div id="propose-team-button" className="text-center mt-6">
           <Button
             onClick={() => selectTeam(pendingTeam)}
             disabled={!canSubmit || isPaused}
@@ -185,7 +185,7 @@ const TeamVote: React.FC = () => {
         />
       </div>
 
-      {player && !player.hasVoted ? (
+      {player ? (
         <div id="team-vote-buttons" className="flex justify-center mt-6">
           <SwipeableCard
             title="Vote on Team"
@@ -276,7 +276,7 @@ const QuestVote: React.FC = () => {
 
       {isOnTeam ? (
         <>
-          {player && !player.hasVoted ? (
+          {player ? (
             <div id="quest-vote-buttons" className="flex justify-center mt-6">
               <SwipeableCard
                 title="Vote on Quest"
@@ -405,7 +405,7 @@ const Assassination: React.FC = () => {
         ))}
       </div>
        {isAssassin && (
-            <div className="text-center mt-6">
+            <div id="confirm-assassination-button" className="flex justify-center mt-6">
                 <Button 
                     onClick={handleConfirmClick}
                     disabled={isPaused || !selectedTargetId || isAssassinating}

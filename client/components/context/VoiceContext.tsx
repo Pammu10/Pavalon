@@ -300,9 +300,6 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         } catch (error) {
             console.error("Error accessing microphone:", error);
             setPermissionState('denied');
-            toast.error("Microphone access denied", {
-                description: "Voice chat will be disabled. Please grant microphone permissions in your browser settings and rejoin.",
-            });
         }
     }, [isMuted]);
 
@@ -333,7 +330,6 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         peerConnectionsRef.current = {};
         setPeerStreams({});
         setPeerStates({});
-        setPermissionState('prompt');
         setIsSelfSpeaking(false);
         queuedOffersRef.current = [];
     }, [closePeerConnection, processedStream]);
@@ -368,12 +364,30 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     
     // This effect now correctly handles starting/stopping voice based on room, permission, and the master toggle
     useEffect(() => {
-        if (gameState.roomCode && permissionState !== 'denied' && isVoiceEnabled) {
-            startVoiceChat();
+        if (gameState.roomCode && isVoiceEnabled) {
+             if (permissionState !== 'denied') {
+                startVoiceChat();
+            }
         } else {
             stopVoiceChat();
         }
     }, [gameState.roomCode, startVoiceChat, stopVoiceChat, permissionState, isVoiceEnabled]);
+
+    // This effect shows the permission denied toast only once when the state changes to denied.
+    useEffect(() => {
+        if (permissionState === 'denied') {
+            toast.error("Microphone access denied", {
+                description: "Voice chat will be disabled. Please grant microphone permissions in your browser settings and rejoin.",
+            });
+        }
+    }, [permissionState]);
+
+    // This effect resets the permission state when the user leaves a room, allowing them to be prompted again.
+    useEffect(() => {
+        if (!gameState.roomCode) {
+            setPermissionState('prompt');
+        }
+    }, [gameState.roomCode]);
 
     // NEW Effect to process queued offers once the stream is ready.
     useEffect(() => {
@@ -521,7 +535,14 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setMicMonitoring(prev => !prev);
     }, []);
 
-    const toggleVoiceChat = useCallback(() => setIsVoiceEnabled(prev => !prev), []);
+    const toggleVoiceChat = useCallback(() => {
+        setIsVoiceEnabled(prev => {
+            if (prev) { // if turning off
+                setPermissionState('prompt');
+            }
+            return !prev;
+        });
+    }, []);
 
     const setPeerVolume = useCallback((socketId: string, volume: number) => {
         setPeerStates(prev => ({

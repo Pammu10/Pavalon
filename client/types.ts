@@ -309,17 +309,6 @@ export interface GameInvite {
     roomCode: string;
 }
 
-// --- Tutorial Types ---
-export interface TutorialStep {
-  elementId: string;
-  title: string;
-  content: string;
-  phase: GamePhase;
-  mockStateChange?: (state: GameState) => GameState;
-  position?: 'top' | 'bottom' | 'left' | 'right' | 'center';
-}
-
-
 // Socket Event Types
 export interface ClientToServerEvents {
   joinRoom: (data: { roomCode?: string }) => void;

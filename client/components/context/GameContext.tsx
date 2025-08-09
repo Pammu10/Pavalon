@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import { useAudio } from './AudioContext';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getInitialTutorialState, tutorialSteps } from '@/tutorial/tutorialConfig';
 
 interface Settings {
     skipIntro: boolean;
@@ -87,15 +86,6 @@ interface GameContextType {
     inviteFriendToGame: (friendId: number) => void;
     acceptInvite: (roomCode: string) => void;
     declineInvite: (roomCode: string) => void;
-    // Tutorial
-    isTutorialActive: boolean;
-    tutorialStep: number;
-    isTutorialPromptOpen: boolean;
-    startTutorial: () => void;
-    endTutorial: () => void;
-    nextTutorialStep: () => void;
-    prevTutorialStep: () => void;
-    closeTutorialPrompt: () => void;
 }
 
 const initialGameState: GameState = {
@@ -145,7 +135,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Username Modal State
     const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
     const [suggestedUsername, setSuggestedUsername] = useState('');
-    const [isNewUserFlowActive, setIsNewUserFlowActive] = useState(false); // New state to track the flow
 
     // Social State
     const [pendingInvites, setPendingInvites] = useState<GameInvite[]>([]);
@@ -155,14 +144,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Preview State
     const [previewBackground, setPreviewBackground] = useState<string | null>(null);
-    
-    // Tutorial State
-    const [isTutorialActive, setIsTutorialActive] = useState(false);
-    const [tutorialStep, setTutorialStep] = useState(0);
-    const [isTutorialPromptOpen, setIsTutorialPromptOpen] = useState(false);
-    const originalGameStateRef = useRef<GameState | null>(null);
-
-
     const { playSound } = useAudio();
 
     // Auth state
@@ -209,14 +190,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     const closeUsernameModal = () => {
         setIsUsernameModalOpen(false);
-        // If this was part of the new user flow, trigger the tutorial prompt.
-        if (isNewUserFlowActive) {
-            const hasSeenPrompt = localStorage.getItem('hasSeenTutorialPrompt') === 'true';
-            if (!hasSeenPrompt) {
-                setIsTutorialPromptOpen(true);
-            }
-            setIsNewUserFlowActive(false); // Reset the flag
-        }
     };
 
 
@@ -353,18 +326,16 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Effect to manage socket connection based on auth state
     useEffect(() => {
-        if (token && isAuthenticated && !isTutorialActive) {
+        if (token && isAuthenticated) {
             socketService.connect(token);
-        } else if (!isTutorialActive) {
+        } else {
             socketService.disconnect();
         }
         
         return () => {
-             if (!isTutorialActive) {
-                socketService.disconnect();
-            }
+            socketService.disconnect();
         }
-    }, [token, isAuthenticated, isTutorialActive]);
+    }, [token, isAuthenticated]);
 
     // Effect for socket connection status
     useEffect(() => {
@@ -392,7 +363,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // --- Socket Event Handlers (wrapped in useCallback) ---
     const handleUpdate = useCallback((newState: GameState) => {
-        if (isTutorialActive) return; // Ignore server updates during tutorial
         setGameState(prevState => {
             if (newState.phase === GamePhase.LOBBY && prevState.phase === GamePhase.HOME) {
                 setJustJoined(true);
@@ -416,12 +386,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return newState;
         });
         setMessages(newState.chat || []);
-    }, [isTutorialActive]);
+    }, []);
 
     const handleChatMessage = useCallback((message: Message) => {
-        if (isTutorialActive) return;
         setMessages(prev => [...prev, message]);
-    }, [isTutorialActive]);
+    }, []);
 
     const handleError = useCallback((message: string) => {
         autoClearError(setError, message);
@@ -645,7 +614,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setIsAuthenticated(true);
 
             if (isNewUser) {
-                setIsNewUserFlowActive(true); // Set flag for the new user flow
                 openUsernameModal(new_user.username);
             }
         } catch (err: any) {
@@ -689,70 +657,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             throw new Error(message);
         }
     };
-
-    // --- Tutorial Logic ---
-    const startTutorial = useCallback(() => {
-        if (gameState.roomCode && gameState.roomCode !== 'TUTORIAL') {
-            toast.error("Cannot start tutorial while in a game.");
-            return;
-        }
-        if (!isTutorialActive) {
-            originalGameStateRef.current = { ...gameState, roomCode: null };
-            socketService.disconnect();
-        }
-        
-        setPlayerId('player-1'); // Mock player ID for tutorial context
-        setGameState(getInitialTutorialState());
-        setTutorialStep(0);
-        setIsTutorialActive(true);
-        localStorage.setItem('hasSeenTutorialPrompt', 'true');
-    }, [gameState, isTutorialActive]);
-
-    const endTutorial = useCallback(() => {
-        setIsTutorialActive(false);
-        setTutorialStep(0);
-        setPlayerId(null); // Clear mocked player ID
-        if (originalGameStateRef.current) {
-            setGameState(originalGameStateRef.current);
-        } else {
-            setGameState(initialGameState);
-        }
-        originalGameStateRef.current = null;
-    }, []);
-
-    const nextTutorialStep = useCallback(() => {
-        setTutorialStep(prev => (prev < tutorialSteps.length - 1 ? prev + 1 : prev));
-    }, []);
-
-    const prevTutorialStep = useCallback(() => {
-        setTutorialStep(prev => (prev > 0 ? prev - 1 : prev));
-    }, []);
-
-    useEffect(() => {
-        if (isTutorialActive) {
-            const stepConfig = tutorialSteps[tutorialStep];
-            if (stepConfig.mockStateChange) {
-                setGameState(prevState => stepConfig.mockStateChange!(prevState));
-            } else if (stepConfig.phase !== gameState.phase) {
-                setGameState(prevState => ({...prevState, phase: stepConfig.phase}));
-            }
-        }
-    }, [isTutorialActive, tutorialStep, gameState.phase]);
-
-    useEffect(() => {
-        if (isAuthenticated && !gameState.roomCode && !isTutorialActive && !isUsernameModalOpen) {
-            const hasSeenPrompt = localStorage.getItem('hasSeenTutorialPrompt') === 'true';
-            if (!hasSeenPrompt) {
-                setIsTutorialPromptOpen(true);
-            }
-        }
-    }, [isAuthenticated, gameState.roomCode, isTutorialActive, isUsernameModalOpen]);
-
-    const closeTutorialPrompt = () => {
-        setIsTutorialPromptOpen(false);
-        localStorage.setItem('hasSeenTutorialPrompt', 'true');
-    };
-
 
     const leaveRoom = useCallback(() => {
         socketService.emit('leaveRoom');
@@ -841,25 +745,14 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const kickPlayer = (playerIdToKick: string) => socketService.emit('kickPlayer', playerIdToKick);
-    const sendMessage = (messageText: string) => {
-        if (!isTutorialActive) socketService.emit('sendMessage', messageText);
-    }
+    const sendMessage = (messageText: string) => socketService.emit('sendMessage', messageText);
     const startGame = (data: { selectedRoles: Role[] }) => {
         setHasViewedRole(false);
         socketService.emit('startGame', data);
     }
     const updateSelectedRoles = (roles: Role[]) => socketService.emit('updateSelectedRoles', roles);
     const selectTeam = (teamPlayerIds: string[]) => socketService.emit('selectTeam', teamPlayerIds);
-    const updatePendingTeam = (teamPlayerIds: string[]) => {
-        if (isTutorialActive) {
-            setGameState(prevState => ({
-                ...prevState,
-                pendingTeam: teamPlayerIds,
-            }));
-        } else {
-            socketService.emit('updatePendingTeam', teamPlayerIds);
-        }
-    };
+    const updatePendingTeam = (teamPlayerIds: string[]) => socketService.emit('updatePendingTeam', teamPlayerIds);
     const updateAssassinationTarget = (targetId: string | null) => socketService.emit('updateAssassinationTarget', targetId);
     const voteOnTeam = (vote: 'APPROVE' | 'REJECT') => socketService.emit('voteOnTeam', vote);
     const voteOnQuest = (vote: 'SUCCESS' | 'FAIL') => socketService.emit('voteOnQuest', vote);
@@ -891,8 +784,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         initiateRestart, voteOnRestart, startDragonsBreath, drawCard, playCard, placeDragonCard,
         endFutureView, returnToLobby, addFriend, respondToFriendRequest, removeFriend,
         cancelFriendRequest, inviteFriendToGame, acceptInvite, declineInvite, googleLogin, linkGoogleAccount,
-        isTutorialActive, tutorialStep, isTutorialPromptOpen, startTutorial, endTutorial,
-        nextTutorialStep, prevTutorialStep, closeTutorialPrompt
     };
 
     return (

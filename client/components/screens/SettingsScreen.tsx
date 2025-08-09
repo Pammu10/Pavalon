@@ -7,7 +7,6 @@ import AchievementsTab from "../ui/AchievementsTab";
 import Spinner from "../ui/Spinner";
 import { toast } from "sonner";
 import { useGoogleLogin } from '@react-oauth/google';
-import { BookOpen } from "lucide-react";
 
 const RESTART_COOLDOWN_MS = 120000; // 2 minutes
 
@@ -30,7 +29,7 @@ const GoogleIcon = () => (
 );
 
 const SettingsScreen: React.FC = () => {
-  const { settings, updateSettings, logout, gameState, playerId, initiateRestart, kickPlayer, user, updateUsername, linkGoogleAccount, startTutorial } = useGame();
+  const { settings, updateSettings, logout, gameState, playerId, initiateRestart, kickPlayer, user, updateUsername, linkGoogleAccount } = useGame();
   const { isBgmMuted, toggleBgm } = useAudio();
   const [cooldownTime, setCooldownTime] = useState(0);
   
@@ -129,9 +128,6 @@ const SettingsScreen: React.FC = () => {
         <div className="space-y-3">
             <Toggle label="Skip Story Intro" enabled={settings.skipIntro} onToggle={handleToggleSkipIntro} />
             <Toggle label="Mute Background Music" enabled={isBgmMuted} onToggle={toggleBgm} />
-            <Button onClick={startTutorial} variant="secondary" className="w-full flex items-center justify-center gap-2">
-                <BookOpen size={20} /> Interactive Tutorial
-            </Button>
         </div>
 
         <div className="mt-6 border-t-2 border-slate-700 pt-4">
