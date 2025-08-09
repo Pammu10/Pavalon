@@ -108,7 +108,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
             {isLogin ? "Login" : "Register"}
           </h2>
           
-           <div className="flex justify-center">
+           <div className="flex flex-col gap-3">
                 <Button
                     variant="secondary"
                     onClick={() => handleGoogleLogin()}
@@ -118,6 +118,9 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
                     <GoogleIcon />
                     {isLogin ? 'Sign in with Google' : 'Sign up with Google'}
                 </Button>
+                <p className="text-xs text-slate-400 text-center px-4">
+                    Already have an account? Log in normally, then link Google in settings for easy sign-in.
+                </p>
            </div>
 
            <div className="flex items-center text-slate-500">
