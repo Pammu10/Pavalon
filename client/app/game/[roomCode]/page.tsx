@@ -31,6 +31,7 @@ import AdminPage from "@/app/admin/page";
 import { useInteraction } from "@/components/context/ClientProviders";
 import DragonsBreathScreen from "@/components/screens/DragonsBreathScreen";
 import SocialHub from "@/components/ui/SocialHub";
+import TutorialOverlay from "@/components/ui/TutorialOverlay";
 
 type Tab =
   | "game"
@@ -119,7 +120,7 @@ const ReconnectionBanner: React.FC<{
 };
 
 const MainContent: React.FC = () => {
-  const { gameState, messages, user, friendRequests, isSocialHubOpen, openSocialHub, closeSocialHub } = useGame();
+  const { gameState, messages, user, friendRequests, isSocialHubOpen, openSocialHub, closeSocialHub, setPreviewBackground } = useGame();
   const { playLobbyMusic, playInGameMusic, stopBackgroundMusic } = useAudio();
   const { hasInteracted } = useInteraction();
   const [activeTab, setActiveTab] = useState<Tab>("game");
@@ -135,11 +136,17 @@ const MainContent: React.FC = () => {
 
   useEffect(() => {
     if (gameState.phase !== prevPhase.current || activeTab !== prevTab.current) {
-      mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+        mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     }
+
+    const isCustomizationTab = (tab?: Tab) => tab === 'settings' || tab === 'achievements';
+    if (isCustomizationTab(prevTab.current) && !isCustomizationTab(activeTab)) {
+        setPreviewBackground(null);
+    }
+    
     prevPhase.current = gameState.phase;
     prevTab.current = activeTab;
-  }, [gameState.phase, activeTab]);
+  }, [gameState.phase, activeTab, setPreviewBackground]);
 
   const TABS_CONFIG = useMemo(() => {
     let config = [...BASE_TABS_CONFIG];
@@ -285,6 +292,28 @@ const MainContent: React.FC = () => {
         {showPlayerInfo && (
           <PlayerInfoBar onNavigateToProfile={handleNavigateToProfile} />
         )}
+
+        <TabsList className="hidden md:flex bg-transparent p-0 rounded-none h-auto">
+          {desktopTabs.map(({ id, label }) => (
+            <TabsTrigger
+              key={id}
+              value={id}
+              className="relative flex-1 py-6 font-eagleLake text-lg capitalize transition-colors duration-200 rounded-none 
+                        text-slate-400 data-[state=active]:text-yellow-500 
+                        data-[state=active]:border-b-2 data-[state=active]:border-yellow-500
+                        hover:text-white focus-visible:ring-0 focus-visible:ring-offset-0 
+                        data-[state=active]:shadow-none data-[state=active]:bg-transparent p-0"
+            >
+              {label}
+              {id === "chat" && unreadMessages > 0 && (
+                <span className="absolute top-2 right-4 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-800"></span>
+              )}
+               {id === "social" && friendRequests.length > 0 && (
+                <span className="absolute top-2 right-4 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-800"></span>
+              )}
+            </TabsTrigger>
+          ))}
+        </TabsList>
       </header>
 
       <main
@@ -390,7 +419,7 @@ const MainContent: React.FC = () => {
 export default function GamePage() {
   const params = useParams();
   const router = useRouter();
-  const { gameState, isAuthenticated, isLoading } = useGame();
+  const { gameState, isAuthenticated, isLoading, isTutorialActive } = useGame();
   const roomCodeFromUrl = params.roomCode as string;
 
   useEffect(() => {
@@ -401,14 +430,27 @@ export default function GamePage() {
       return;
     }
 
-    
-    if (gameState.roomCode !== roomCodeFromUrl) {
+    // If in a real game, but URL is for tutorial, go to real game
+    if (gameState.roomCode && gameState.roomCode !== 'TUTORIAL' && roomCodeFromUrl === 'TUTORIAL') {
+        router.replace(`/game/${gameState.roomCode}`);
+        return;
+    }
+
+    // If not in a game or tutorial, but on a game page, go home
+    if (!gameState.roomCode && !isTutorialActive) {
+        router.replace('/');
+        return;
+    }
+
+    // This handles cases where the game has ended, the user was kicked,
+    // or they manually entered a URL for a game they aren't in.
+    if (!isTutorialActive && gameState.roomCode !== roomCodeFromUrl) {
       router.replace("/");
     }
-  }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router]);
+  }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router, isTutorialActive]);
 
-
-  if (isLoading || !isAuthenticated || gameState.roomCode !== roomCodeFromUrl) {
+  // Render a loading state while checks are performed
+  if (isLoading || !isAuthenticated || (!isTutorialActive && gameState.roomCode !== roomCodeFromUrl)) {
     return (
       <div className="flex items-center justify-center h-screen w-screen">
         <Spinner size="lg" />
@@ -416,6 +458,11 @@ export default function GamePage() {
     );
   }
 
-  
-  return <MainContent />;
+  // If all checks pass, render the main game content.
+  return (
+    <>
+      <MainContent />
+      {isTutorialActive && <TutorialOverlay />}
+    </>
+  );
 }

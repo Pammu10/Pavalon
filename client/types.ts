@@ -199,6 +199,7 @@ export interface User {
   selectedIcon?: string | null;
   selectedBackground?: string | null;
   isGoogleLinked?: boolean;
+  usernameLastChangedAt?: string;
 }
 export type RegisterCredentials = {
   username: string;
@@ -306,6 +307,16 @@ export interface FriendSuggestion {
 export interface GameInvite {
     from: User;
     roomCode: string;
+}
+
+// --- Tutorial Types ---
+export interface TutorialStep {
+  elementId: string;
+  title: string;
+  content: string;
+  phase: GamePhase;
+  mockStateChange?: (state: GameState) => GameState;
+  position?: 'top' | 'bottom' | 'left' | 'right' | 'center';
 }
 
 

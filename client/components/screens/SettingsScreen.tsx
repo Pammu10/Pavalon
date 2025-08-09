@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { useAudio } from "@/components/context/AudioContext";
@@ -8,6 +7,7 @@ import AchievementsTab from "../ui/AchievementsTab";
 import Spinner from "../ui/Spinner";
 import { toast } from "sonner";
 import { useGoogleLogin } from '@react-oauth/google';
+import { BookOpen } from "lucide-react";
 
 const RESTART_COOLDOWN_MS = 120000; // 2 minutes
 
@@ -30,12 +30,14 @@ const GoogleIcon = () => (
 );
 
 const SettingsScreen: React.FC = () => {
-  const { settings, updateSettings, logout, gameState, playerId, initiateRestart, kickPlayer, user, updateUsername, linkGoogleAccount } = useGame();
+  const { settings, updateSettings, logout, gameState, playerId, initiateRestart, kickPlayer, user, updateUsername, linkGoogleAccount, startTutorial } = useGame();
   const { isBgmMuted, toggleBgm } = useAudio();
   const [cooldownTime, setCooldownTime] = useState(0);
   
   const [newUsername, setNewUsername] = useState(user?.username || '');
   const [isSavingName, setIsSavingName] = useState(false);
+  const [usernameCooldown, setUsernameCooldown] = useState('');
+
 
   const isHost = gameState.players.find(p => p.id === playerId)?.isHost ?? false;
   const isGameInProgress = gameState.phase !== "LOBBY" && gameState.phase !== "HOME" && gameState.phase !== "END_GAME";
@@ -69,6 +71,36 @@ const SettingsScreen: React.FC = () => {
     return () => clearInterval(interval);
   }, [gameState.lastRestartInitiatedAt]);
 
+  useEffect(() => {
+    if (user?.usernameLastChangedAt) {
+        const lastChanged = new Date(user.usernameLastChangedAt).getTime();
+        const sevenDays = 7 * 24 * 60 * 60 * 1000;
+        const cooldownEnds = lastChanged + sevenDays;
+
+        const interval = setInterval(() => {
+            const timeLeft = cooldownEnds - Date.now();
+            if (timeLeft <= 0) {
+                setUsernameCooldown('');
+                clearInterval(interval);
+            } else {
+                const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                
+                let msg = 'You can change your username again in ';
+                if (days > 0) msg += `${days}d `;
+                if (hours > 0 || days > 0) msg += `${hours}h `;
+                msg += `${minutes}m.`;
+                setUsernameCooldown(msg);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    } else {
+        setUsernameCooldown('');
+    }
+}, [user?.usernameLastChangedAt]);
+
   const onCooldown = cooldownTime > 0;
 
   const handleSaveName = async () => {
@@ -95,8 +127,11 @@ const SettingsScreen: React.FC = () => {
       <Card>
         <h2 className="font-eagleLake text-3xl mb-6 text-center text-yellow-500">Settings</h2>
         <div className="space-y-3">
-            <Toggle label="Skip Intro Story" enabled={settings.skipIntro} onToggle={handleToggleSkipIntro} />
+            <Toggle label="Skip Story Intro" enabled={settings.skipIntro} onToggle={handleToggleSkipIntro} />
             <Toggle label="Mute Background Music" enabled={isBgmMuted} onToggle={toggleBgm} />
+            <Button onClick={startTutorial} variant="secondary" className="w-full flex items-center justify-center gap-2">
+                <BookOpen size={20} /> Interactive Tutorial
+            </Button>
         </div>
 
         <div className="mt-6 border-t-2 border-slate-700 pt-4">
@@ -108,12 +143,12 @@ const SettingsScreen: React.FC = () => {
                     onChange={(e) => setNewUsername(e.target.value)}
                     placeholder="New Username"
                     className="flex-grow bg-slate-800 border-2 border-slate-700 rounded-lg p-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:border-yellow-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isGameInProgress || isSavingName}
+                    disabled={isGameInProgress || isSavingName || !!usernameCooldown}
                     maxLength={10}
                 />
                 <Button 
                     onClick={handleSaveName} 
-                    disabled={isGameInProgress || isSavingName || !newUsername.trim() || newUsername.trim() === user?.username || newUsername.trim().length < 3 || newUsername.trim().length > 10}
+                    disabled={isGameInProgress || isSavingName || !!usernameCooldown || !newUsername.trim() || newUsername.trim() === user?.username || newUsername.trim().length < 3 || newUsername.trim().length > 10}
                     className="w-full sm:w-auto"
                 >
                     {isSavingName ? <Spinner size="sm" /> : 'Save'}
@@ -121,6 +156,8 @@ const SettingsScreen: React.FC = () => {
             </div>
              {isGameInProgress ? (
                 <p className="text-amber-500 text-xs mt-2 text-center">Cannot change username while a game is in progress.</p>
+            ) : usernameCooldown ? (
+                <p className="text-amber-500 text-xs mt-2 text-center">{usernameCooldown}</p>
             ) : (
                 <>
                   {newUsername.trim().length > 0 && newUsername.trim().length < 3 && <p className="text-red-500 text-xs mt-2 text-center">Username must be at least 3 characters.</p>}

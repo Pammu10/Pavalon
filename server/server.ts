@@ -71,6 +71,42 @@ const RECONNECT_TIMEOUT = 60000; // 60 seconds
 const RESTART_COOLDOWN = 120000; // 2 minutes
 const RESTART_VOTE_DURATION = 30000; // 30 seconds
 
+// --- Gamery Username Generation ---
+const ADJECTIVES = ['Brave', 'Cunning', 'Noble', 'Swift', 'Wise', 'Fierce', 'Silent', 'Ancient', 'Shadow', 'Golden'];
+const NOUNS = ['Knight', 'Ranger', 'Mage', 'Scribe', 'Dragon', 'Wolf', 'Lion', 'Serpent', 'Eagle', 'Thorne'];
+
+async function generateUniqueUsername(base: string): Promise<string> {
+    let attempts = 0;
+    let username = base.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10);
+    
+    // First, try the base username if it's valid
+    let existingUser = await db.get("SELECT id FROM users WHERE username = $1", [username]);
+    if (!existingUser && username.length >= 3) {
+        return username;
+    }
+
+    // If base is taken or too short, generate gamery names
+    while (attempts < 20) {
+        attempts++;
+        const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+        const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+        const num = Math.floor(Math.random() * 900) + 100; // 100-999
+        let potentialUsername = `${adj}${noun}${num}`;
+        if (potentialUsername.length > 10) {
+            potentialUsername = `${adj}${noun}`.substring(0, 7) + num;
+        }
+        
+        existingUser = await db.get("SELECT id FROM users WHERE username = $1", [potentialUsername]);
+        if (!existingUser) {
+            return potentialUsername;
+        }
+    }
+    
+    // Fallback if we can't find a unique name after 20 attempts
+    return `User${Date.now()}`.substring(0, 10);
+}
+
+
 // --- Full User Object Fetch ---
 const getFullUser = async (userId: number): Promise<User | null> => {
     const userRow = await db.get<{
@@ -82,8 +118,9 @@ const getFullUser = async (userId: number): Promise<User | null> => {
         selected_icon: string | null;
         selected_background: string | null;
         google_id: string | null;
+        username_last_changed_at: string | null;
     }>(
-        "SELECT id, username, is_admin, selected_title, selected_border, selected_icon, selected_background, google_id FROM users WHERE id = $1",
+        "SELECT id, username, is_admin, selected_title, selected_border, selected_icon, selected_background, google_id, username_last_changed_at FROM users WHERE id = $1",
         [userId]
     );
 
@@ -98,6 +135,7 @@ const getFullUser = async (userId: number): Promise<User | null> => {
         selectedIcon: userRow.selected_icon,
         selectedBackground: userRow.selected_background,
         isGoogleLinked: !!userRow.google_id,
+        usernameLastChangedAt: userRow.username_last_changed_at,
     };
 };
 
@@ -214,14 +252,12 @@ app.post('/api/auth/google', async (req, res) => {
 
         const { sub: google_id, email, name } = payload;
         
-        // 1. Find user by Google ID
         let userRecord = await db.get<{ id: number }>("SELECT id FROM users WHERE google_id = $1", [google_id]);
-
-        // 2. If not found, find by email to link account
+        let isNewUser = false;
+        
         if (!userRecord) {
             const userByEmail = await db.get<{ id: number, google_id: string | null }>("SELECT id, google_id FROM users WHERE email = $1", [email]);
             if (userByEmail) {
-                // If user exists but google_id is null, link it
                 if (!userByEmail.google_id) {
                      await db.run("UPDATE users SET google_id = $1 WHERE id = $2", [google_id, userByEmail.id]);
                 }
@@ -229,16 +265,12 @@ app.post('/api/auth/google', async (req, res) => {
             }
         }
 
-        // 3. If still not found, create a new user
         if (!userRecord) {
-            const username = name?.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10) || `user${Date.now()}`;
-            // Ensure username is unique
-            const existingUser = await db.get("SELECT id FROM users WHERE username = $1", [username]);
-            const finalUsername = existingUser ? `${username}${Math.floor(Math.random() * 100)}` : username;
-
+            isNewUser = true;
+            const finalUsername = await generateUniqueUsername(name || '');
             const result = await db.run(
                 "INSERT INTO users (username, email, google_id) VALUES ($1, $2, $3) RETURNING id",
-                [finalUsername.substring(0, 10), email, google_id]
+                [finalUsername, email, google_id]
             );
             userRecord = { id: result.rows[0].id };
         }
@@ -249,11 +281,30 @@ app.post('/api/auth/google', async (req, res) => {
         }
 
         const token = generateToken({ id: user.id, username: user.username, is_admin: user.is_admin });
-        res.json({ token, user });
+        res.json({ token, user, isNewUser });
 
     } catch (error) {
         console.error("Google Auth Error:", error);
         res.status(500).json({ message: "Server error during Google authentication." });
+    }
+});
+
+app.get("/api/user/check-username", async (req, res) => {
+    const { username } = req.query;
+
+    if (!username || typeof username !== 'string' || username.length < 3 || username.length > 10) {
+        return res.status(400).json({ available: false, message: "Username must be 3-10 characters." });
+    }
+
+    try {
+        const existingUser = await db.get("SELECT id FROM users WHERE username = $1", [username as string]);
+        if (existingUser) {
+            return res.json({ available: false, message: "Username is already taken." });
+        }
+        return res.json({ available: true });
+    } catch (error) {
+        console.error("Failed to check username:", error);
+        return res.status(500).json({ available: false, message: "Server error during username check." });
     }
 });
 
@@ -498,12 +549,31 @@ app.post("/api/user/username", authMiddleware, async (req, res) => {
     }
 
     try {
+        const userWithCooldown = await db.get<{ username_last_changed_at: string | null }>("SELECT username_last_changed_at FROM users WHERE id = $1", [userId]);
+        if (userWithCooldown?.username_last_changed_at) {
+            const lastChanged = new Date(userWithCooldown.username_last_changed_at).getTime();
+            const sevenDays = 7 * 24 * 60 * 60 * 1000;
+            if (Date.now() - lastChanged < sevenDays) {
+                const timeLeft = sevenDays - (Date.now() - lastChanged);
+                const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                let message = 'You can change your username again in ';
+                if (days > 0) message += `${days} day(s) `;
+                if (hours > 0 && days < 1) message += `${hours} hour(s).`;
+                if (days === 0 && hours === 0) {
+                    const minutes = Math.ceil(timeLeft / (1000 * 60));
+                    message += `${minutes} minute(s).`;
+                }
+                return res.status(429).json({ message });
+            }
+        }
+
         const existingUser = await db.get("SELECT id FROM users WHERE username = $1 AND id != $2", [username, userId]);
         if (existingUser) {
             return res.status(409).json({ message: "Username is already taken." });
         }
 
-        await db.run("UPDATE users SET username = $1 WHERE id = $2", [username, userId]);
+        await db.run("UPDATE users SET username = $1, username_last_changed_at = CURRENT_TIMESTAMP WHERE id = $2", [username, userId]);
         
         gameService.updatePlayerUsername(userId, username);
         

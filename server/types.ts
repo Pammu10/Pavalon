@@ -171,6 +171,7 @@ export interface User {
     selectedIcon?: string | null;
     selectedBackground?: string | null;
     isGoogleLinked?: boolean;
+    usernameLastChangedAt?: string;
 }
 export interface Match {
   id: number;

@@ -93,7 +93,7 @@ const AchievementCardContent: React.FC<{ achievement: Achievement }> = React.mem
 
 
 const AchievementsTab: React.FC = () => {
-    const { user, updateUser } = useGame();
+    const { user, updateUser, setPreviewBackground } = useGame();
     const { playSound } = useAudio();
     
     const { data: achievements = [], isLoading: loading, isError: error } = useQuery({
@@ -177,6 +177,7 @@ const AchievementsTab: React.FC = () => {
         try {
             await api.post('/user/customize', { title: selectedTitle, border: selectedBorder, icon: selectedIcon, background: selectedBackground });
             updateUser({ selectedTitle, selectedBorder, selectedIcon, selectedBackground });
+            setPreviewBackground(selectedBackground); // Ensure preview matches saved state
             toast.success("Profile Updated!");
             playSound('success', { manageBgm: false });
         } catch (err) {
@@ -210,11 +211,11 @@ const AchievementsTab: React.FC = () => {
         const el = themeScrollRef.current;
         if (!el) return;
         
-        const tolerance = 1; // To handle sub-pixel rendering issues
-        const hasOverflow = el.scrollWidth > el.clientWidth + tolerance;
+        const tolerance = 2; // px tolerance for floating point issues
+        const { scrollLeft, scrollWidth, clientWidth } = el;
         
-        setCanScrollLeft(hasOverflow && el.scrollLeft > tolerance);
-        setCanScrollRight(hasOverflow && el.scrollLeft < el.scrollWidth - el.clientWidth - tolerance);
+        setCanScrollLeft(scrollLeft > tolerance);
+        setCanScrollRight(scrollLeft + clientWidth < scrollWidth - tolerance);
     }, []);
 
     useEffect(() => {
@@ -396,6 +397,7 @@ const AchievementsTab: React.FC = () => {
                                                 onClick={() => {
                                                     if (isUnlocked) {
                                                         setSelectedBackground(theme.id);
+                                                        setPreviewBackground(theme.id);
                                                     } else if (achievementToUnlock) {
                                                         handleLockedItemClick({
                                                             type: 'BACKGROUND',

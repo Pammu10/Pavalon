@@ -2,8 +2,9 @@ import React, { memo } from 'react';
 import { Player } from '@/types';
 import { useGame } from '../context/GameContext';
 import { useVoice } from '../context/VoiceContext';
-import { Crown, Ghost, Swords, Eye, Mic, Gem } from 'lucide-react';
+import { Crown, Ghost, Shield, Swords, Eye, Mic, Gem } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ROLES } from '@/constants';
 import { ICON_MAP } from './AvailableIcons';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -39,7 +40,7 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
     : Gem;
 
   return (
-    <div
+    <motion.div
       onClick={onClick}
       className={cn(
         'relative group aspect-[3/4] flex flex-col items-center justify-end p-2 rounded-xl transition-all duration-300 shadow-lg [-webkit-tap-highlight-color:transparent]',
@@ -47,9 +48,10 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
         borderClass,
         isDisconnected ? 'grayscale opacity-50' : '',
         onClick && !isDisconnected ? 'cursor-pointer [@media(hover:hover)]:hover:border-yellow-500/80 [@media(hover:hover)]:hover:-translate-y-1 active:scale-95 active:border-yellow-500 active:brightness-90' : '',
-        isSelected ? 'scale-105' : '',
         className
       )}
+      animate={{ scale: isSelected ? 1.05 : 1 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
     >
         {/* Avatar Area */}
         <div className="player-tile-avatar-area absolute top-2 left-2 right-2 bottom-12 flex items-center justify-center overflow-hidden">
@@ -108,16 +110,23 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
       </div>
 
       {/* Selection Indicator */}
-      {isSelected && (
-          <>
+      <AnimatePresence>
+        {isSelected && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
             {/* This overlay uses a ring to create a border effect that doesn't cover the custom animated borders. */}
             <div className="absolute inset-0 rounded-xl pointer-events-none ring-4 ring-yellow-500/80"></div>
             <div className="absolute top-1.5 right-1.5 w-7 h-7 bg-yellow-500 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg">
                 <Swords size={16} className="text-white" />
             </div>
-          </>
-      )}
-    </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 

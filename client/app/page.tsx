@@ -18,7 +18,7 @@ import AdminPage from "@/app/admin/page";
 import SocialHub from "@/components/ui/SocialHub";
 
 const JoinHostView: React.FC = () => {
-  const { user, joinRoom, logout, isConnected } = useGame();
+  const { joinRoom, user, logout, isConnected } = useGame();
   const [roomCode, setRoomCode] = useState("");
 
   const handleJoinSubmit = (e: React.FormEvent) => {
@@ -113,15 +113,23 @@ const BASE_TABS_CONFIG: {
 ];
 
 const MainPageView: React.FC = () => {
-    const { user, friendRequests } = useGame();
+    const { user, friendRequests, setPreviewBackground } = useGame();
     const [activeTab, setActiveTab] = useState<Tab>("home");
     const mainContentRef = useRef<HTMLDivElement>(null);
+    const prevTab = useRef<Tab>();
 
     useEffect(() => {
         if (mainContentRef.current) {
             mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
         }
-    }, [activeTab]);
+        
+        const isCustomizationTab = (tab?: Tab) => tab === 'settings' || tab === 'achievements';
+        if (isCustomizationTab(prevTab.current) && !isCustomizationTab(activeTab)) {
+            setPreviewBackground(null);
+        }
+        prevTab.current = activeTab;
+
+    }, [activeTab, setPreviewBackground]);
     
     const TABS_CONFIG = useMemo(() => {
         let config = [...BASE_TABS_CONFIG];
@@ -229,6 +237,9 @@ export default function Home() {
   });
 
   useEffect(() => {
+    // If a user is already in a game when they hit the home page (e.g., new tab),
+    // automatically mark the intro as completed for this session.
+    // This prevents showing the intro if they log out and back in within the same session.
     if (isAuthenticated && gameState.roomCode && !introCompleted) {
       sessionStorage.setItem("introCompleted", "true");
       setIntroCompleted(true);
@@ -244,7 +255,7 @@ export default function Home() {
     );
   }
   
-  if (isAuthenticated && gameState.roomCode) {
+  if (isAuthenticated && gameState.roomCode && gameState.roomCode !== 'TUTORIAL') {
     router.replace(`/game/${gameState.roomCode}`);
     return (
         <div className="flex items-center justify-center h-screen w-screen">
@@ -261,7 +272,7 @@ export default function Home() {
                 sessionStorage.setItem('introCompleted', 'true');
                 setIntroCompleted(true);
             }} 
-            shouldSkipStory={isAuthenticated && settings.skipIntro}
+            shouldSkipStory={isAuthenticated && settings.skipStoryIntro}
         />;
     }
     if (!isAuthenticated) {

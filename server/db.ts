@@ -48,7 +48,8 @@ async function initializeDb() {
             db_futures_played INTEGER NOT NULL DEFAULT 0,
             db_attacks_played INTEGER NOT NULL DEFAULT 0,
             db_fillers_played INTEGER NOT NULL DEFAULT 0,
-            selected_background TEXT
+            selected_background TEXT,
+            username_last_changed_at TIMESTAMPTZ
         );
         
         CREATE TABLE IF NOT EXISTS matches (
@@ -91,7 +92,6 @@ async function initializeDb() {
             UNIQUE(user1_id, user2_id)
         );
     `);
-
     console.log("Database tables are set up.");
     return pool;
 }

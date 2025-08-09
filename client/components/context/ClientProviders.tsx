@@ -9,6 +9,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import UsernameSetupModal from "../ui/UsernameSetupModal";
+import TutorialPromptModal from "../ui/TutorialPromptModal";
+import TutorialOverlay from "../ui/TutorialOverlay";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -51,10 +53,26 @@ const InteractionProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 const ModalRenderer: React.FC = () => {
-    const { isUsernameModalOpen, closeUsernameModal, suggestedUsername } = useGame();
-    if (!isUsernameModalOpen) return null;
+    const { 
+        isUsernameModalOpen, closeUsernameModal, suggestedUsername,
+        isTutorialPromptOpen, closeTutorialPrompt, startTutorial,
+        isTutorialActive,
+    } = useGame();
 
-    return <UsernameSetupModal suggestedUsername={suggestedUsername} onClose={closeUsernameModal} />;
+    // Prioritize username modal
+    if (isUsernameModalOpen) {
+        return <UsernameSetupModal suggestedUsername={suggestedUsername} onClose={closeUsernameModal} />;
+    }
+    
+    if (isTutorialPromptOpen) {
+        return <TutorialPromptModal onStart={startTutorial} onClose={closeTutorialPrompt} />;
+    }
+
+    if (isTutorialActive) {
+        return <TutorialOverlay />;
+    }
+
+    return null;
 }
 
 

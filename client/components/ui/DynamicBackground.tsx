@@ -26,10 +26,10 @@ const backgrounds = {
 };
 
 const DynamicBackground: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { user } = useGame();
+    const { user, previewBackground } = useGame();
     
-    const selectedBgKey = user?.selectedBackground || '';
-    const bgUrl = backgrounds[selectedBgKey as keyof typeof backgrounds] || backgrounds.default;
+    const bgKey = previewBackground !== null ? previewBackground : (user?.selectedBackground || '');
+    const bgUrl = backgrounds[bgKey as keyof typeof backgrounds] || backgrounds.default;
 
     return (
         <div className="min-h-[100dvh] overflow-hidden relative">

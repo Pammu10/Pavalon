@@ -1,28 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useGame } from '../context/GameContext';
 import Card from './Card';
 import Button from './Button';
 import Spinner from './Spinner';
 import api from '@/services/api';
-import { CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
+import { CheckCircle, XCircle, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface UsernameSetupModalProps {
     suggestedUsername: string;
     onClose: () => void;
 }
-
-const useDebounce = <T,>(value: T, delay: number): T => {
-    const [debouncedValue, setDebouncedValue] = useState<T>(value);
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedValue(value);
-        }, delay);
-        return () => clearTimeout(handler);
-    }, [value, delay]);
-    return debouncedValue;
-};
 
 const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({ suggestedUsername, onClose }) => {
     const { updateUsername } = useGame();
@@ -31,54 +20,60 @@ const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({ suggestedUserna
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const debouncedUsername = useDebounce(username, 500);
-
-    const validateUsername = useCallback(async (name: string) => {
-        if (name === suggestedUsername) {
+    // Provide instant feedback for length requirements as the user types
+    useEffect(() => {
+        if (username.length > 0 && (username.length < 3 || username.length > 10)) {
+            setStatus('invalid');
+            setMessage('Username must be 3-10 characters.');
+        } else if (status === 'invalid' && message === 'Username must be 3-10 characters.') {
+            // Clear the length error if it's now valid, but don't perform an API check.
             setStatus('idle');
             setMessage('');
-            return;
         }
-        if (name.length < 3 || name.length > 10) {
+    }, [username, status, message]);
+
+    const handleConfirm = async () => {
+        // Clear previous API messages, but keep length validation messages if they exist.
+        if (status !== 'invalid' || message === 'Username must be 3-10 characters.') {
+            setStatus('idle');
+            setMessage('');
+        }
+
+        // Final length check on submit
+        if (username.length < 3 || username.length > 10) {
             setStatus('invalid');
             setMessage('Username must be 3-10 characters.');
             return;
         }
-        setStatus('checking');
-        try {
-            const { data } = await api.get(`/user/check-username?username=${name}`);
-            if (data.available) {
-                setStatus('valid');
-                setMessage(data.message);
-            } else {
-                setStatus('invalid');
-                setMessage(data.message);
-            }
-        } catch (error: any) {
-            setStatus('invalid');
-            setMessage(error.response?.data?.message || 'Error checking username.');
-        }
-    }, [suggestedUsername]);
-
-    useEffect(() => {
-        if (debouncedUsername) {
-            validateUsername(debouncedUsername);
-        }
-    }, [debouncedUsername, validateUsername]);
-
-    const handleConfirm = async () => {
+        
         setIsSubmitting(true);
         try {
-            await updateUsername(username);
-            onClose(); // This will be called on success from the context's update function side effects
-        } catch (error) {
-            // Error is already toasted in context
+            // If the user kept the suggested name, no action is needed. Just close.
+            if (username === suggestedUsername) {
+                onClose();
+                return;
+            }
+
+            // If the name is new, check for availability first before updating.
+            setStatus('checking');
+            const { data } = await api.get(`/user/check-username?username=${username}`);
+            if (data.available) {
+                await updateUsername(username);
+                onClose();
+            } else {
+                setStatus('invalid');
+                setMessage(data.message || 'Username is not available.');
+            }
+        } catch (error: any) {
+            // This will catch errors from either the check or the update.
+            setStatus('invalid');
+            setMessage(error.response?.data?.message || 'An error occurred. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const isConfirmDisabled = status === 'invalid' || status === 'checking' || isSubmitting;
+    const isConfirmDisabled = status === 'invalid' || isSubmitting;
 
     const StatusIcon = () => {
         switch (status) {
@@ -127,14 +122,11 @@ const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({ suggestedUserna
 
                     <div className="flex items-start gap-2 p-3 bg-slate-800/50 rounded-lg text-slate-400 text-xs">
                         <Info size={24} className="flex-shrink-0 mt-0.5"/>
-                        <span>You can change your username later from the settings page.</span>
+                        <span>You can change your username later from the settings page (once every 7 days).</span>
                     </div>
 
                     <Button onClick={handleConfirm} disabled={isConfirmDisabled} className="w-full !text-lg !py-3">
                         {isSubmitting ? <Spinner size="sm" /> : 'Confirm and Enter'}
-                    </Button>
-                     <Button onClick={onClose} variant="secondary" className="w-full !text-lg !py-3">
-                        Keep Suggested Name
                     </Button>
                 </div>
             </Card>

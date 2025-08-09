@@ -359,9 +359,17 @@
 
 
 /* --- Tutorial Highlight --- */
-.tutorial-highlight-hole {
+.tutorial-highlight {
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7);
     border-radius: 12px;
+    border: 2px solid theme(colors.yellow.400);
+    transition: all 0.3s ease-in-out;
+    pointer-events: none;
+    z-index: 1000;
+}
+.tutorial-popover {
+    z-index: 1001;
+    transition: all 0.3s ease-in-out;
 }
 
 /* Vote fill glow pulse */
