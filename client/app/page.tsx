@@ -272,7 +272,7 @@ export default function Home() {
                 sessionStorage.setItem('introCompleted', 'true');
                 setIntroCompleted(true);
             }} 
-            shouldSkipStory={isAuthenticated && settings.skipStoryIntro}
+            shouldSkipStory={isAuthenticated && settings.skipIntro}
         />;
     }
     if (!isAuthenticated) {
