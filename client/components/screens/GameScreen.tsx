@@ -16,6 +16,7 @@ import Spinner from "../ui/Spinner";
 import { toast } from "sonner";
 import { useAudio } from "@/components/context/AudioContext";
 import SwipeableCard from "@/components/ui/SwipeableCard";
+import Image from "next/image";
 
 // --- Reusable UI Components ---
 
@@ -361,7 +362,13 @@ const Assassination: React.FC = () => {
                 className="relative w-48 h-48 md:w-64 md:h-64"
             >
                 <div className="absolute inset-0 bg-red-600 rounded-full blur-2xl animate-pulse-slow opacity-60"></div>
-                <img src={ROLES[Role.ASSASSIN].img} alt="Assassin" className="relative w-full h-full object-cover rounded-full border-4 border-red-800 shadow-2xl shadow-black"/>
+                <Image
+                    src={ROLES[Role.ASSASSIN].img}
+                    alt="Assassin"
+                    fill
+                    sizes="(max-width: 768px) 12rem, 16rem"
+                    className="relative object-cover rounded-full border-4 border-red-800 shadow-2xl shadow-black"
+                />
             </motion.div>
             <h3 className="font-eaglelake text-2xl md:text-4xl mt-6 text-red-400 animate-glow">A Fateful Choice</h3>
             <p className="text-center mt-2 text-slate-300">

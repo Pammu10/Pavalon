@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import Spinner from '../ui/Spinner';
 import { toast } from 'sonner';
 import { useAudio } from '../context/AudioContext';
+import Image from 'next/image';
 
 // --- Card Data & Assets ---
 const cardInfoMap = {
@@ -70,7 +71,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({ card, onClick, className, num
             
              {/* Image area takes up the rest of the space */}
             <div className="flex-grow relative">
-                <img src={info.image} alt={info.name} className="absolute inset-0 w-full h-full object-cover" />
+                <Image src={info.image} alt={info.name} fill sizes="(max-width: 640px) 9rem, 10rem" className="object-cover" />
                  {numberOverlay && (
                     <div className="absolute inset-0 flex items-center justify-center">
                         <span className="text-8xl font-black text-white/20" style={{ textShadow: '0 0 10px rgba(0,0,0,0.7)' }}>{numberOverlay}</span>
@@ -113,7 +114,7 @@ const CardBack: React.FC<{ className?: string, isClickable?: boolean }> = ({ cla
         isClickable && 'hover:border-yellow-500 hover:shadow-yellow-500/20',
         className
     )}>
-        <img src="/cards/card_back.png" alt="Card Back" className="w-full h-full object-cover rounded-xl" />
+        <Image src="/cards/card_back.png" alt="Card Back" fill className="object-cover rounded-xl" sizes="(max-width: 640px) 9rem, 10rem" />
     </div>
 );
 

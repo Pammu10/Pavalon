@@ -592,6 +592,39 @@ app.post("/api/user/username", authMiddleware, async (req, res) => {
     }
 });
 
+// --- ICE Server Route for WebRTC ---
+app.get("/api/webrtc/ice-servers", authMiddleware, async (req, res) => {
+    // Hardcoded Metered TURN server configuration.
+    const iceServers = [
+        {
+          urls: "stun:stun.relay.metered.ca:80",
+        },
+        {
+          urls: "turn:global.relay.metered.ca:80",
+          username: "8a39f11c76e7dbfb7d7f0590",
+          credential: "mYo4f31l+5Sn72MG",
+        },
+        {
+          urls: "turn:global.relay.metered.ca:80?transport=tcp",
+          username: "8a39f11c76e7dbfb7d7f0590",
+          credential: "mYo4f31l+5Sn72MG",
+        },
+        {
+          urls: "turn:global.relay.metered.ca:443",
+          username: "8a39f11c76e7dbfb7d7f0590",
+          credential: "mYo4f31l+5Sn72MG",
+        },
+        {
+          urls: "turns:global.relay.metered.ca:443?transport=tcp",
+          username: "8a39f11c76e7dbfb7d7f0590",
+          credential: "mYo4f31l+5Sn72MG",
+        },
+    ];
+    
+    console.log("[WebRTC] Providing Metered TURN server configuration.");
+    res.json({ iceServers });
+});
+
 // --- SOCIAL ROUTES ---
 const socialRouter = express.Router();
 socialRouter.use(authMiddleware);

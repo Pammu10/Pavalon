@@ -10,6 +10,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import PlayerStatusList from "../ui/PlayerStatusList";
 import { getVisiblePlayers } from "@/hooks/usePlayerVision";
 import PlayerTile from "../ui/PlayerTile";
+import Image from "next/image";
+
+const MotionImage = motion(Image);
 
 const RoleRevealScreen: React.FC = () => {
   const { gameState, playerId, playerReady, hasViewedRole, setHasViewedRole } = useGame();
@@ -90,14 +93,17 @@ const RoleRevealScreen: React.FC = () => {
                   : "border-red-400/50 bg-black/30"
               }`}
             >
-              <motion.img
+              <MotionImage
                 key={player.role}
                 src={roleInfo.img}
                 alt={`${player.role} portrait`}
+                fill
+                sizes="14.5rem"
+                priority
                 initial={{ scale: 1, opacity: 0, rotate: -60 }}
                 animate={{ scale: 1, opacity: 1, rotate: 0  }}
                 transition={{ duration: 2.5, ease: "easeOut", delay: !hasViewedRole ? 1 : 0 }}
-                className="w-full h-full object-cover"
+                className="object-cover"
               />
             </div>
           </motion.div>

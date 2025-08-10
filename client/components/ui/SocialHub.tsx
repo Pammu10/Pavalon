@@ -189,13 +189,13 @@ const EmptyState: React.FC<{ icon: React.ReactNode, title: string, message: stri
 const SkeletonItem: React.FC = () => (
     <div className="flex animate-pulse items-center justify-between p-2 sm:p-3 bg-slate-800/60 rounded-lg">
         <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-accent flex-shrink-0" />
+            <div className="w-12 h-12 rounded-lg bg-slate-600 flex-shrink-0" />
             <div className="space-y-2">
-                <div className="h-4 w-24 rounded bg-accent" />
-                <div className="h-3 w-16 rounded bg-accent" />
+                <div className="h-4 w-24 rounded bg-slate-800/20" />
+                <div className="h-3 w-16 rounded bg-slate-800/20" />
             </div>
         </div>
-        <div className="w-10 h-10 rounded bg-accent" />
+        <div className="w-10 h-10 rounded bg-slate-600/40" />
     </div>
 );
 

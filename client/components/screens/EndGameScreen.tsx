@@ -10,6 +10,7 @@ import { Check, X, Vote, CheckCircle, XCircle } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ROLES } from "@/constants";
 import { cn } from "@/lib/utils";
+import Image from 'next/image';
 
 // --- Sub-components for After-Action Report ---
 
@@ -127,9 +128,11 @@ const FinalRolesDisplay: React.FC<{ players: Player[] }> = ({ players }) => {
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
-                  <img
+                  <Image
                     src={roleInfo.img}
                     alt={player.role}
+                    width={56}
+                    height={56}
                     className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-yellow-500 object-cover shadow-md"
                   />
                 </div>
