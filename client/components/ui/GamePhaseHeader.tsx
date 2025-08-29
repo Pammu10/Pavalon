@@ -98,6 +98,7 @@ export const GamePhaseHeader: React.FC = () => {
 
     return (
         <motion.div 
+            id="game-phase-header"
             key={phase} // Animate on phase change
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}

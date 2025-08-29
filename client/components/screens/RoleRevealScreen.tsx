@@ -62,7 +62,6 @@ const RoleRevealScreen: React.FC = () => {
     <AnimatePresence>
       <motion.div
         key="role-reveal-content"
-        id="role-reveal-card"
         initial="hidden"
         animate="visible"
         className="flex flex-col items-center justify-start p-2 sm:p-4"
@@ -75,7 +74,7 @@ const RoleRevealScreen: React.FC = () => {
             Your Identity
           </motion.h1>
 
-          <motion.div {...animProps(0.5)} className="relative w-58 h-58 mx-auto mb-6">
+          <motion.div id="role-reveal-card" {...animProps(0.5)} className="relative w-58 h-58 mx-auto mb-6">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -172,6 +171,7 @@ const RoleRevealScreen: React.FC = () => {
               onClick={handleReadyClick}
               disabled={isReady || isPaused}
               className="mt-6"
+              id="ready-button"
             >
               {isPaused
                 ? "Game Paused"

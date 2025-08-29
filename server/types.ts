@@ -125,6 +125,15 @@ export interface DragonsBreathStats {
     }[];
 }
 
+export interface TutorialStep {
+    step: number;
+    title: string;
+    text: string;
+    highlight?: string[];
+    actionRequired?: string;
+    isFinalStep?: boolean;
+}
+
 
 export interface GameState {
     roomCode: string | null;
@@ -152,6 +161,7 @@ export interface GameState {
     dragonsBreathState: DragonsBreathState | null; // State for the mini-game
     assassinationTargetId: string | null;
     selectedRoles: Role[];
+    tutorial?: TutorialStep | null;
 }
 
 export interface RoleDescription {
@@ -305,6 +315,9 @@ export interface ClientToServerEvents {
     placeDragonCard: (index: number) => void;
     endFutureView: () => void;
     returnToLobby: () => void;
+    
+    // Tutorial Event
+    advanceTutorial: () => void;
 
     // Social Events
     'social:invite_to_game': (data: { friendId: number }) => void;

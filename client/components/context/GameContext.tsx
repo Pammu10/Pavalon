@@ -78,6 +78,8 @@ interface GameContextType {
     placeDragonCard: (index: number) => void;
     endFutureView: () => void;
     returnToLobby: () => void;
+    // Tutorial
+    advanceTutorial: () => void;
     // Social Functions
     addFriend: (username: string) => Promise<void>;
     respondToFriendRequest: (requesterId: number, action: 'accept' | 'decline') => Promise<void>;
@@ -744,6 +746,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
+    const advanceTutorial = () => socketService.emit('advanceTutorial');
     const kickPlayer = (playerIdToKick: string) => socketService.emit('kickPlayer', playerIdToKick);
     const sendMessage = (messageText: string) => socketService.emit('sendMessage', messageText);
     const startGame = (data: { selectedRoles: Role[] }) => {
@@ -782,7 +785,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updateSelectedRoles, selectTeam, updatePendingTeam, updateAssassinationTarget,
         voteOnTeam, voteOnQuest, assassinate, playerReady, playerReadyForNextGame, sendMessage,
         initiateRestart, voteOnRestart, startDragonsBreath, drawCard, playCard, placeDragonCard,
-        endFutureView, returnToLobby, addFriend, respondToFriendRequest, removeFriend,
+        endFutureView, returnToLobby, advanceTutorial, addFriend, respondToFriendRequest, removeFriend,
         cancelFriendRequest, inviteFriendToGame, acceptInvite, declineInvite, googleLogin, linkGoogleAccount,
     };
 

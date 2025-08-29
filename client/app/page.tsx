@@ -69,6 +69,15 @@ const JoinHostView: React.FC = () => {
                 {isConnected ? 'Join Game' : <Spinner size="sm" />}
               </Button>
             </form>
+            
+            {/* <Button
+                variant="secondary"
+                onClick={() => joinRoom('TUTORIAL')}
+                className="w-full h-14"
+                disabled={!isConnected}
+            >
+                How to Play (Tutorial)
+            </Button> */}
 
             <div className="pt-4 border-t border-slate-700 flex items-center justify-between">
               {user && (

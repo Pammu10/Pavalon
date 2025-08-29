@@ -131,6 +131,15 @@ export interface DragonsBreathStats {
   matchHistory: DragonsBreathMatch[];
 }
 
+export interface TutorialStep {
+    step: number;
+    title: string;
+    text: string;
+    highlight?: string[];
+    actionRequired?: string;
+    isFinalStep?: boolean;
+}
+
 export interface GameState {
   roomCode: string | null;
   players: Player[];
@@ -157,6 +166,7 @@ export interface GameState {
   dragonsBreathState: DragonsBreathState | null;
   assassinationTargetId: string | null;
   selectedRoles: Role[];
+  tutorial?: TutorialStep | null;
 }
 
 export interface RoleDescription {
@@ -339,6 +349,9 @@ export interface ClientToServerEvents {
   endFutureView: () => void;
   returnToLobby: () => void;
   
+  // Tutorial Event
+  advanceTutorial: () => void;
+
   // Social Events
   'social:invite_to_game': (data: { friendId: number }) => void;
 

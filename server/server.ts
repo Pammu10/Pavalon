@@ -27,12 +27,14 @@ import {
   DragonsBreathStats,
   OnlineUser,
   GameInvite,
-  Friend
+  Friend,
+  Quest
 } from "./types";
 import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES, DEFAULT_ICONS, DEFAULT_BACKGROUNDS } from "./constants";
 import db from "./db";
 import { authMiddleware, generateToken, authMiddlewareSocket, adminMiddleware } from "./auth";
 import { ALL_ACHIEVEMENTS } from "./achievements";
+import { TUTORIAL_STEPS } from "./tutorial";
 
 const app = express();
 
@@ -1473,8 +1475,66 @@ class GameService {
     }
     return false;
   }
+  
+  private async createTutorialGame(socket: Socket, user: User) {
+    const roomCode = `TUTORIAL-${socket.id}`;
+    // Clean up any previous tutorial for this user
+    for (const [code] of this.games.entries()) {
+        if (code.startsWith(`TUTORIAL-${socket.id}`)) {
+            this.games.delete(code);
+        }
+    }
+
+    const fullUser = await getFullUser(user.id);
+    if (!fullUser) {
+        socket.emit("error", "Could not load user profile for tutorial.");
+        return;
+    }
+
+    const gameState = this.createInitialGameState(roomCode);
+
+    const player: Player = {
+        id: socket.id,
+        userId: user.id,
+        name: user.username,
+        role: Role.MERLIN,
+        alignment: Alignment.GOOD,
+        isHost: true,
+        hasVoted: false,
+        status: "CONNECTED",
+        selectedTitle: fullUser.selectedTitle,
+        selectedBorder: fullUser.selectedBorder,
+        selectedIcon: fullUser.selectedIcon,
+        selectedBackground: fullUser.selectedBackground,
+    };
+    gameState.players.push(player);
+
+    const bots: Player[] = [
+        { id: 'bot1', userId: -1, name: 'Bot Alice', role: Role.LOYAL_SERVANT, alignment: Alignment.GOOD, isHost: false, hasVoted: false, status: 'CONNECTED', selectedBorder: 'azure' },
+        { id: 'bot2', userId: -2, name: 'Bot Bob', role: Role.PERCIVAL, alignment: Alignment.GOOD, isHost: false, hasVoted: false, status: 'CONNECTED' },
+        { id: 'bot3', userId: -3, name: 'Bot Charles', role: Role.MORGANA, alignment: Alignment.EVIL, isHost: false, hasVoted: false, status: 'CONNECTED', selectedBorder: 'crimson' },
+        { id: 'bot4', userId: -4, name: 'Bot Diana', role: Role.ASSASSIN, alignment: Alignment.EVIL, isHost: false, hasVoted: false, status: 'CONNECTED', selectedBorder: 'amethyst' },
+    ];
+    gameState.players.push(...bots);
+
+    this.setupQuests(gameState);
+    gameState.phase = GamePhase.ROLE_REVEAL;
+    gameState.leader = player;
+    gameState.tutorial = TUTORIAL_STEPS[0];
+    
+    this.games.set(roomCode, gameState);
+    socket.join(roomCode);
+    
+    this.io.to(socket.id).emit("updateGameState", gameState);
+    console.log(`[TUTORIAL] Created tutorial game for ${user.username}`);
+  }
 
   async handleJoinRoom(socket: Socket, user: User, roomCode?: string) {
+    if (roomCode?.toUpperCase() === 'TUTORIAL') {
+        this.createTutorialGame(socket, user);
+        return;
+    }
+
     const existingGameInfo = this.findGameByPlayerUserId(user.id);
     const upperRoomCode = roomCode?.toUpperCase();
 
@@ -2051,6 +2111,19 @@ class GameService {
     if (!roomCode) return;
     const gameState = this.games.get(roomCode)!;
 
+    if (roomCode.startsWith('TUTORIAL-')) {
+        const currentStep = gameState.tutorial?.step;
+        if (currentStep === 1 || currentStep === 2) {
+            const nextStepIndex = TUTORIAL_STEPS.findIndex(s => s.step === currentStep) + 1;
+            gameState.tutorial = TUTORIAL_STEPS[nextStepIndex];
+            if (nextStepIndex === 2) { // After role reveal, move to team selection
+                 gameState.phase = GamePhase.TEAM_SELECTION;
+            }
+            this.io.to(roomCode).emit('updateGameState', gameState);
+            return;
+        }
+    }
+
     if (gameState.reconnectingPlayer) return;
     if (gameState.phase !== GamePhase.ROLE_REVEAL) return;
 
@@ -2305,6 +2378,30 @@ class GameService {
     const gameState = this.games.get(roomCode)!;
     if (gameState.reconnectingPlayer) return;
 
+    if (roomCode.startsWith('TUTORIAL-')) {
+        if (gameState.tutorial?.step === 3) {
+            const currentQuest = gameState.questHistory[gameState.currentQuest - 1];
+            if (teamPlayerIds.length !== currentQuest.teamSize) { return; }
+            currentQuest.team = gameState.players.filter((p) => teamPlayerIds.includes(p.id));
+            gameState.phase = GamePhase.TEAM_VOTE;
+            gameState.tutorial = TUTORIAL_STEPS.find(s => s.step === 4);
+            
+            this.io.to(roomCode).emit('updateGameState', gameState);
+            
+            setTimeout(() => {
+                if (!this.games.has(roomCode)) return;
+                const currentGameState = this.games.get(roomCode)!;
+                const bots = currentGameState.players.filter(p => p.id !== playerId);
+                const quest = currentGameState.questHistory[currentGameState.currentQuest - 1];
+                bots.forEach(bot => {
+                    quest.votes.push({ playerId: bot.id, vote: 'APPROVE' });
+                });
+                this.io.to(roomCode).emit('updateGameState', currentGameState);
+            }, 1000);
+            return;
+        }
+    }
+
     if (
       gameState.leader?.id !== playerId ||
       gameState.phase !== GamePhase.TEAM_SELECTION
@@ -2346,6 +2443,16 @@ class GameService {
       return;
 
     const currentQuest = gameState.questHistory[gameState.currentQuest - 1];
+
+    if (roomCode.startsWith('TUTORIAL-')) {
+        if(gameState.tutorial?.step === 4) {
+            currentQuest.votes.push({ playerId, vote });
+            player.hasVoted = true;
+            this.processTeamVote(gameState);
+            return;
+        }
+    }
+    
     currentQuest.votes.push({ playerId, vote });
     player.hasVoted = true;
     this.io.to(roomCode).emit("updateGameState", { ...gameState });
@@ -2361,6 +2468,19 @@ class GameService {
   private processTeamVote(gameState: GameState) {
     const roomCode = gameState.roomCode!;
     const currentQuest = gameState.questHistory[gameState.currentQuest - 1];
+
+    if (roomCode.startsWith('TUTORIAL-')) {
+        gameState.phase = GamePhase.QUEST_VOTE;
+        gameState.voteTrack = 0;
+        currentQuest.questLeader = gameState.leader;
+        currentQuest.approvedVote = { team: currentQuest.team, votes: currentQuest.votes };
+        gameState.tutorial = TUTORIAL_STEPS.find(s => s.step === 5);
+        gameState.players.forEach((p) => (p.hasVoted = false));
+        this.addLog(gameState, 'Team Approved.', 'vote');
+        this.io.to(roomCode).emit("updateGameState", gameState);
+        return;
+    }
+
     const connectedPlayers = gameState.players.filter(
       (p) => p.status === "CONNECTED"
     );
@@ -2425,6 +2545,19 @@ class GameService {
     )
       return;
 
+    if (roomCode.startsWith('TUTORIAL-')) {
+        if (gameState.tutorial?.step === 5) {
+            currentQuest.results.push({ playerId, vote });
+            player.hasVoted = true;
+            const botOnTeam = currentQuest.team.find(p => p.id !== playerId);
+            if (botOnTeam) {
+                currentQuest.results.push({ playerId: botOnTeam.id, vote: 'SUCCESS' });
+            }
+            this.processQuestResult(gameState);
+            return;
+        }
+    }
+
     if (player.alignment === Alignment.GOOD && vote === "FAIL") {
       this.io.sockets.sockets
         .get(playerId)
@@ -2443,6 +2576,16 @@ class GameService {
 
   private processQuestResult(gameState: GameState) {
     const currentQuest = gameState.questHistory[gameState.currentQuest - 1];
+    
+    if (gameState.roomCode?.startsWith('TUTORIAL-')) {
+        currentQuest.status = "PASSED";
+        this.addLog(gameState, `Quest 1 has Succeeded.`, 'quest');
+        gameState.phase = GamePhase.QUEST_RESULT;
+        gameState.tutorial = TUTORIAL_STEPS.find(s => s.step === 6);
+        this.io.to(gameState.roomCode).emit('updateGameState', gameState);
+        return;
+    }
+
     const failVotes = currentQuest.results.filter((r) => r.vote === "FAIL").length;
 
     if (failVotes >= currentQuest.failsRequired) {
@@ -2460,6 +2603,13 @@ class GameService {
 
   private checkForGameOver(gameState: GameState) {
     if (!gameState.roomCode || gameState.reconnectingPlayer) return;
+
+    if (gameState.roomCode.startsWith('TUTORIAL-')) {
+        gameState.tutorial = TUTORIAL_STEPS.find(s => s.step === 7);
+        this.io.to(gameState.roomCode).emit('updateGameState', gameState);
+        return;
+    }
+
     const passedQuests = gameState.questHistory.filter(
       (q) => q.status === "PASSED"
     ).length;
@@ -2643,6 +2793,18 @@ class GameService {
   handleLeaveRoom(playerId: string) {
     const roomCode = this.findRoomByPlayerId(playerId);
     if (!roomCode) return;
+
+    if (roomCode.startsWith('TUTORIAL-')) {
+        const socket = this.io.sockets.sockets.get(playerId);
+        if (socket) {
+            socket.emit("kicked", "You have left the tutorial.");
+            socket.leave(roomCode);
+        }
+        this.games.delete(roomCode);
+        console.log(`[TUTORIAL] Cleaned up tutorial game for player ${playerId}`);
+        return;
+    }
+
     const gameState = this.games.get(roomCode)!;
     
     if (gameState.phase !== GamePhase.LOBBY) {
@@ -3019,6 +3181,24 @@ class GameService {
     if (!roomCode) return;
     this.restartGameByRoomCode(roomCode);
   }
+  
+  handleAdvanceTutorial(playerId: string) {
+    const roomCode = this.findRoomByPlayerId(playerId);
+    if (!roomCode || !roomCode.startsWith('TUTORIAL-')) return;
+    const gameState = this.games.get(roomCode)!;
+    
+    if (!gameState.tutorial) return;
+
+    const currentStepIndex = TUTORIAL_STEPS.findIndex(s => s.step === gameState.tutorial!.step);
+    if (currentStepIndex === -1 || currentStepIndex + 1 >= TUTORIAL_STEPS.length) {
+        return;
+    }
+    
+    const nextStep = TUTORIAL_STEPS[currentStepIndex + 1];
+    gameState.tutorial = nextStep;
+
+    this.io.to(roomCode).emit("updateGameState", gameState);
+  }
 
   // --- Admin Methods ---
   getRoomCount() {
@@ -3103,6 +3283,7 @@ io.on("connection", (socket: any) => {
   socket.on('placeDragonCard', (index) => gameService.handlePlaceDragonCard(socket.id, index));
   socket.on('endFutureView', () => gameService.handleEndFutureView(socket.id));
   socket.on('returnToLobby', () => gameService.handleReturnToLobby(socket.id));
+  socket.on("advanceTutorial", () => gameService.handleAdvanceTutorial(socket.id));
 
   // --- Social Events ---
   socket.on('social:invite_to_game', ({ friendId }) => socialService.handleGameInvite(socket.user, friendId));

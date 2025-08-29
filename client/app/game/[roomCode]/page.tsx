@@ -31,6 +31,7 @@ import AdminPage from "@/app/admin/page";
 import { useInteraction } from "@/components/context/ClientProviders";
 import DragonsBreathScreen from "@/components/screens/DragonsBreathScreen";
 import SocialHub from "@/components/ui/SocialHub";
+import TutorialOverlay from "@/components/ui/TutorialOverlay";
 
 type Tab =
   | "game"
@@ -278,6 +279,7 @@ const MainContent: React.FC = () => {
       onValueChange={(v) => setActiveTab(v as Tab)}
       className="flex flex-col h-[100dvh] w-screen"
     >
+      {gameState.tutorial && <TutorialOverlay />}
       <AnimatePresence>
         {isSocialHubOpen && <SocialHub onClose={closeSocialHub} />}
       </AnimatePresence>
@@ -418,7 +420,7 @@ const MainContent: React.FC = () => {
 export default function GamePage() {
   const params = useParams();
   const router = useRouter();
-  const { gameState, isAuthenticated, isLoading } = useGame();
+  const { gameState, isAuthenticated, isLoading, joinRoom } = useGame();
   const roomCodeFromUrl = params.roomCode as string;
 
   useEffect(() => {
@@ -429,17 +431,19 @@ export default function GamePage() {
       return;
     }
     
-    if (!gameState.roomCode) {
-      router.replace('/');
-      return;
+    // If the user lands on a game page but isn't in a game state,
+    // and it's not the tutorial, attempt to join or redirect.
+    if (!gameState.roomCode && roomCodeFromUrl.toUpperCase() !== 'TUTORIAL') {
+       joinRoom(roomCodeFromUrl);
+       return;
     }
     
-    if (gameState.roomCode !== roomCodeFromUrl) {
+    if (gameState.roomCode && gameState.roomCode !== roomCodeFromUrl) {
       router.replace(`/game/${gameState.roomCode}`);
     }
-  }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router]);
+  }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router, joinRoom]);
 
-  if (isLoading || !isAuthenticated || gameState.roomCode !== roomCodeFromUrl) {
+  if (isLoading || !isAuthenticated || (gameState.roomCode !== roomCodeFromUrl && !isLoading)) {
     return (
       <div className="flex items-center justify-center h-screen w-screen">
         <Spinner size="lg" />
