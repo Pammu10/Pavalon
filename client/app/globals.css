@@ -172,6 +172,16 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Native Polish */
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    overscroll-behavior-y: none;
+  }
+  /* Allow text selection in inputs and textareas */
+  input, textarea {
+    user-select: text;
+    -webkit-user-select: text;
   }
 }
 

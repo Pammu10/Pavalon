@@ -419,7 +419,7 @@ const LobbyView: React.FC = () => {
 
     const handleShare = async () => {
         if (!roomCode) return;
-        const inviteText = `Join my Pavalon game!\nCode: ${roomCode}\nLink: ${window.location.origin}/join/${roomCode}`;
+        const inviteText = `Join my Pavalon game!\nCode: ${roomCode}\nLink: ${window.location.origin}/join?roomCode=${roomCode}`;
         
         try {
             await navigator.clipboard.writeText(inviteText);

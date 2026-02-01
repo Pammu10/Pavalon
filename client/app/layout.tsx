@@ -200,7 +200,8 @@ export const metadata = {
 
 export const viewport: Viewport = {
   maximumScale: 1,
-  userScalable: false
+  userScalable: false,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({

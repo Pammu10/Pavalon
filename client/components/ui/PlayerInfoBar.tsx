@@ -34,7 +34,7 @@ const PlayerInfoBar: React.FC<PlayerInfoBarProps> = ({ onNavigateToProfile }) =>
 
     const handleShare = async () => {
         if (!gameState.roomCode) return;
-        const inviteText = `Join my Pavalon game!\nCode: ${gameState.roomCode}\nLink: ${window.location.origin}/join/${gameState.roomCode}`;
+        const inviteText = `Join my Pavalon game!\nCode: ${gameState.roomCode}\nLink: ${window.location.origin}/join?roomCode=${gameState.roomCode}`;
         
         try {
             await navigator.clipboard.writeText(inviteText);

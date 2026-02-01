@@ -265,7 +265,7 @@ export default function Home() {
   }
   
   if (isAuthenticated && gameState.roomCode && gameState.roomCode !== 'TUTORIAL') {
-    router.replace(`/game/${gameState.roomCode}`);
+    router.replace(`/game?roomCode=${gameState.roomCode}`);
     return (
         <div className="flex items-center justify-center h-screen w-screen">
             <Spinner size="lg" />

@@ -177,7 +177,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             autoClearError(setError, message);
             toast.error(message);
             if(roomCode) {
-                 router.push(`/join/${roomCode}`);
+                 router.push(`/join?roomCode=${roomCode}`);
             }
             return
         };
@@ -197,7 +197,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     useEffect(() => {
         if (gameState.roomCode && gameState.roomCode !== prevRoomCode.current) {
-            router.push(`/game/${gameState.roomCode}`);
+            router.push(`/game?roomCode=${gameState.roomCode}`);
         } else if (!gameState.roomCode && prevRoomCode.current) {
             router.push('/');
         }
