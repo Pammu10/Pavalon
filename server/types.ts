@@ -1,3 +1,15 @@
+declare global {
+    namespace Express {
+        interface Request {
+            user: User;
+        }
+    }
+}
+
+export function toErrorMessage(err: unknown): string {
+    return err instanceof Error ? err.message : String(err);
+}
+
 export enum Role {
     MERLIN = 'Merlin',
     PERCIVAL = 'Percival',
@@ -27,6 +39,10 @@ export interface Player {
     selectedBorder?: string | null;
     selectedIcon?: string | null;
     selectedBackground?: string | null;
+    // Server-computed, per-viewer: what the receiving player knows about this
+    // player mid-game ('Evil' for Merlin/evil-team vision, 'Mystic' for
+    // Percival). Only ever set on redacted copies sent to clients.
+    visibleAs?: 'Evil' | 'Mystic';
 }
 
 export enum GamePhase {

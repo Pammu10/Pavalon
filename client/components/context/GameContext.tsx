@@ -11,6 +11,12 @@ interface Settings {
     skipIntro: boolean;
 }
 
+export interface TeamVoteRevealData {
+    votes: { playerId: string; vote: 'APPROVE' | 'REJECT' }[];
+    players: Player[];
+    wasApproved: boolean;
+}
+
 interface GameContextType {
     gameState: GameState;
     playerId: string | null;
@@ -27,6 +33,8 @@ interface GameContextType {
     hasViewedCurrentQuestResult: boolean;
     hasViewedEndGameResult: boolean;
     justJoined: boolean;
+    teamVoteReveal: TeamVoteRevealData | null;
+    clearTeamVoteReveal: () => void;
     // Username Modal State
     isUsernameModalOpen: boolean;
     suggestedUsername: string;
@@ -156,6 +164,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [isConnected, setIsConnected] = useState<boolean>(false);
 
+    const capturedVoteRef = useRef<{ votes: { playerId: string; vote: 'APPROVE' | 'REJECT' }[]; players: Player[] } | null>(null);
+    const [teamVoteReveal, setTeamVoteReveal] = useState<TeamVoteRevealData | null>(null);
+    const clearTeamVoteReveal = useCallback(() => setTeamVoteReveal(null), []);
+
     const prevRoomCode = useRef(gameState.roomCode);
     
     // Fetch friend requests for notification badges using React Query
@@ -204,6 +216,17 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         prevRoomCode.current = gameState.roomCode;
     }, [gameState.roomCode, router]);
     
+    // Trigger team-vote reveal overlay when phase transitions away from TEAM_VOTE
+    useEffect(() => {
+        if (gameState.phase !== GamePhase.TEAM_VOTE && capturedVoteRef.current) {
+            setTeamVoteReveal({
+                ...capturedVoteRef.current,
+                wasApproved: gameState.phase === GamePhase.QUEST_VOTE,
+            });
+            capturedVoteRef.current = null;
+        }
+    }, [gameState.phase]);
+
     useEffect(() => {
         // If we just entered a room and there's a pending invite
         if (gameState.roomCode && inviteQueue !== null) {
@@ -365,6 +388,15 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // --- Socket Event Handlers (wrapped in useCallback) ---
     const handleUpdate = useCallback((newState: GameState) => {
+        // Capture team votes the moment all players have voted (before server clears them)
+        if (newState.phase === GamePhase.TEAM_VOTE) {
+            const quest = newState.questHistory[newState.currentQuest - 1];
+            const connectedCount = newState.players.filter(p => p.status === 'CONNECTED').length;
+            if (quest && connectedCount > 0 && quest.votes.length >= connectedCount) {
+                capturedVoteRef.current = { votes: [...quest.votes], players: [...newState.players] };
+            }
+        }
+
         setGameState(prevState => {
             if (newState.phase === GamePhase.LOBBY && prevState.phase === GamePhase.HOME) {
                 setJustJoined(true);
@@ -777,7 +809,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const value: GameContextType = {
         gameState, playerId, error, messages, user, token, isAuthenticated, authError,
         isLoading, isConnected, hasViewedRole, settings, hasViewedCurrentQuestResult,
-        hasViewedEndGameResult, justJoined, isUsernameModalOpen, suggestedUsername, openUsernameModal,
+        hasViewedEndGameResult, justJoined, teamVoteReveal, clearTeamVoteReveal,
+        isUsernameModalOpen, suggestedUsername, openUsernameModal,
         closeUsernameModal, friendRequests, pendingInvites, isSocialHubOpen,
         openSocialHub, closeSocialHub, previewBackground, setPreviewBackground, setHasViewedRole, markQuestResultAsViewed,
         markEndGameAsViewed, clearJustJoined, updateSettings, updateUser, updateUsername,

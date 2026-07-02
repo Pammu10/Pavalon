@@ -4,13 +4,15 @@
   "description": "Avalon Online Game Server",
   "main": "server.ts",
   "scripts": {
-    "start": "ts-node-dev --respawn --transpile-only server.ts"
+    "start": "ts-node-dev --respawn --transpile-only server.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "express-rate-limit": "^8.5.2",
     "google-auth-library": "^10.2.1",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.12.0",
@@ -24,6 +26,7 @@
     "@types/node": "^20.14.9",
     "@types/pg": "^8.11.6",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.3",
+    "vitest": "^4.1.9"
   }
 }
