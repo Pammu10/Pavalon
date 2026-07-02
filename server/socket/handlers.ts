@@ -61,6 +61,7 @@ export function registerSocketHandlers(
         socket.on('voteOnQuest', throttled((vote) => gameService.handleVoteOnQuest(socket.id, vote as 'SUCCESS' | 'FAIL')));
         socket.on('assassinate', (targetId) => gameService.handleAssassinate(socket.id, targetId as string));
         socket.on('sendMessage', throttled((message) => gameService.handleSendMessage(socket.id, message as string)));
+        socket.on('sendEmote', throttled((emote) => gameService.handleSendEmote(socket.id, emote as string)));
         socket.on('initiateRestart', () => gameService.handleInitiateRestart(socket.id));
         socket.on('voteOnRestart', (vote) => gameService.handleVoteOnRestart(socket.id, vote as 'yes' | 'no'));
         socket.on('kickPlayer', (playerIdToKick) => gameService.handleKickPlayer(socket.id, playerIdToKick as string));

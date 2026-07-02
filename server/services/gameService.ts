@@ -3,7 +3,7 @@ import db from '../db';
 import { logger } from '../logger';
 import { redactGameStateFor } from '../redaction';
 import { getFullUser } from '../helpers';
-import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES } from '../constants';
+import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES, ALLOWED_EMOTES } from '../constants';
 import { TUTORIAL_STEPS } from '../tutorial';
 import { config } from '../config';
 import {
@@ -1030,6 +1030,16 @@ export class GameService {
         gameState.chat.push(message);
         if (gameState.chat.length > 100) gameState.chat.shift();
         this.io.to(roomCode).emit('chatMessage', message);
+    }
+
+    handleSendEmote(playerId: string, emote: string): void {
+        if (!ALLOWED_EMOTES.has(emote)) return;
+        const roomCode = this.findRoomByPlayerId(playerId);
+        if (!roomCode) return;
+        const gameState = this.games.get(roomCode)!;
+        if (!this.getPlayer(gameState, playerId)) return;
+
+        this.io.to(roomCode).emit('emote', { playerId, emote });
     }
 
     private advanceLeader(gameState: GameState): void {

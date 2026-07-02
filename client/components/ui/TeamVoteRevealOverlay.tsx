@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X } from 'lucide-react';
 import { Player } from '@/types';
 import { useAudio } from '@/components/context/AudioContext';
+import { haptics } from '@/lib/haptics';
 
 interface VoteRevealData {
     votes: { playerId: string; vote: 'APPROVE' | 'REJECT' }[];
@@ -105,7 +106,10 @@ const TeamVoteRevealOverlay: React.FC<TeamVoteRevealOverlayProps> = ({ data, onC
         });
 
         const resultDelay = FLIP_START_DELAY + votes.length * FLIP_INTERVAL + RESULT_DELAY_AFTER_LAST;
-        timers.push(setTimeout(() => setShowResult(true), resultDelay));
+        timers.push(setTimeout(() => {
+            setShowResult(true);
+            if (wasApproved) haptics.success(); else haptics.failure();
+        }, resultDelay));
         timers.push(setTimeout(onClose, resultDelay + AUTO_CLOSE_AFTER_RESULT));
 
         return () => timers.forEach(clearTimeout);

@@ -111,3 +111,6 @@ export const QUEST_CONFIGURATIONS: Record<number, { teamSize: number; failsRequi
     9: [{ teamSize: 3, failsRequired: 1 }, { teamSize: 4, failsRequired: 1 }, { teamSize: 4, failsRequired: 1 }, { teamSize: 5, failsRequired: 2 }, { teamSize: 5, failsRequired: 1 }],
     10: [{ teamSize: 3, failsRequired: 1 }, { teamSize: 4, failsRequired: 1 }, { teamSize: 4, failsRequired: 1 }, { teamSize: 5, failsRequired: 2 }, { teamSize: 5, failsRequired: 1 }],
 };
+// Emotes and quick-chat phrases. Must stay in sync with server constants.ts ALLOWED_EMOTES.
+export const EMOTE_EMOJIS = ['👍', '👎', '😂', '🤔', '😱', '😈', '👀', '🤥', '⚔️', '🛡️', '❤️', '🔥'];
+export const EMOTE_PHRASES = ['Trust me!', "I'm good!", 'Sus...', 'Liar!', 'Nice one!', 'Hmm...', 'Take me!', 'Bold move.', 'I knew it!', 'GG!'];

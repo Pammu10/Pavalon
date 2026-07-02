@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { ShieldCheck, ShieldX } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAudio } from "@/components/context/AudioContext";
+import { haptics } from "@/lib/haptics";
 
 interface QuestResultOverlayProps {
   show: boolean;
@@ -113,7 +114,10 @@ const QuestResultOverlay: React.FC<QuestResultOverlayProps> = ({
 
     timers.push(
       setTimeout(
-        () => setShowResult(true),
+        () => {
+          setShowResult(true);
+          if (isSuccess) haptics.success(); else haptics.failure();
+        },
         CARD_REVEAL_START + totalVotes * CARD_REVEAL_INTERVAL + RESULT_SHOW_DELAY
       )
     );

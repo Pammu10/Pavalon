@@ -75,3 +75,10 @@ export const QUEST_CONFIGURATIONS: Record<number, { teamSize: number; failsRequi
 export const DEFAULT_ICONS = ['default', 'gem', 'scroll', 'ghost', 'zap', 'axe', 'bookheart', 'keyround', 'sun', 'moonstar', 'spade'];
 
 export const DEFAULT_BACKGROUNDS = ['goodguy', 'badguy', 'forestday', 'forestnight']
+// Emotes and quick-chat phrases players can broadcast in a room.
+// Must stay in sync with client constants.ts EMOTE_* lists.
+export const ALLOWED_EMOTES = new Set([
+    '👍', '👎', '😂', '🤔', '😱', '😈', '👀', '🤥', '⚔️', '🛡️', '❤️', '🔥',
+    'Trust me!', "I'm good!", 'Sus...', 'Liar!', 'Nice one!', 'Hmm...',
+    'Take me!', 'Bold move.', 'I knew it!', 'GG!',
+]);

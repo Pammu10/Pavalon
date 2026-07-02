@@ -17,6 +17,8 @@ import { toast } from "sonner";
 import { useAudio } from "@/components/context/AudioContext";
 import SwipeableCard from "@/components/ui/SwipeableCard";
 import TeamVoteRevealOverlay from "@/components/ui/TeamVoteRevealOverlay";
+import { haptics } from "@/lib/haptics";
+import { ShieldAlert } from "lucide-react";
 import Image from "next/image";
 
 const PHASE_VARIANTS: Record<string, { initial: TargetAndTransition; animate: TargetAndTransition; exit: TargetAndTransition }> = {
@@ -183,7 +185,7 @@ const TeamSelection: React.FC = () => {
       {isLeader && (
         <div id="propose-team-button" className="text-center mt-6">
           <Button
-            onClick={() => selectTeam(pendingTeam)}
+            onClick={() => { haptics.confirm(); selectTeam(pendingTeam); }}
             disabled={!canSubmit || isPaused}
           >
             Propose Team ({pendingTeam.length}/{currentQuest.teamSize})
@@ -202,8 +204,28 @@ const TeamVote: React.FC = () => {
   const votedPlayerIds = gameState.players.filter(p => p.hasVoted).map(p => p.id);
   const visiblePlayerMap = usePlayerVisionMap();
 
+  const rejectionsLeft = 5 - gameState.voteTrack;
+
   return (
     <Card className="w-full">
+      {rejectionsLeft <= 2 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={`flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-2.5 mb-4 ${
+            rejectionsLeft === 1
+              ? 'bg-red-950/80 border-red-500 animate-pulse'
+              : 'bg-amber-950/60 border-amber-600'
+          }`}
+        >
+          <ShieldAlert size={18} className={rejectionsLeft === 1 ? 'text-red-400' : 'text-amber-400'} />
+          <p className={`text-sm font-bold text-center ${rejectionsLeft === 1 ? 'text-red-300' : 'text-amber-300'}`}>
+            {rejectionsLeft === 1
+              ? 'FINAL VOTE — if this team is rejected, Evil wins!'
+              : `Careful — ${rejectionsLeft} more rejections and Evil wins.`}
+          </p>
+        </motion.div>
+      )}
       <div className="flex justify-center flex-wrap gap-4 bg-slate-900/50 p-4 rounded-lg mb-4">
         {teamOnMission.map((p) => (
           <div key={p.id} className="w-28 md:w-36">
@@ -224,8 +246,8 @@ const TeamVote: React.FC = () => {
         <div id="team-vote-buttons" className="flex justify-center mt-6">
           <SwipeableCard
             title="Vote on Team"
-            onSwipeRight={() => voteOnTeam("APPROVE")}
-            onSwipeLeft={() => voteOnTeam("REJECT")}
+            onSwipeRight={() => { haptics.confirm(); voteOnTeam("APPROVE"); }}
+            onSwipeLeft={() => { haptics.confirm(); voteOnTeam("REJECT"); }}
             rightLabel="Approve"
             leftLabel="Reject"
             disabled={isPaused}
@@ -315,8 +337,8 @@ const QuestVote: React.FC = () => {
             <div id="quest-vote-buttons" className="flex justify-center mt-6">
               <SwipeableCard
                 title="Vote on Quest"
-                onSwipeRight={() => voteOnQuest("SUCCESS")}
-                onSwipeLeft={() => voteOnQuest("FAIL")}
+                onSwipeRight={() => { haptics.confirm(); voteOnQuest("SUCCESS"); }}
+                onSwipeLeft={() => { haptics.confirm(); voteOnQuest("FAIL"); }}
                 rightLabel="Success"
                 leftLabel="Fail"
                 disabled={isPaused}
