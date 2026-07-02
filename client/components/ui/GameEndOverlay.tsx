@@ -5,6 +5,7 @@ import { ShieldCheck, Skull } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Alignment } from "@/types";
 import { useAudio } from "@/components/context/AudioContext";
+import { haptics } from "@/lib/haptics";
 
 interface GameEndOverlayProps {
   show: boolean;
@@ -48,6 +49,7 @@ const GameEndOverlay: React.FC<GameEndOverlayProps> = ({ show, winner, onClose }
   useEffect(() => {
     if (show) {
       playSound(winner === Alignment.GOOD ? "victory" : "defeat");
+      haptics.dramatic();
       const timer = setTimeout(onClose, 9000);
       return () => clearTimeout(timer);
     }

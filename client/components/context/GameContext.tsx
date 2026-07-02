@@ -17,6 +17,8 @@ export interface TeamVoteRevealData {
     wasApproved: boolean;
 }
 
+export type SuspicionMark = 'trusted' | 'suspect' | 'evil';
+
 interface GameContextType {
     gameState: GameState;
     playerId: string | null;
@@ -35,6 +37,10 @@ interface GameContextType {
     justJoined: boolean;
     teamVoteReveal: TeamVoteRevealData | null;
     clearTeamVoteReveal: () => void;
+    activeEmotes: Record<string, { emote: string; key: number }>;
+    sendEmote: (emote: string) => void;
+    suspicionMarks: Record<number, SuspicionMark>;
+    cycleSuspicionMark: (userId: number) => void;
     // Username Modal State
     isUsernameModalOpen: boolean;
     suggestedUsername: string;
@@ -168,6 +174,24 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [teamVoteReveal, setTeamVoteReveal] = useState<TeamVoteRevealData | null>(null);
     const clearTeamVoteReveal = useCallback(() => setTeamVoteReveal(null), []);
 
+    // Emote reactions: playerId -> latest emote (key forces re-animation on repeat)
+    const [activeEmotes, setActiveEmotes] = useState<Record<string, { emote: string; key: number }>>({});
+    const emoteTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+    // Private per-game deduction notes: userId -> mark. Never sent to the server.
+    const [suspicionMarks, setSuspicionMarks] = useState<Record<number, SuspicionMark>>({});
+    const cycleSuspicionMark = useCallback((userId: number) => {
+        setSuspicionMarks(prev => {
+            const order: (SuspicionMark | null)[] = [null, 'trusted', 'suspect', 'evil'];
+            const current = prev[userId] ?? null;
+            const next = order[(order.indexOf(current) + 1) % order.length];
+            const updated = { ...prev };
+            if (next === null) delete updated[userId];
+            else updated[userId] = next;
+            return updated;
+        });
+    }, []);
+
     const prevRoomCode = useRef(gameState.roomCode);
     
     // Fetch friend requests for notification badges using React Query
@@ -213,8 +237,18 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else if (!gameState.roomCode && prevRoomCode.current) {
             router.push('/');
         }
+        if (gameState.roomCode !== prevRoomCode.current) {
+            setSuspicionMarks({});
+        }
         prevRoomCode.current = gameState.roomCode;
     }, [gameState.roomCode, router]);
+
+    // Reset deduction notes whenever a fresh game starts (role reveal)
+    useEffect(() => {
+        if (gameState.phase === GamePhase.ROLE_REVEAL) {
+            setSuspicionMarks({});
+        }
+    }, [gameState.phase]);
     
     // Trigger team-vote reveal overlay when phase transitions away from TEAM_VOTE
     useEffect(() => {
@@ -539,10 +573,24 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [playSound, acceptInvite, declineInvite]);
 
 
+    const handleEmote = useCallback(({ playerId: senderId, emote }: { playerId: string; emote: string }) => {
+        setActiveEmotes(prev => ({ ...prev, [senderId]: { emote, key: Date.now() } }));
+        if (emoteTimersRef.current[senderId]) clearTimeout(emoteTimersRef.current[senderId]);
+        emoteTimersRef.current[senderId] = setTimeout(() => {
+            setActiveEmotes(prev => {
+                const updated = { ...prev };
+                delete updated[senderId];
+                return updated;
+            });
+            delete emoteTimersRef.current[senderId];
+        }, 3000);
+    }, []);
+
     // --- Socket Listener `useEffect` ---
     useEffect(() => {
         socketService.on('updateGameState', handleUpdate);
         socketService.on('chatMessage', handleChatMessage);
+        socketService.on('emote', handleEmote);
         socketService.on('error', handleError);
         socketService.on('achievementUnlocked', handleAchievementUnlocked);
         socketService.on('kicked', handleKicked);
@@ -556,6 +604,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => {
             socketService.off('updateGameState', handleUpdate);
             socketService.off('chatMessage', handleChatMessage);
+            socketService.off('emote', handleEmote);
             socketService.off('error', handleError);
             socketService.off('achievementUnlocked', handleAchievementUnlocked);
             socketService.off('kicked', handleKicked);
@@ -566,7 +615,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             socketService.off('social:request_cancelled', handleSocialRequestCancelled);
             socketService.off('social:invite_received', handleInviteReceived);
         };
-    }, [handleUpdate, handleChatMessage, handleError, handleAchievementUnlocked, handleKicked, handleSocialStatus, handleRequestReceived, handleRequestAccepted, handleFriendRemoved, handleSocialRequestCancelled, handleInviteReceived]);
+    }, [handleUpdate, handleChatMessage, handleEmote, handleError, handleAchievementUnlocked, handleKicked, handleSocialStatus, handleRequestReceived, handleRequestAccepted, handleFriendRemoved, handleSocialRequestCancelled, handleInviteReceived]);
 
     useEffect(() => {
         const handleConnectError = (err: Error) => {
@@ -781,6 +830,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const advanceTutorial = () => socketService.emit('advanceTutorial');
     const kickPlayer = (playerIdToKick: string) => socketService.emit('kickPlayer', playerIdToKick);
     const sendMessage = (messageText: string) => socketService.emit('sendMessage', messageText);
+    const sendEmote = useCallback((emote: string) => socketService.emit('sendEmote', emote), []);
     const startGame = (data: { selectedRoles: Role[] }) => {
         setHasViewedRole(false);
         socketService.emit('startGame', data);
@@ -810,6 +860,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         gameState, playerId, error, messages, user, token, isAuthenticated, authError,
         isLoading, isConnected, hasViewedRole, settings, hasViewedCurrentQuestResult,
         hasViewedEndGameResult, justJoined, teamVoteReveal, clearTeamVoteReveal,
+        activeEmotes, sendEmote, suspicionMarks, cycleSuspicionMark,
         isUsernameModalOpen, suggestedUsername, openUsernameModal,
         closeUsernameModal, friendRequests, pendingInvites, isSocialHubOpen,
         openSocialHub, closeSocialHub, previewBackground, setPreviewBackground, setHasViewedRole, markQuestResultAsViewed,

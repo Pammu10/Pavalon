@@ -343,6 +343,7 @@ export interface ClientToServerEvents {
 
   // Shared Events
   sendMessage: (messageText: string) => void;
+  sendEmote: (emote: string) => void;
   
   // Dragon's Breath Events
   startDragonsBreath: () => void;
@@ -367,6 +368,7 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   updateGameState: (gameState: GameState) => void;
   chatMessage: (message: Message) => void;
+  emote: (data: { playerId: string; emote: string }) => void;
   error: (message: string) => void;
   achievementUnlocked: (achievement: Achievement) => void;
   kicked: (reason: string) => void;

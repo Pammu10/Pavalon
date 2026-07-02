@@ -32,6 +32,8 @@ import { useInteraction } from "@/components/context/ClientProviders";
 import DragonsBreathScreen from "@/components/screens/DragonsBreathScreen";
 import SocialHub from "@/components/ui/SocialHub";
 import TutorialOverlay from "@/components/ui/TutorialOverlay";
+import EmoteLayer from "@/components/ui/EmoteLayer";
+import TurnAlert from "@/components/ui/TurnAlert";
 
 type Tab =
   | "game"
@@ -280,6 +282,8 @@ const MainContent: React.FC = () => {
       className="flex flex-col h-[100dvh] w-screen"
     >
       {gameState.tutorial && <TutorialOverlay />}
+      {!gameState.tutorial && gameState.roomCode && <EmoteLayer />}
+      {!gameState.tutorial && <TurnAlert />}
       <AnimatePresence>
         {isSocialHubOpen && <SocialHub onClose={closeSocialHub} />}
       </AnimatePresence>
