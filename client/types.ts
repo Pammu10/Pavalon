@@ -27,6 +27,9 @@ export interface Player {
   selectedBorder?: string | null;
   selectedIcon?: string | null;
   selectedBackground?: string | null;
+  // Server-computed, per-viewer: what this client knows about this player
+  // mid-game ('Evil' for Merlin/evil-team vision, 'Mystic' for Percival).
+  visibleAs?: "Evil" | "Mystic";
 }
 
 export enum GamePhase {

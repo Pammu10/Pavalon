@@ -7,6 +7,8 @@ import AchievementsTab from "../ui/AchievementsTab";
 import Spinner from "../ui/Spinner";
 import { toast } from "sonner";
 import { useGoogleLogin } from '@react-oauth/google';
+import { TUTORIAL_SEEN_KEY } from "@/components/ui/TutorialPromptModal";
+import { BookOpen } from "lucide-react";
 
 const RESTART_COOLDOWN_MS = 120000; // 2 minutes
 
@@ -29,7 +31,7 @@ const GoogleIcon = () => (
 );
 
 const SettingsScreen: React.FC = () => {
-  const { settings, updateSettings, logout, gameState, playerId, initiateRestart, kickPlayer, user, updateUsername, linkGoogleAccount } = useGame();
+  const { settings, updateSettings, logout, gameState, playerId, initiateRestart, kickPlayer, user, updateUsername, linkGoogleAccount, joinRoom } = useGame();
   const { isBgmMuted, toggleBgm } = useAudio();
   const [cooldownTime, setCooldownTime] = useState(0);
   
@@ -205,6 +207,29 @@ const SettingsScreen: React.FC = () => {
                 </div>
             </div>
         )}
+
+        <div className="mt-6 border-t-2 border-slate-700 pt-4">
+            <h3 className="font-eagleLake text-xl mb-2 text-center text-yellow-500">How to Play</h3>
+            <p className="text-slate-400 text-sm text-center mb-4">
+                Replay the interactive tutorial to brush up on the rules.
+            </p>
+            <Button
+                variant="secondary"
+                onClick={() => {
+                    // Clear the "seen" flag so the prompt reappears next time
+                    localStorage.removeItem(TUTORIAL_SEEN_KEY);
+                    joinRoom('TUTORIAL');
+                }}
+                disabled={isGameInProgress}
+                className="w-full flex items-center justify-center gap-2"
+            >
+                <BookOpen size={16} />
+                Replay Tutorial
+            </Button>
+            {isGameInProgress && (
+                <p className="text-amber-500 text-xs mt-2 text-center">Cannot start tutorial while a game is in progress.</p>
+            )}
+        </div>
 
         <div className="mt-6 border-t-2 border-slate-700 pt-4">
             <Button onClick={logout} variant="danger" className="w-full">Log Out</Button>

@@ -16,6 +16,7 @@ import SettingsScreen from "@/components/screens/SettingsScreen";
 import AchievementsTab from "@/components/ui/AchievementsTab";
 import AdminPage from "@/app/admin/page";
 import SocialHub from "@/components/ui/SocialHub";
+import TutorialPromptModal, { shouldShowTutorialPrompt, dismissTutorialPrompt } from "@/components/ui/TutorialPromptModal";
 
 const JoinHostView: React.FC = () => {
   const { joinRoom, user, logout, isConnected } = useGame();
@@ -70,14 +71,14 @@ const JoinHostView: React.FC = () => {
               </Button>
             </form>
             
-            {/* <Button
+            <Button
                 variant="secondary"
                 onClick={() => joinRoom('TUTORIAL')}
-                className="w-full h-14"
+                className="w-full h-12 flex items-center justify-center gap-2"
                 disabled={!isConnected}
             >
-                How to Play (Tutorial)
-            </Button> */}
+                How to Play
+            </Button>
 
             <div className="pt-4 border-t border-slate-700 flex items-center justify-between">
               {user && (
@@ -122,10 +123,17 @@ const BASE_TABS_CONFIG: {
 ];
 
 const MainPageView: React.FC = () => {
-    const { user, friendRequests, setPreviewBackground } = useGame();
+    const { user, friendRequests, setPreviewBackground, joinRoom } = useGame();
     const [activeTab, setActiveTab] = useState<Tab>("home");
+    const [tutorialPromptVariant, setTutorialPromptVariant] = useState<'new' | 'returning' | null>(null);
     const mainContentRef = useRef<HTMLDivElement>(null);
     const prevTab = useRef<Tab>();
+
+    // Check on mount whether to show the tutorial prompt
+    useEffect(() => {
+        const variant = shouldShowTutorialPrompt();
+        if (variant) setTutorialPromptVariant(variant);
+    }, []);
 
     useEffect(() => {
         if (mainContentRef.current) {
@@ -158,6 +166,21 @@ const MainPageView: React.FC = () => {
     const mobileTabs = TABS_CONFIG.filter((t) => t.mobile);
     
     return (
+        <>
+        {tutorialPromptVariant && user && (
+            <TutorialPromptModal
+                username={user.username}
+                variant={tutorialPromptVariant}
+                onStartTutorial={() => {
+                    setTutorialPromptVariant(null);
+                    joinRoom('TUTORIAL');
+                }}
+                onDismiss={() => {
+                    dismissTutorialPrompt();
+                    setTutorialPromptVariant(null);
+                }}
+            />
+        )}
         <Tabs
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as Tab)}
@@ -230,6 +253,7 @@ const MainPageView: React.FC = () => {
                 ))}
             </TabsList>
         </Tabs>
+        </>
     );
 };
 

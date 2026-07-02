@@ -106,6 +106,28 @@
     animation: pulse-glow 2.5s infinite;
 }
 
+/* Tutorial highlight glow pulse */
+@keyframes tutorialGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 1), 0 0 20px 4px rgba(250, 204, 21, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 1), 0 0 36px 10px rgba(250, 204, 21, 0.7);
+  }
+}
+
+/* Game-end particle animation — particles float up from the bottom and fade out */
+@keyframes gameEndParticle {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-105vh) translateX(var(--drift, 0px)) rotate(540deg) scale(0.5);
+    opacity: 0;
+  }
+}
+
 
 
 @layer base {
