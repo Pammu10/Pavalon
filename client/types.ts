@@ -171,6 +171,7 @@ export interface GameState {
   assassinationTargetId: string | null;
   selectedRoles: Role[];
   tutorial?: TutorialStep | null;
+  cpuConfig?: { difficulty: 'easy' | 'medium' | 'hard'; personas: { name: string }[] } | null;
 }
 
 export interface RoleDescription {
@@ -356,6 +357,9 @@ export interface ClientToServerEvents {
   
   // Tutorial Event
   advanceTutorial: () => void;
+
+  // CPU Game
+  startCPUGame: (data: { difficulty: 'easy' | 'medium' | 'hard'; playerCount: number }) => void;
 
   // Social Events
   'social:invite_to_game': (data: { friendId: number }) => void;

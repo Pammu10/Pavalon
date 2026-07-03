@@ -17,9 +17,12 @@ import AchievementsTab from "@/components/ui/AchievementsTab";
 import AdminPage from "@/app/admin/page";
 import SocialHub from "@/components/ui/SocialHub";
 import TutorialPromptModal, { shouldShowTutorialPrompt, dismissTutorialPrompt } from "@/components/ui/TutorialPromptModal";
+import CPUGameSetupModal from "@/components/screens/CPUGameSetupModal";
+import { Bot } from "lucide-react";
 
 const JoinHostView: React.FC = () => {
   const { joinRoom, user, logout, isConnected } = useGame();
+  const [cpuModalOpen, setCpuModalOpen] = useState(false);
   const [roomCode, setRoomCode] = useState("");
 
   const handleJoinSubmit = (e: React.FormEvent) => {
@@ -71,14 +74,25 @@ const JoinHostView: React.FC = () => {
               </Button>
             </form>
             
-            <Button
-                variant="secondary"
-                onClick={() => joinRoom('TUTORIAL')}
-                className="w-full h-12 flex items-center justify-center gap-2"
-                disabled={!isConnected}
-            >
-                How to Play
-            </Button>
+            <div className="flex gap-2">
+                <Button
+                    variant="secondary"
+                    onClick={() => setCpuModalOpen(true)}
+                    className="flex-1 h-12 flex items-center justify-center gap-2"
+                    disabled={!isConnected}
+                >
+                    <Bot size={16} /> Play vs CPU
+                </Button>
+                <Button
+                    variant="secondary"
+                    onClick={() => joinRoom('TUTORIAL')}
+                    className="flex-1 h-12 flex items-center justify-center gap-2"
+                    disabled={!isConnected}
+                >
+                    How to Play
+                </Button>
+            </div>
+            {cpuModalOpen && <CPUGameSetupModal onClose={() => setCpuModalOpen(false)} />}
 
             <div className="pt-4 border-t border-slate-700 flex items-center justify-between">
               {user && (

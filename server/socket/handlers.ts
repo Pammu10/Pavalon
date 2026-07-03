@@ -73,6 +73,9 @@ export function registerSocketHandlers(
         socket.on('endFutureView', () => gameService.handleEndFutureView(socket.id));
         socket.on('returnToLobby', () => gameService.handleReturnToLobby(socket.id));
         socket.on('advanceTutorial', () => gameService.handleAdvanceTutorial(socket.id));
+        socket.on('startCPUGame', (data) =>
+            gameService.handleStartCPUGame(socket as any, user, data as { difficulty: 'easy' | 'medium' | 'hard'; playerCount: number }),
+        );
 
         socket.on('social:invite_to_game', ({ friendId }) => socialService.handleGameInvite(user, friendId as number));
 
