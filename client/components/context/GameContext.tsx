@@ -876,11 +876,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return (
         <GameContext.Provider value={value}>
             {children}
-            {error && (
-                <div className="animate-fadeIn fixed bottom-5 left-5 z-[100] bg-red-800/80 backdrop-blur-md text-white font-bold py-3 px-6 rounded-lg shadow-2xl border-2 border-red-600">
-                    Error: {error}
-                </div>
-            )}
         </GameContext.Provider>
     );
 };

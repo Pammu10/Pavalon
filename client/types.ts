@@ -140,6 +140,7 @@ export interface TutorialStep {
     text: string;
     highlight?: string[];
     actionRequired?: string;
+    actionText?: string;
     isFinalStep?: boolean;
 }
 
