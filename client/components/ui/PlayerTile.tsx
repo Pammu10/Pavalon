@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { Player, GamePhase } from '@/types';
 import { useGame } from '../context/GameContext';
 import { useVoice } from '../context/VoiceContext';
-import { Crown, Ghost, Shield, Swords, Eye, Mic, Gem, ShieldCheck, HelpCircle, Skull, NotebookPen } from 'lucide-react';
+import { Crown, Ghost, Shield, Swords, Eye, Mic, Gem, ShieldCheck, HelpCircle, Skull, NotebookPen, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROLES } from '@/constants';
 import { ICON_MAP } from './AvailableIcons';
@@ -167,6 +167,11 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
 
       {/* Status Icons */}
       <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
+        {player.userId < 0 && (
+          <div className="w-6 h-6 bg-slate-700/80 text-slate-300 rounded-full flex items-center justify-center" title="CPU Player">
+            <Bot size={12} />
+          </div>
+        )}
         {player.isHost && (
           <div className="w-6 h-6 bg-yellow-800/80 text-yellow-300 rounded-full flex items-center justify-center" title="Host">
             <Crown size={14} />

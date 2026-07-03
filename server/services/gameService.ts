@@ -3,17 +3,18 @@ import db from '../db';
 import { logger } from '../logger';
 import { redactGameStateFor } from '../redaction';
 import { getFullUser } from '../helpers';
-import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES, ALLOWED_EMOTES } from '../constants';
+import { EVIL_PLAYER_COUNT, QUEST_CONFIGURATIONS, ROLES, ALLOWED_EMOTES, ROLE_CONFIGURATIONS } from '../constants';
 import { TUTORIAL_STEPS } from '../tutorial';
 import { config } from '../config';
 import {
     GameState, Player, GamePhase, Role, Alignment, Message, LogEntry,
     ClientToServerEvents, ServerToClientEvents, User, PlayerStats, Match,
     UserAchievement, LeaderboardData, LeaderboardEntry, DragonsBreathStats,
-    DragonCard, DragonCardType,
+    DragonCard, DragonCardType, BotDifficulty,
 } from '../types';
 import { AchievementService } from './achievementService';
 import type { SocialService } from './socialService';
+import type { BotEngine } from '../bots';
 
 const { reconnectTimeout: RECONNECT_TIMEOUT, restartCooldown: RESTART_COOLDOWN, restartVoteDuration: RESTART_VOTE_DURATION } = config.game;
 
@@ -28,6 +29,11 @@ export class GameService {
     private io: Server<ClientToServerEvents, ServerToClientEvents>;
     private socialService: SocialService;
     private achievementService: AchievementService;
+    private botEngine: BotEngine | null = null;
+
+    setBotEngine(engine: BotEngine): void {
+        this.botEngine = engine;
+    }
 
     constructor(
         io: Server<ClientToServerEvents, ServerToClientEvents>,
@@ -51,6 +57,7 @@ export class GameService {
         for (const player of gameState.players) {
             this.sendStateTo(player.id, gameState);
         }
+        this.botEngine?.onPhaseChange(gameState);
     }
 
     private addLog(gameState: GameState, text: string, type: LogEntry['type']): void {
@@ -175,6 +182,113 @@ export class GameService {
         socket.join(roomCode);
         this.sendStateTo(socket.id, gameState);
         logger.info('[TUTORIAL] Created tutorial game', { username: user.username });
+    }
+
+    async handleStartCPUGame(
+        socket: AuthSocket,
+        user: User,
+        config: { difficulty: BotDifficulty; playerCount: number },
+    ): Promise<void> {
+        const { difficulty, playerCount } = config;
+
+        if (playerCount < 5 || playerCount > 10) {
+            socket.emit('error', 'CPU games require 5–10 players.');
+            return;
+        }
+
+        // Leave any existing game first
+        const existingGameInfo = this.findGameByPlayerUserId(user.id);
+        if (existingGameInfo) {
+            const [oldRoom, oldGame] = existingGameInfo;
+            const switchablePhases: GamePhase[] = [GamePhase.LOBBY, GamePhase.END_GAME, GamePhase.DRAGONS_BREATH];
+            if (switchablePhases.includes(oldGame.phase)) {
+                oldGame.players = oldGame.players.filter((p) => p.userId !== user.id);
+                if (oldGame.players.length === 0) this.games.delete(oldRoom);
+                else this.broadcastState(oldGame);
+            } else {
+                socket.emit('error', 'You are already in an active game.');
+                return;
+            }
+        }
+
+        // Lazy import to avoid circular dependency at startup
+        const { selectPersonasForSlots } = await import('../bots/personas');
+
+        const roomCode = this.generateRoomCode();
+        const gameState = this.createInitialGameState(roomCode);
+
+        // Human player
+        const customizations = await db.get<{
+            selected_title: string; selected_border: string;
+            selected_icon: string; selected_background: string;
+        }>('SELECT selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1', [user.id]);
+
+        const humanPlayer: Player = {
+            id: socket.id,
+            userId: user.id,
+            name: user.username,
+            role: null, alignment: null,
+            isHost: true, hasVoted: false, status: 'CONNECTED',
+            selectedTitle: customizations?.selected_title,
+            selectedBorder: customizations?.selected_border || '',
+            selectedIcon: customizations?.selected_icon,
+            selectedBackground: customizations?.selected_background,
+        };
+        gameState.players.push(humanPlayer);
+
+        // Assign roles and work out alignments so we can pick appropriate personas
+        const roles = ROLE_CONFIGURATIONS[playerCount];
+        this.assignRoles({ ...gameState, players: [humanPlayer] }, roles);
+        // Re-use assignRoles properly after adding bots
+        // First determine how many bots and their slot alignments
+        const botCount = playerCount - 1;
+        // We need the full role set shuffled first to know which alignment each bot slot gets.
+        // Re-assign after all players are added below.
+
+        // Build bot alignment list for persona selection (just counts)
+        const botRoles = roles.slice(1); // remaining after human takes one (approximate)
+        const botAlignments = botRoles.map((r) =>
+            ROLES[r].alignment === Alignment.GOOD ? 'good' as const : 'evil' as const,
+        );
+        const personas = selectPersonasForSlots(difficulty, botAlignments);
+
+        for (let i = 0; i < botCount; i++) {
+            const persona = personas[i];
+            const bot: Player = {
+                id: `cpu-${roomCode}-${i}`,
+                userId: -101 - i,
+                name: persona.name,
+                role: null, alignment: null,
+                isHost: false, hasVoted: false, status: 'CONNECTED',
+                selectedBorder: persona.selectedBorder,
+                selectedIcon: persona.selectedIcon,
+            };
+            gameState.players.push(bot);
+        }
+
+        // Now properly assign roles across all players (human + bots)
+        this.assignRoles(gameState, roles);
+        this.setupQuests(gameState);
+
+        gameState.phase = GamePhase.ROLE_REVEAL;
+        gameState.leader = gameState.players[Math.floor(Math.random() * playerCount)];
+        gameState.selectedRoles = roles;
+        gameState.cpuConfig = {
+            difficulty,
+            personas: personas.map((p) => ({
+                name: p.name,
+                difficulty: p.difficulty,
+                selectedBorder: p.selectedBorder,
+                selectedIcon: p.selectedIcon,
+            })),
+        };
+
+        this.games.set(roomCode, gameState);
+        socket.join(roomCode);
+        this.addLog(gameState, `CPU game started (${difficulty}, ${playerCount} players).`, 'system');
+        this.broadcastState(gameState);
+        this.socialService.updateUserStatus(user.id, true, roomCode);
+        logger.info('[CPU] Created CPU game', { username: user.username, difficulty, playerCount, roomCode });
     }
 
     async handleJoinRoom(socket: AuthSocket, user: User, roomCode?: string): Promise<void> {
@@ -535,7 +649,7 @@ export class GameService {
                 const matchId = matchResult.rows[0].id;
 
                 for (const player of gameState.players) {
-                    if (player.role && player.alignment && player.userId) {
+                    if (player.role && player.alignment && player.userId > 0) {
                         const won = player.alignment === winner;
                         const performance = { user_id: player.userId, match_id: matchId, role: player.role, alignment: player.alignment, won };
                         await db.run('INSERT INTO player_performance (user_id, match_id, role, alignment, won) VALUES ($1, $2, $3, $4, $5)', [performance.user_id, performance.match_id, performance.role, performance.alignment, performance.won]);
@@ -609,10 +723,23 @@ export class GameService {
 
         const preservedChat = gameState.chat;
         const preservedLog = gameState.gameLog;
+        const cpuConfig = gameState.cpuConfig;
+
         const originalPlayerInfos = await Promise.all(
             gameState.players
                 .filter((p) => p.status === 'CONNECTED')
                 .map(async (p) => {
+                    // Bots: reconstruct from persona config without DB query
+                    if (p.userId < 0) {
+                        const persona = cpuConfig?.personas.find((pe) => pe.name === p.name);
+                        return {
+                            id: p.id, userId: p.userId, name: p.name,
+                            role: null as Role | null, alignment: null as Alignment | null,
+                            isHost: false, hasVoted: false, status: 'CONNECTED' as const,
+                            selectedBorder: persona?.selectedBorder ?? '',
+                            selectedIcon: persona?.selectedIcon,
+                        };
+                    }
                     const customizations = await db.get<{ selected_title: string; selected_border: string; selected_icon: string; selected_background: string }>(
                         'SELECT selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1',
                         [p.userId],
@@ -630,6 +757,7 @@ export class GameService {
         newGameState.players = originalPlayerInfos;
         newGameState.chat = preservedChat;
         newGameState.gameLog = preservedLog;
+        newGameState.cpuConfig = cpuConfig ?? null;
 
         if (!newGameState.players.some((p) => p.isHost)) {
             const connected = newGameState.players.filter((p) => p.status === 'CONNECTED');
@@ -1030,6 +1158,7 @@ export class GameService {
         gameState.chat.push(message);
         if (gameState.chat.length > 100) gameState.chat.shift();
         this.io.to(roomCode).emit('chatMessage', message);
+        this.botEngine?.onChatMessage(message, gameState);
     }
 
     handleSendEmote(playerId: string, emote: string): void {

@@ -151,6 +151,20 @@ export interface TutorialStep {
     isFinalStep?: boolean;
 }
 
+export type BotDifficulty = 'easy' | 'medium' | 'hard';
+
+export interface CpuPersonaRef {
+    name: string;
+    difficulty: BotDifficulty;
+    selectedBorder?: string;
+    selectedIcon?: string;
+}
+
+export interface CpuGameConfig {
+    difficulty: BotDifficulty;
+    personas: CpuPersonaRef[];
+}
+
 
 export interface GameState {
     roomCode: string | null;
@@ -179,6 +193,7 @@ export interface GameState {
     assassinationTargetId: string | null;
     selectedRoles: Role[];
     tutorial?: TutorialStep | null;
+    cpuConfig?: CpuGameConfig | null;
 }
 
 export interface RoleDescription {
@@ -336,6 +351,9 @@ export interface ClientToServerEvents {
     
     // Tutorial Event
     advanceTutorial: () => void;
+
+    // CPU Game
+    startCPUGame: (data: { difficulty: 'easy' | 'medium' | 'hard'; playerCount: number }) => void;
 
     // Social Events
     'social:invite_to_game': (data: { friendId: number }) => void;

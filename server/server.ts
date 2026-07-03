@@ -14,6 +14,8 @@ import { registerSocketHandlers } from './socket/handlers';
 import { GameService } from './services/gameService';
 import { SocialService } from './services/socialService';
 import { AchievementService } from './services/achievementService';
+import { BotEngine } from './bots';
+import { ollamaClient } from './bots/llm';
 import db from './db';
 import { ClientToServerEvents, ServerToClientEvents } from './types';
 
@@ -27,6 +29,9 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, { cors
 const achievementService = new AchievementService();
 const socialService = new SocialService(io);
 const gameService = new GameService(io, socialService, achievementService);
+const botEngine = new BotEngine(gameService);
+gameService.setBotEngine(botEngine);
+ollamaClient.probe(); // non-blocking — logs availability, enables LLM chat if running
 socialService.setGameService(gameService);
 
 app.use('/api', authRoutes);
