@@ -1,8 +1,8 @@
 import { Player, GameState } from '../../types';
-import { getKnownEvil, buildSuspicionScores } from './knowledge';
+import { getKnownEvil, buildSuspicionScores, resolveBotDifficulty } from './knowledge';
 
 export function decideTeamVote(bot: Player, gameState: GameState): 'APPROVE' | 'REJECT' {
-    const difficulty = gameState.cpuConfig?.difficulty ?? 'easy';
+    const difficulty = resolveBotDifficulty(gameState, bot);
     const voteTrack = gameState.voteTrack;
     const quest = gameState.questHistory[gameState.currentQuest - 1];
     const teamIds = new Set(quest.team.map((p) => p.id));

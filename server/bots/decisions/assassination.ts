@@ -1,8 +1,8 @@
 import { Player, GameState, Alignment, Role } from '../../types';
-import { getKnownEvil } from './knowledge';
+import { getKnownEvil, resolveBotDifficulty } from './knowledge';
 
 export function decideAssassination(bot: Player, gameState: GameState): string | null {
-    const difficulty = gameState.cpuConfig?.difficulty ?? 'easy';
+    const difficulty = resolveBotDifficulty(gameState, bot);
     const knownEvilIds = new Set(getKnownEvil(bot, gameState.players).map((p) => p.id));
 
     // Candidates: non-Evil players (Assassin would never target known allies)

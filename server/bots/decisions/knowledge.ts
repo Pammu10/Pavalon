@@ -1,4 +1,14 @@
-import { Player, Role, Alignment, GameState } from '../../types';
+import { Player, Role, Alignment, GameState, BotDifficulty } from '../../types';
+
+/**
+ * Difficulty for one bot. Lobby-added bots can each have their own
+ * difficulty (carried on their persona ref in cpuConfig); CPU games set a
+ * game-wide difficulty as the fallback.
+ */
+export function resolveBotDifficulty(gameState: GameState, bot: Player): BotDifficulty {
+    const persona = gameState.cpuConfig?.personas.find((p) => p.name === bot.name);
+    return persona?.difficulty ?? gameState.cpuConfig?.difficulty ?? 'easy';
+}
 
 const SUSPICION_WORDS = ['sus', 'suspicious', 'evil', 'traitor', 'lying', 'liar', 'lied', 'fake', "don't trust", 'dont trust', 'distrust', 'minion', 'vote him out', 'vote her out', 'vote them out'];
 const TRUST_WORDS = ['trust', 'loyal', 'believe', 'good guy', 'clean', 'innocent'];

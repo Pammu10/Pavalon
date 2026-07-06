@@ -1,5 +1,5 @@
 import { Player, GameState } from '../../types';
-import { getKnownEvil, buildSuspicionScores } from './knowledge';
+import { getKnownEvil, buildSuspicionScores, resolveBotDifficulty } from './knowledge';
 
 function shuffle<T>(arr: T[]): T[] {
     const a = [...arr];
@@ -11,7 +11,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export function selectTeam(bot: Player, gameState: GameState, teamSize: number): string[] {
-    const difficulty = gameState.cpuConfig?.difficulty ?? 'easy';
+    const difficulty = resolveBotDifficulty(gameState, bot);
     const allPlayers = gameState.players;
     const knownEvil = getKnownEvil(bot, allPlayers);
     const knownEvilIds = new Set(knownEvil.map((p) => p.id));

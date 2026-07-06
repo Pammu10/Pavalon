@@ -96,6 +96,7 @@ interface GameContextType {
     advanceTutorial: () => void;
     // CPU Game
     startCPUGame: (data: { difficulty: 'easy' | 'medium' | 'hard'; playerCount: number }) => void;
+    addBot: (difficulty: 'easy' | 'medium' | 'hard') => void;
     // Social Functions
     addFriend: (username: string) => Promise<void>;
     respondToFriendRequest: (requesterId: number, action: 'accept' | 'decline') => Promise<void>;
@@ -850,6 +851,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const advanceTutorial = () => socketService.emit('advanceTutorial');
     const startCPUGame = (data: { difficulty: 'easy' | 'medium' | 'hard'; playerCount: number }) =>
         socketService.emit('startCPUGame', data);
+    const addBot = (difficulty: 'easy' | 'medium' | 'hard') => socketService.emit('addBot', difficulty);
     const kickPlayer = (playerIdToKick: string) => socketService.emit('kickPlayer', playerIdToKick);
     const sendMessage = (messageText: string) => socketService.emit('sendMessage', messageText);
     const sendEmote = useCallback((emote: string) => socketService.emit('sendEmote', emote), []);
@@ -891,7 +893,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updateSelectedRoles, selectTeam, updatePendingTeam, updateAssassinationTarget,
         voteOnTeam, voteOnQuest, assassinate, playerReady, playerReadyForNextGame, sendMessage,
         initiateRestart, voteOnRestart, startDragonsBreath, drawCard, playCard, placeDragonCard,
-        endFutureView, returnToLobby, advanceTutorial, startCPUGame, addFriend, respondToFriendRequest, removeFriend,
+        endFutureView, returnToLobby, advanceTutorial, startCPUGame, addBot, addFriend, respondToFriendRequest, removeFriend,
         cancelFriendRequest, inviteFriendToGame, acceptInvite, declineInvite, googleLogin, linkGoogleAccount,
     };
 
