@@ -41,8 +41,8 @@ export async function handleIncomingChatMessage(
         const mentioned = text.includes(bot.name.toLowerCase());
         const shouldReply =
             mentioned ||
-            (isQuestion && persona.difficulty !== 'easy' && Math.random() < 0.35) ||
-            (persona.difficulty === 'easy' && Math.random() < 0.20);
+            (isQuestion && Math.random() < 0.5) ||
+            Math.random() < persona.chatFrequency * 0.3;
 
         if (!shouldReply) continue;
 

@@ -1,20 +1,5 @@
 import { Player, GameState } from '../../types';
-import { getKnownEvil } from './knowledge';
-
-function buildSuspicionScores(gameState: GameState): Map<string, number> {
-    const scores = new Map<string, number>();
-    for (const q of gameState.questHistory) {
-        if (q.status !== 'PASSED') continue;
-        for (const pv of q.pastVotes) {
-            for (const v of pv.votes) {
-                if (v.vote === 'REJECT') {
-                    scores.set(v.playerId, (scores.get(v.playerId) ?? 0) + 1);
-                }
-            }
-        }
-    }
-    return scores;
-}
+import { getKnownEvil, buildSuspicionScores } from './knowledge';
 
 export function decideTeamVote(bot: Player, gameState: GameState): 'APPROVE' | 'REJECT' {
     const difficulty = gameState.cpuConfig?.difficulty ?? 'easy';

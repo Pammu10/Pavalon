@@ -1,5 +1,5 @@
 import { Player, GameState } from '../../types';
-import { getKnownEvil } from './knowledge';
+import { getKnownEvil, buildSuspicionScores } from './knowledge';
 
 function shuffle<T>(arr: T[]): T[] {
     const a = [...arr];
@@ -8,23 +8,6 @@ function shuffle<T>(arr: T[]): T[] {
         [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
-}
-
-/** Build a suspicion score for each player based on voting history. */
-function buildSuspicionScores(gameState: GameState): Map<string, number> {
-    const scores = new Map<string, number>();
-    for (const q of gameState.questHistory) {
-        if (q.status !== 'PASSED') continue;
-        // Any player who voted REJECT on a quest that passed is suspicious
-        for (const pv of q.pastVotes) {
-            for (const v of pv.votes) {
-                if (v.vote === 'REJECT') {
-                    scores.set(v.playerId, (scores.get(v.playerId) ?? 0) + 1);
-                }
-            }
-        }
-    }
-    return scores;
 }
 
 export function selectTeam(bot: Player, gameState: GameState, teamSize: number): string[] {

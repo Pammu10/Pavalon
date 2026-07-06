@@ -5,7 +5,7 @@ import { logger } from '../logger';
 
 const OLLAMA_BASE = process.env.OLLAMA_URL ?? 'http://localhost:11434';
 const MODEL = process.env.OLLAMA_MODEL ?? 'gemma2:2b';
-const TIMEOUT_MS = 3500;
+const TIMEOUT_MS = 6000;
 
 class OllamaClient {
     private available: boolean | null = null;
@@ -20,7 +20,21 @@ class OllamaClient {
             this.available = false;
         }
         logger.info(`[BotEngine] Ollama ${this.available ? `available at ${OLLAMA_BASE} (model: ${MODEL})` : `not available at ${OLLAMA_BASE} — using scripted chat`}`);
+
+        if (this.available) this.warmup();
         return this.available ?? false;
+    }
+
+    /** Fire-and-forget: loads the model into memory now so the first real chat reply isn't hit with cold-start latency. */
+    private warmup(): void {
+        fetch(`${OLLAMA_BASE}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: MODEL, prompt: 'hi', stream: false, options: { num_predict: 1 } }),
+            signal: AbortSignal.timeout(20000),
+        })
+            .then((res) => logger.info(`[BotEngine] Ollama model ${MODEL} warmed up (${res.ok ? 'ok' : res.status})`))
+            .catch((e) => logger.warn(`[BotEngine] Ollama warmup failed: ${e}`));
     }
 
     async generate(systemPrompt: string, userMessage: string): Promise<string | null> {
@@ -38,10 +52,14 @@ class OllamaClient {
                 }),
                 signal: AbortSignal.timeout(TIMEOUT_MS),
             });
-            if (!res.ok) return null;
+            if (!res.ok) {
+                logger.error(`[BotEngine] Ollama generate failed: ${res.status} ${res.statusText} (model: ${MODEL})`);
+                return null;
+            }
             const data = (await res.json()) as { response?: string };
             return data.response?.trim() ?? null;
-        } catch {
+        } catch (e) {
+            logger.error(`[BotEngine] Ollama generate error: ${e}`);
             return null;
         }
     }
