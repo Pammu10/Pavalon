@@ -15,7 +15,7 @@ function isPhaseActive(gameState: GameState, phase: GamePhase): boolean {
     return gameState.phase === phase;
 }
 
-function getPersona(name: string, gameState: GameState): BotPersona | undefined {
+function getPersona(name: string): BotPersona | undefined {
     return ALL_PERSONAS.find((p) => p.name === name);
 }
 
@@ -61,7 +61,7 @@ export class BotEngine {
         if (bots.length === 0 || message.senderUserId < 0) return;
 
         const personas = bots
-            .map((b) => getPersona(b.name, gameState))
+            .map((b) => getPersona(b.name))
             .filter((p): p is BotPersona => !!p);
 
         handleIncomingChatMessage(message, bots, gameState, personas, this.gameService);
@@ -87,7 +87,7 @@ export class BotEngine {
     private handleRoleReveal(gameState: GameState, bots: typeof gameState.players): void {
         let firstBot = true;
         bots.forEach((bot, i) => {
-            const persona = getPersona(bot.name, gameState);
+            const persona = getPersona(bot.name);
             if (!persona) return;
             const [min, max] = persona.timing.ready;
             const delay = jitter(min, max) + i * persona.timing.readyStagger;
@@ -107,7 +107,7 @@ export class BotEngine {
         const leaderBot = bots.find((b) => b.id === gameState.leader?.id);
         if (!leaderBot) return; // human is leader
 
-        const persona = getPersona(leaderBot.name, gameState);
+        const persona = getPersona(leaderBot.name);
         if (!persona) return;
         const [min, max] = persona.timing.teamSelect;
 
@@ -124,7 +124,7 @@ export class BotEngine {
 
     private handleTeamVote(gameState: GameState, bots: typeof gameState.players): void {
         bots.forEach((bot, i) => {
-            const persona = getPersona(bot.name, gameState);
+            const persona = getPersona(bot.name);
             if (!persona) return;
             const delay = persona.timing.voteBase + i * persona.timing.voteStagger + Math.random() * 400;
 
@@ -152,7 +152,7 @@ export class BotEngine {
         const botsOnTeam = bots.filter((b) => quest.team.some((t) => t.id === b.id));
 
         botsOnTeam.forEach((bot, i) => {
-            const persona = getPersona(bot.name, gameState);
+            const persona = getPersona(bot.name);
             if (!persona) return;
             const [min, max] = persona.timing.questVote;
             const delay = jitter(min, max) + i * 300;
@@ -171,7 +171,7 @@ export class BotEngine {
         const assassinBot = bots.find((b) => b.role === Role.ASSASSIN);
         if (!assassinBot) return; // human is the Assassin
 
-        const persona = getPersona(assassinBot.name, gameState);
+        const persona = getPersona(assassinBot.name);
         if (!persona) return;
         const [min, max] = persona.timing.assassination;
 
@@ -191,7 +191,7 @@ export class BotEngine {
         const trigger = winner === 'Good' ? 'game_over_good_wins' : 'game_over_evil_wins';
 
         bots.forEach((bot, i) => {
-            const persona = getPersona(bot.name, gameState);
+            const persona = getPersona(bot.name);
             if (persona) maybeSendChat(persona, trigger, bot.id, this.gameService, undefined, 1500 + i * 400);
 
             // Auto-ready for next game so human can trigger restart
