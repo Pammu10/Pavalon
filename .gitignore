@@ -7,3 +7,5 @@ client/.next/
 
 client/.env
 server/.env
+# TypeScript incremental build info
+client/tsconfig.tsbuildinfo

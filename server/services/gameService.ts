@@ -1599,12 +1599,13 @@ export class GameService {
     }
 
     forceCloseRoom(roomCode: string): void {
-        const gameState = this.games.get(roomCode.toUpperCase());
+        const code = roomCode.toUpperCase();
+        const gameState = this.games.get(code);
         if (gameState) {
-            this.io.to(roomCode).emit('kicked', 'This room has been closed by an administrator.');
-            this.io.in(roomCode).disconnectSockets(true);
-            this.games.delete(roomCode.toUpperCase());
-            logger.info('Admin forced room close', { roomCode });
+            this.io.to(code).emit('kicked', 'This room has been closed by an administrator.');
+            this.io.in(code).disconnectSockets(true);
+            this.games.delete(code);
+            logger.info('Admin forced room close', { roomCode: code });
         }
     }
 
