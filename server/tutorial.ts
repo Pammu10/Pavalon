@@ -5,9 +5,10 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
         step: 1,
         title: "Welcome to Pavalon!",
         text: "This interactive tutorial will guide you through a real round of the game. First, let's look at your assigned role.",
-        highlight: ['player-info-bar'],
+        // Note: must be an element that exists during ROLE_REVEAL.
+        highlight: ['ready-button'],
         actionRequired: 'playerReady',
-        actionText: 'Tap the "Ready" button below to see your role',
+        actionText: 'Tap the "I Am Ready" button to see your role',
     },
     {
         step: 2,

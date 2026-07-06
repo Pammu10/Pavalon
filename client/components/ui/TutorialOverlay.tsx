@@ -130,7 +130,11 @@ const TutorialOverlay: React.FC = () => {
             }
         }
     } else if (!isMobile) {
-        desktopDialogStyle = { bottom: 48, left: '50%', transform: 'translateX(-50%)' };
+        // No measured highlight: keep clear of the bottom action buttons
+        // (Ready / vote controls) when the step waits on one of them.
+        desktopDialogStyle = tutorial?.actionRequired
+            ? { top: 80, left: '50%', transform: 'translateX(-50%)' }
+            : { bottom: 48, left: '50%', transform: 'translateX(-50%)' };
     }
 
     const handleFinish = () => {
@@ -219,8 +223,11 @@ const TutorialOverlay: React.FC = () => {
 
     return createPortal(
         <div className="fixed inset-0 z-[1000] pointer-events-none">
-            {/* Backdrop with spotlight cutouts */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-auto">
+            {/* Backdrop with spotlight cutouts. Visual only: SVG masks don't
+                cut pointer-event holes, so an interactive backdrop would
+                swallow the very clicks the steps ask for (server-side
+                tutorial guards ignore off-script actions anyway). */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none">
                 <defs>
                     <mask id="spotlight-mask">
                         <rect x="0" y="0" width="100%" height="100%" fill="white" />
