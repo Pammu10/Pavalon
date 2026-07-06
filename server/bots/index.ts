@@ -67,6 +67,17 @@ export class BotEngine {
         handleIncomingChatMessage(message, bots, gameState, personas, this.gameService);
     }
 
+    /**
+     * Bot actions dispatched while a player was mid-reconnect get dropped by
+     * the reconnectingPlayer guards, but the phase is already marked
+     * processed — the game would hang. Clearing the room's keys lets the
+     * post-reconnect broadcast re-run the phase; every bot action is
+     * idempotent (hasVoted / phase guards), so re-firing is safe.
+     */
+    onPlayerReconnected(roomCode: string): void {
+        this.cleanupRoom(roomCode);
+    }
+
     private cleanupRoom(roomCode: string): void {
         for (const key of this.processedKeys) {
             if (key.startsWith(`${roomCode}:`)) this.processedKeys.delete(key);

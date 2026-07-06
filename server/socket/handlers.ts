@@ -76,6 +76,7 @@ export function registerSocketHandlers(
         socket.on('startCPUGame', (data) =>
             gameService.handleStartCPUGame(socket as any, user, data as { difficulty: 'easy' | 'medium' | 'hard'; playerCount: number }),
         );
+        socket.on('addBot', (difficulty) => gameService.handleAddBot(socket.id, difficulty as 'easy' | 'medium' | 'hard'));
 
         socket.on('social:invite_to_game', ({ friendId }) => socialService.handleGameInvite(user, friendId as number));
 

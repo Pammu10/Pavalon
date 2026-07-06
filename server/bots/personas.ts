@@ -233,16 +233,37 @@ export function selectPersonasForSlots(
     const usedIds = new Set<string>();
 
     for (const alignment of alignments) {
-        // Try preferred alignment first, then 'any', then opposite
+        // Try preferred alignment first, then 'any', then opposite,
+        // then any unused persona from other difficulties — duplicate
+        // names in one game break persona lookups.
         let persona =
             pool.find((p) => p.preferredAlignment === alignment && !usedIds.has(p.id)) ??
             pool.find((p) => p.preferredAlignment === 'any' && !usedIds.has(p.id)) ??
             pool.find((p) => !usedIds.has(p.id)) ??
-            pool[result.length % pool.length]; // cycle if exhausted
+            ALL_PERSONAS.find((p) => !usedIds.has(p.id)) ??
+            pool[result.length % pool.length]; // cycle if every persona is taken
 
         result.push(persona);
         usedIds.add(persona.id);
     }
 
     return result;
+}
+
+/**
+ * Pick one persona for a bot added to a normal lobby. Prefers the requested
+ * difficulty but falls back to other difficulties before ever reusing a name
+ * already present in the room. Returns null when all personas are taken.
+ */
+export function selectPersonaForLobby(
+    difficulty: 'easy' | 'medium' | 'hard',
+    usedNames: Set<string>,
+): BotPersona | null {
+    const preferred = ALL_PERSONAS.filter((p) => p.difficulty === difficulty);
+    const others = ALL_PERSONAS.filter((p) => p.difficulty !== difficulty);
+    return (
+        preferred.find((p) => !usedNames.has(p.name)) ??
+        others.find((p) => !usedNames.has(p.name)) ??
+        null
+    );
 }

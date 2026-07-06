@@ -15,6 +15,7 @@ import {
 import { AchievementService } from './achievementService';
 import type { SocialService } from './socialService';
 import type { BotEngine } from '../bots';
+import { selectPersonaForLobby, selectPersonasForSlots } from '../bots/personas';
 
 const { reconnectTimeout: RECONNECT_TIMEOUT, restartCooldown: RESTART_COOLDOWN, restartVoteDuration: RESTART_VOTE_DURATION } = config.game;
 
@@ -30,6 +31,7 @@ export class GameService {
     private socialService: SocialService;
     private achievementService: AchievementService;
     private botEngine: BotEngine | null = null;
+    private botSeq = 0; // monotonic id source for lobby-added bots
 
     setBotEngine(engine: BotEngine): void {
         this.botEngine = engine;
@@ -104,6 +106,23 @@ export class GameService {
 
     private getPlayer(gameState: GameState, playerId: string): Player | undefined {
         return gameState.players.find((p) => p.id === playerId);
+    }
+
+    // Bots must never keep a room alive or end up hosting one (they can't
+    // press any buttons). Both helpers exist for every path that removes a
+    // human from a lobby.
+    private deleteRoomIfNoHumans(roomCode: string, gameState: GameState): boolean {
+        if (gameState.players.some((p) => p.userId > 0)) return false;
+        this.games.delete(roomCode);
+        return true;
+    }
+
+    private reassignHostIfNeeded(gameState: GameState): void {
+        if (gameState.players.some((p) => p.isHost)) return;
+        const human =
+            gameState.players.find((p) => p.userId > 0 && p.status === 'CONNECTED') ??
+            gameState.players.find((p) => p.userId > 0);
+        if (human) human.isHost = true;
     }
 
     private findRoomByPlayerId(playerId: string): string | undefined {
@@ -203,16 +222,15 @@ export class GameService {
             const switchablePhases: GamePhase[] = [GamePhase.LOBBY, GamePhase.END_GAME, GamePhase.DRAGONS_BREATH];
             if (switchablePhases.includes(oldGame.phase)) {
                 oldGame.players = oldGame.players.filter((p) => p.userId !== user.id);
-                if (oldGame.players.length === 0) this.games.delete(oldRoom);
-                else this.broadcastState(oldGame);
+                if (!this.deleteRoomIfNoHumans(oldRoom, oldGame)) {
+                    this.reassignHostIfNeeded(oldGame);
+                    this.broadcastState(oldGame);
+                }
             } else {
                 socket.emit('error', 'You are already in an active game.');
                 return;
             }
         }
-
-        // Lazy import to avoid circular dependency at startup
-        const { selectPersonasForSlots } = await import('../bots/personas');
 
         const roomCode = this.generateRoomCode();
         const gameState = this.createInitialGameState(roomCode);
@@ -236,18 +254,12 @@ export class GameService {
         };
         gameState.players.push(humanPlayer);
 
-        // Assign roles and work out alignments so we can pick appropriate personas
         const roles = ROLE_CONFIGURATIONS[playerCount];
-        this.assignRoles({ ...gameState, players: [humanPlayer] }, roles);
-        // Re-use assignRoles properly after adding bots
-        // First determine how many bots and their slot alignments
         const botCount = playerCount - 1;
-        // We need the full role set shuffled first to know which alignment each bot slot gets.
-        // Re-assign after all players are added below.
-
-        // Build bot alignment list for persona selection (just counts)
-        const botRoles = roles.slice(1); // remaining after human takes one (approximate)
-        const botAlignments = botRoles.map((r) =>
+        // Personas are matched to an alignment mix; the real roles are
+        // shuffled across everyone below, so this slice is only an
+        // approximation of the bot slots' alignments.
+        const botAlignments = roles.slice(1).map((r) =>
             ROLES[r].alignment === Alignment.GOOD ? 'good' as const : 'evil' as const,
         );
         const personas = selectPersonasForSlots(difficulty, botAlignments);
@@ -291,6 +303,51 @@ export class GameService {
         logger.info('[CPU] Created CPU game', { username: user.username, difficulty, playerCount, roomCode });
     }
 
+    handleAddBot(hostId: string, difficulty: BotDifficulty): void {
+        const roomCode = this.findRoomByPlayerId(hostId);
+        if (!roomCode || roomCode.startsWith('TUTORIAL-')) return;
+        const gameState = this.games.get(roomCode)!;
+        const socket = this.io.sockets.sockets.get(hostId);
+        const host = this.getPlayer(gameState, hostId);
+
+        if (!host?.isHost) { socket?.emit('error', 'Only the host can add CPU players.'); return; }
+        if (gameState.phase !== GamePhase.LOBBY) { socket?.emit('error', 'CPU players can only be added in the lobby.'); return; }
+        if (gameState.players.length >= 10) { socket?.emit('error', 'Room is full.'); return; }
+        if (!['easy', 'medium', 'hard'].includes(difficulty)) return;
+
+        const usedNames = new Set(gameState.players.map((p) => p.name));
+        const persona = selectPersonaForLobby(difficulty, usedNames);
+        if (!persona) { socket?.emit('error', 'Every CPU persona is already in this room.'); return; }
+
+        this.botSeq++;
+        const bot: Player = {
+            id: `cpu-${roomCode}-${this.botSeq}`,
+            userId: -(100 + this.botSeq),
+            name: persona.name,
+            role: null, alignment: null,
+            isHost: false, hasVoted: false, status: 'CONNECTED',
+            selectedBorder: persona.selectedBorder,
+            selectedIcon: persona.selectedIcon,
+        };
+        gameState.players.push(bot);
+
+        const personaRef = {
+            name: persona.name,
+            difficulty: persona.difficulty,
+            selectedBorder: persona.selectedBorder,
+            selectedIcon: persona.selectedIcon,
+        };
+        if (gameState.cpuConfig) {
+            gameState.cpuConfig.personas.push(personaRef);
+        } else {
+            gameState.cpuConfig = { difficulty, personas: [personaRef] };
+        }
+
+        this.addLog(gameState, `${persona.name} (CPU, ${persona.difficulty}) joined the lobby.`, 'system');
+        this.broadcastState(gameState);
+        logger.info('[CPU] Bot added to lobby', { roomCode, persona: persona.name, difficulty: persona.difficulty });
+    }
+
     async handleJoinRoom(socket: AuthSocket, user: User, roomCode?: string): Promise<void> {
         if (roomCode?.toUpperCase() === 'TUTORIAL') {
             this.createTutorialGame(socket, user);
@@ -309,13 +366,8 @@ export class GameService {
                 logger.info('User switching lobbies', { username: user.username, from: oldRoomCode, to: upperRoomCode });
                 oldGameState.players = oldGameState.players.filter((p) => p.userId !== user.id);
 
-                if (oldPlayer.isHost && oldGameState.players.length > 0) {
-                    oldGameState.players[0].isHost = true;
-                }
-
-                if (oldGameState.players.length === 0) {
-                    this.games.delete(oldRoomCode);
-                } else {
+                if (!this.deleteRoomIfNoHumans(oldRoomCode, oldGameState)) {
+                    this.reassignHostIfNeeded(oldGameState);
                     this.addLog(oldGameState, `${user.username} has left to join another game.`, 'system');
                     this.broadcastState(oldGameState);
                 }
@@ -418,6 +470,7 @@ export class GameService {
         if (oldPlayerId === newPlayerId) {
             player.status = 'CONNECTED';
             socket.join(roomCode);
+            this.resumeAfterReconnect(roomCode, gameState);
             this.broadcastState(gameState);
             logger.info('Reconnected with same socket ID', { username: user.username, socketId: newPlayerId });
             return;
@@ -475,8 +528,19 @@ export class GameService {
         }
 
         socket.join(roomCode);
+        this.resumeAfterReconnect(roomCode, gameState);
         this.broadcastState(gameState);
         logger.info('Reconnect successful', { username: user.username, from: oldPlayerId, to: newPlayerId });
+    }
+
+    // A reconnect window can swallow scheduled work: bot actions no-op while
+    // reconnectingPlayer is set, and a QUEST_RESULT advance timer that fired
+    // during the window is never re-armed. Recover both here.
+    private resumeAfterReconnect(roomCode: string, gameState: GameState): void {
+        this.botEngine?.onPlayerReconnected(roomCode);
+        if (gameState.phase === GamePhase.QUEST_RESULT) {
+            setTimeout(() => this.checkForGameOver(gameState), 8000);
+        }
     }
 
     handleUpdateSelectedRoles(playerId: string, roles: Role[]): void {
@@ -759,10 +823,7 @@ export class GameService {
         newGameState.gameLog = preservedLog;
         newGameState.cpuConfig = cpuConfig ?? null;
 
-        if (!newGameState.players.some((p) => p.isHost)) {
-            const connected = newGameState.players.filter((p) => p.status === 'CONNECTED');
-            if (connected.length > 0) connected[0].isHost = true;
-        }
+        this.reassignHostIfNeeded(newGameState);
 
         this.games.set(roomCode, newGameState);
         this.broadcastState(newGameState);
@@ -806,13 +867,8 @@ export class GameService {
             this.io.to(roomCode).emit('chatMessage', { senderId: 'system', senderUserId: 0, senderName: 'System', text: `${name} left the lobby.` });
             this.addLog(gameState, `${name} left the lobby.`, 'system');
 
-            if (gameState.players.length === 0) {
-                this.games.delete(roomCode);
-                return;
-            }
-            if (!gameState.players.some((p) => p.isHost)) {
-                gameState.players[0].isHost = true;
-            }
+            if (this.deleteRoomIfNoHumans(roomCode, gameState)) return;
+            this.reassignHostIfNeeded(gameState);
             gameState.reconnectingPlayer = null;
 
             if (gameState.phase === GamePhase.DRAGONS_BREATH) {
@@ -1088,6 +1144,9 @@ export class GameService {
 
     private checkForGameOver(gameState: GameState): void {
         if (!gameState.roomCode || gameState.reconnectingPlayer) return;
+        // Only ever advance out of QUEST_RESULT once, no matter how many
+        // timers were armed (reconnects re-arm one as a recovery path).
+        if (gameState.phase !== GamePhase.QUEST_RESULT) return;
 
         if (gameState.roomCode.startsWith('TUTORIAL-')) {
             gameState.tutorial = TUTORIAL_STEPS.find((s) => s.step === 7);
@@ -1263,8 +1322,8 @@ export class GameService {
         if (socket) { socket.emit('kicked', 'You have left the lobby.'); socket.leave(roomCode); }
 
         gameState.players = gameState.players.filter((p) => p.id !== playerId);
-        if (gameState.players.length === 0) { this.games.delete(roomCode); return; }
-        if (leavingPlayer.isHost) gameState.players[0].isHost = true;
+        if (this.deleteRoomIfNoHumans(roomCode, gameState)) return;
+        this.reassignHostIfNeeded(gameState);
 
         this.broadcastState(gameState);
         this.io.to(roomCode).emit('chatMessage', { senderId: 'system', senderUserId: 0, senderName: 'System', text: `${leavingPlayer.name} has left the lobby.` });
@@ -1289,7 +1348,11 @@ export class GameService {
         if (kickedSocket) { kickedSocket.emit('kicked', 'You have been kicked from the game by the host.'); kickedSocket.leave(roomCode); }
 
         if (gameState.phase === GamePhase.LOBBY) {
-            this.socialService.updateUserStatus(playerToKick.userId, false, undefined);
+            if (playerToKick.userId > 0) {
+                this.socialService.updateUserStatus(playerToKick.userId, false, undefined);
+            } else if (gameState.cpuConfig) {
+                gameState.cpuConfig.personas = gameState.cpuConfig.personas.filter((pe) => pe.name !== playerToKick.name);
+            }
             gameState.players = gameState.players.filter((p) => p.id !== playerIdToKick);
             this.addLog(gameState, `${kickedPlayerName} was kicked by the host.`, 'system');
             this.io.to(roomCode).emit('chatMessage', { senderId: 'system', senderUserId: 0, senderName: 'System', text: `${kickedPlayerName} was kicked by the host.` });

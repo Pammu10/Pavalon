@@ -354,6 +354,7 @@ export interface ClientToServerEvents {
 
     // CPU Game
     startCPUGame: (data: { difficulty: 'easy' | 'medium' | 'hard'; playerCount: number }) => void;
+    addBot: (difficulty: 'easy' | 'medium' | 'hard') => void;
 
     // Social Events
     'social:invite_to_game': (data: { friendId: number }) => void;

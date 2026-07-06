@@ -1,12 +1,12 @@
 import { Player, GameState, Alignment } from '../../types';
-import { getKnownEvil } from './knowledge';
+import { getKnownEvil, resolveBotDifficulty } from './knowledge';
 
 export function decideQuestVote(bot: Player, gameState: GameState): 'SUCCESS' | 'FAIL' {
     // Good players are server-blocked from voting FAIL — this function is only
     // meaningful for Evil bots, but we return SUCCESS safely for any Good bot.
     if (bot.alignment === Alignment.GOOD) return 'SUCCESS';
 
-    const difficulty = gameState.cpuConfig?.difficulty ?? 'easy';
+    const difficulty = resolveBotDifficulty(gameState, bot);
     const quest = gameState.questHistory[gameState.currentQuest - 1];
     const failedQuests = gameState.questHistory.filter((q) => q.status === 'FAILED').length;
     const failsRequired = quest.failsRequired;
