@@ -100,7 +100,7 @@ const TeamVoteRevealOverlay: React.FC<TeamVoteRevealOverlayProps> = ({ data, onC
         votes.forEach((_, i) => {
             const t = setTimeout(() => {
                 setRevealedCount(i + 1);
-                playSound('card-swish', { manageBgm: false });
+                playSound('card-fan', { manageBgm: false });
             }, FLIP_START_DELAY + i * FLIP_INTERVAL);
             timers.push(t);
         });

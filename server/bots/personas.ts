@@ -187,6 +187,8 @@ export const ALL_PERSONAS: BotPersona[] = [
             assassination: [4000, 7000],
         },
         chatPool: {
+            on_the_team: ["Noted. I'll handle my part."],
+            not_on_team: ["Watching."],
             quest_failed: ["Noted."],
             team_rejected: ["..."],
             vote_track_critical: ["Approve."],
@@ -209,6 +211,8 @@ export const ALL_PERSONAS: BotPersona[] = [
             assassination: [3800, 6800],
         },
         chatPool: {
+            on_the_team: ["Of course I'm on it."],
+            not_on_team: ["Fine by me."],
             assassination_phase: ["..."],
             game_over_evil_wins: ["As the fates demanded."],
             vote_track_critical: ["We must proceed."],
