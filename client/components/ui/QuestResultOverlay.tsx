@@ -18,7 +18,9 @@ interface QuestResultOverlayProps {
 const CARD_REVEAL_START = 3000;
 const CARD_REVEAL_INTERVAL = 520;
 const RESULT_SHOW_DELAY = 700;
-const AUTO_CLOSE_DELAY = 8500;
+// Must finish before the server advances the phase 8s after the quest result,
+// or onClose fires too late to mark the result as viewed.
+const AUTO_CLOSE_DELAY = 7500;
 
 const FlipCard: React.FC<{
   vote: "SUCCESS" | "FAIL";
@@ -107,7 +109,7 @@ const QuestResultOverlay: React.FC<QuestResultOverlayProps> = ({
       timers.push(
         setTimeout(() => {
           setRevealedCount(i + 1);
-          playSound("card-swish", { manageBgm: false });
+          playSound("card-fan", { manageBgm: false });
         }, CARD_REVEAL_START + i * CARD_REVEAL_INTERVAL)
       );
     });

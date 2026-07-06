@@ -133,8 +133,12 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (sfx) {
       await new Promise<void>(resolve => {
         sfx.currentTime = 0;
-        const onEnded = () => {
+        const cleanup = () => {
           sfx.removeEventListener('ended', onEnded);
+          sfx.removeEventListener('error', onError);
+        };
+        const onEnded = () => {
+          cleanup();
           resolve();
         };
         const onError = (e: any) => {
@@ -142,7 +146,7 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             if (e.name !== 'NotAllowedError') {
                 console.error(`Error playing sound ${sound}:`, e);
             }
-            sfx.removeEventListener('error', onError);
+            cleanup();
             resolve();
         }
         sfx.addEventListener('ended', onEnded);

@@ -361,17 +361,24 @@ const QuestVote: React.FC = () => {
 };
 
 const QuestResult: React.FC = () => {
-  const { gameState, hasViewedCurrentQuestResult, markQuestResultAsViewed } = useGame();
-  
+  const { gameState, hasViewedCurrentQuestResult, markQuestResultAsViewed, teamVoteReveal } = useGame();
+
   const quest = gameState.questHistory[gameState.currentQuest - 1];
-  if (!quest || hasViewedCurrentQuestResult) return null;
+  // Phase guard: during the exit animation this component still renders with
+  // the *advanced* game state (next quest, status ACTIVE, not yet viewed) —
+  // without the guard the overlay remounts and plays the fail sting right
+  // after a passed quest's success sting.
+  if (gameState.phase !== GamePhase.QUEST_RESULT || !quest || hasViewedCurrentQuestResult) return null;
 
   const failVotes = quest.results.filter((r) => r.vote === "FAIL").length;
   const successVotes = quest.results.filter((r) => r.vote === "SUCCESS").length;
 
   return (
     <QuestResultOverlay
-      show={true}
+      // Defer the quest reveal (and its sound) until the team-vote reveal
+      // animation has finished — the two are on independent client timers,
+      // and bots can resolve the quest before the vote reveal has closed.
+      show={!teamVoteReveal}
       isSuccess={quest.status === "PASSED"}
       failVotes={failVotes}
       successVotes={successVotes}

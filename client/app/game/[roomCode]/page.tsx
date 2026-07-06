@@ -424,8 +424,12 @@ const MainContent: React.FC = () => {
 export default function GamePage() {
   const params = useParams();
   const router = useRouter();
-  const { gameState, isAuthenticated, isLoading, joinRoom } = useGame();
+  const { gameState, isAuthenticated, isLoading, joinRoom, error } = useGame();
   const roomCodeFromUrl = params.roomCode as string;
+  // Deep-link join may only run once per mount. Without this guard, the
+  // roomCode → null transition after leaving/being kicked re-triggers the
+  // join and snaps the player straight back into the room.
+  const hasAttemptedJoinRef = useRef(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -434,18 +438,24 @@ export default function GamePage() {
       router.replace(`/join/${roomCodeFromUrl}`);
       return;
     }
-    
-    // If the user lands on a game page but isn't in a game state,
-    // and it's not the tutorial, attempt to join or redirect.
-    if (!gameState.roomCode && roomCodeFromUrl.toUpperCase() !== 'TUTORIAL') {
-       joinRoom(roomCodeFromUrl);
-       return;
+
+    if (!gameState.roomCode) {
+      if (hasAttemptedJoinRef.current || roomCodeFromUrl.toUpperCase() === 'TUTORIAL') {
+        // We already joined once (then left / were kicked) or the join
+        // failed (error re-runs this effect) — go home instead of rejoining.
+        router.replace('/');
+      } else {
+        hasAttemptedJoinRef.current = true;
+        joinRoom(roomCodeFromUrl);
+      }
+      return;
     }
-    
-    if (gameState.roomCode && gameState.roomCode !== roomCodeFromUrl) {
+
+    hasAttemptedJoinRef.current = true;
+    if (gameState.roomCode !== roomCodeFromUrl) {
       router.replace(`/game/${gameState.roomCode}`);
     }
-  }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router, joinRoom]);
+  }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router, joinRoom, error]);
 
   if (isLoading || !isAuthenticated || (gameState.roomCode !== roomCodeFromUrl && !isLoading)) {
     return (

@@ -4,7 +4,6 @@ import { createPortal } from "react-dom";
 import { ShieldCheck, Skull } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Alignment } from "@/types";
-import { useAudio } from "@/components/context/AudioContext";
 import { haptics } from "@/lib/haptics";
 
 interface GameEndOverlayProps {
@@ -44,16 +43,15 @@ function useParticles(isGoodWin: boolean): ParticleDef[] {
 }
 
 const GameEndOverlay: React.FC<GameEndOverlayProps> = ({ show, winner, onClose }) => {
-  const { playSound } = useAudio();
-
+  // Audio is owned by EndGameScreen (which sequences BGM around the sting) —
+  // playing it here too made the victory/defeat sound fire twice.
   useEffect(() => {
     if (show) {
-      playSound(winner === Alignment.GOOD ? "victory" : "defeat");
       haptics.dramatic();
       const timer = setTimeout(onClose, 9000);
       return () => clearTimeout(timer);
     }
-  }, [show, winner, onClose, playSound]);
+  }, [show, winner, onClose]);
 
   const isGoodWin = winner === Alignment.GOOD;
   const particles = useParticles(isGoodWin);

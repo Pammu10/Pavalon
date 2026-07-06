@@ -166,11 +166,13 @@ export class BotEngine {
 
         maybeSendChat(persona, 'assassination_phase', assassinBot.id, this.gameService, undefined, 1200);
 
+        // Extra 8s floor: humans are still watching the quest-result reveal when
+        // this phase starts — an instant kill reads as victory-then-defeat whiplash.
         setTimeout(async () => {
             if (!isPhaseActive(gameState, GamePhase.ASSASSINATION)) return;
             const targetId = decideAssassination(assassinBot, gameState);
             if (targetId) await this.gameService.handleAssassinate(assassinBot.id, targetId);
-        }, jitter(min, max));
+        }, 8000 + jitter(min, max));
     }
 
     private handleEndGame(gameState: GameState, bots: typeof gameState.players): void {
