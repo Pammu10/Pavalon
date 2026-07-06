@@ -172,7 +172,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [isConnected, setIsConnected] = useState<boolean>(false);
 
-    const capturedVoteRef = useRef<{ votes: { playerId: string; vote: 'APPROVE' | 'REJECT' }[]; players: Player[] } | null>(null);
     const [teamVoteReveal, setTeamVoteReveal] = useState<TeamVoteRevealData | null>(null);
     const clearTeamVoteReveal = useCallback(() => setTeamVoteReveal(null), []);
 
@@ -252,16 +251,38 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     }, [gameState.phase]);
     
-    // Trigger team-vote reveal overlay when phase transitions away from TEAM_VOTE
+    // Trigger the team-vote reveal overlay when the phase moves past TEAM_VOTE.
+    // Votes are redacted while voting is open, so the reveal is built from the
+    // server's post-vote records (approvedVote / pastVotes) on the next state.
+    const prevPhaseForRevealRef = useRef(gameState.phase);
     useEffect(() => {
-        if (gameState.phase !== GamePhase.TEAM_VOTE && capturedVoteRef.current) {
-            setTeamVoteReveal({
-                ...capturedVoteRef.current,
-                wasApproved: gameState.phase === GamePhase.QUEST_VOTE,
-            });
-            capturedVoteRef.current = null;
+        const prevPhase = prevPhaseForRevealRef.current;
+        const { phase } = gameState;
+        prevPhaseForRevealRef.current = phase;
+
+        if (prevPhase === GamePhase.TEAM_VOTE && (phase === GamePhase.QUEST_VOTE || phase === GamePhase.TEAM_SELECTION)) {
+            const quest = gameState.questHistory[gameState.currentQuest - 1];
+            const wasApproved = phase === GamePhase.QUEST_VOTE;
+            const record = wasApproved
+                ? quest?.approvedVote
+                : quest?.pastVotes[quest.pastVotes.length - 1];
+            if (record && record.votes.length > 0) {
+                setTeamVoteReveal({ votes: record.votes, players: gameState.players, wasApproved });
+            }
         }
-    }, [gameState.phase]);
+
+        // The quest-result / end-game presentations own the screen and audio;
+        // a reveal still on screen at that point must yield (bots can finish
+        // the quest vote before the reveal animation has ended).
+        if (
+            phase === GamePhase.QUEST_RESULT ||
+            phase === GamePhase.END_GAME ||
+            phase === GamePhase.LOBBY ||
+            phase === GamePhase.ROLE_REVEAL
+        ) {
+            setTeamVoteReveal(null);
+        }
+    }, [gameState]);
 
     useEffect(() => {
         // If we just entered a room and there's a pending invite
@@ -424,15 +445,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // --- Socket Event Handlers (wrapped in useCallback) ---
     const handleUpdate = useCallback((newState: GameState) => {
-        // Capture team votes the moment all players have voted (before server clears them)
-        if (newState.phase === GamePhase.TEAM_VOTE) {
-            const quest = newState.questHistory[newState.currentQuest - 1];
-            const connectedCount = newState.players.filter(p => p.status === 'CONNECTED').length;
-            if (quest && connectedCount > 0 && quest.votes.length >= connectedCount) {
-                capturedVoteRef.current = { votes: [...quest.votes], players: [...newState.players] };
-            }
-        }
-
         setGameState(prevState => {
             if (newState.phase === GamePhase.LOBBY && prevState.phase === GamePhase.HOME) {
                 setJustJoined(true);
@@ -477,9 +489,15 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [playSound, queryClient]);
 
     const handleKicked = useCallback((reason: string) => {
-        toast.error(reason, {
-            description: "You have been removed from the game."
-        });
+        // The server sends 'kicked' for voluntary leaves too — don't present
+        // those as if the player was removed by someone else.
+        if (reason.startsWith('You have left')) {
+            toast.info(reason);
+        } else {
+            toast.error(reason, {
+                description: "You have been removed from the game."
+            });
+        }
         setGameState(initialGameState);
         setMessages([]);
         setHasViewedRole(false);
