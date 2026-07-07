@@ -6,6 +6,12 @@ import { selectTeam } from './decisions/teamSelection';
 import { decideTeamVote } from './decisions/teamVote';
 import { decideQuestVote } from './decisions/questVote';
 import { decideAssassination } from './decisions/assassination';
+import {
+    composeAssassinationThought,
+    composeTeamSelectionThought,
+    composeTeamVoteThought,
+    speakThought,
+} from './thoughts';
 
 function jitter(min: number, max: number): number {
     return min + Math.random() * (max - min);
@@ -117,7 +123,10 @@ export class BotEngine {
             const quest = gameState.questHistory[gameState.currentQuest - 1];
             if (!quest) return;
             const teamIds = selectTeam(leaderBot, gameState, quest.teamSize);
-            maybeSendChat(persona, 'became_leader', leaderBot.id, this.gameService, undefined, 0);
+            // Explain the pick out loud (public-facts reasoning) before proposing.
+            speakThought(leaderBot, persona, gameState,
+                composeTeamSelectionThought(leaderBot, gameState, teamIds),
+                this.gameService, 300);
             this.gameService.handleSelectTeam(leaderBot.id, teamIds);
         }, jitter(min, max));
     }
@@ -133,14 +142,16 @@ export class BotEngine {
                 const currentBot = gameState.players.find((p) => p.id === bot.id);
                 if (!currentBot || currentBot.hasVoted) return;
 
-                const quest = gameState.questHistory[gameState.currentQuest - 1];
-                const onTeam = quest?.team.some((p) => p.id === bot.id);
-                maybeSendChat(persona, onTeam ? 'on_the_team' : 'not_on_team', bot.id, this.gameService);
                 if (gameState.voteTrack >= 4) {
                     maybeSendChat(persona, 'vote_track_critical', bot.id, this.gameService, undefined, 200);
                 }
 
                 const vote = decideTeamVote(bot, gameState);
+                // Argue the vote in chat: honest evidence for Good bots,
+                // a plausible cover story for Evil ones.
+                speakThought(bot, persona, gameState,
+                    composeTeamVoteThought(bot, gameState, vote),
+                    this.gameService, 400 + i * 350);
                 this.gameService.handleVoteOnTeam(bot.id, vote);
             }, delay);
         });
@@ -182,7 +193,15 @@ export class BotEngine {
         setTimeout(async () => {
             if (!isPhaseActive(gameState, GamePhase.ASSASSINATION)) return;
             const targetId = decideAssassination(assassinBot, gameState);
-            if (targetId) await this.gameService.handleAssassinate(assassinBot.id, targetId);
+            if (!targetId) return;
+            // Announce the deduction, let it land, then strike.
+            speakThought(assassinBot, persona, gameState,
+                composeAssassinationThought(assassinBot, gameState, targetId),
+                this.gameService, 0);
+            setTimeout(async () => {
+                if (!isPhaseActive(gameState, GamePhase.ASSASSINATION)) return;
+                await this.gameService.handleAssassinate(assassinBot.id, targetId);
+            }, 2500);
         }, 8000 + jitter(min, max));
     }
 

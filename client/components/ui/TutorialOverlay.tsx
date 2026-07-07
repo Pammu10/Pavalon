@@ -1,10 +1,10 @@
 'use client';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useGame } from '../context/GameContext';
 import Button from './Button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Hand } from 'lucide-react';
+import { X, Hand, ChevronUp, ChevronDown } from 'lucide-react';
 import { TUTORIAL_SEEN_KEY } from './TutorialPromptModal';
 
 interface Rect {
@@ -17,30 +17,22 @@ interface Rect {
 const TOTAL_STEPS = 7;
 const PADDING = 12;
 
-/** Stable measure: rAF chain lets browser finish layout before we read rects */
-function measureAfterPaint(ids: string[], cb: (rects: Rect[]) => void) {
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            const rects: Rect[] = [];
-            for (const id of ids) {
-                const el = document.getElementById(id);
-                if (el) {
-                    const r = el.getBoundingClientRect();
-                    rects.push({ top: r.top, left: r.left, width: r.width, height: r.height });
-                }
-            }
-            cb(rects);
-        });
-    });
-}
+const rectsDiffer = (a: Rect[], b: Rect[]): boolean =>
+    a.length !== b.length ||
+    a.some((r, i) =>
+        Math.abs(r.top - b[i].top) > 0.5 ||
+        Math.abs(r.left - b[i].left) > 0.5 ||
+        Math.abs(r.width - b[i].width) > 0.5 ||
+        Math.abs(r.height - b[i].height) > 0.5,
+    );
 
 const TutorialOverlay: React.FC = () => {
     const { gameState, advanceTutorial, leaveRoom } = useGame();
     const { tutorial } = gameState;
     const [highlightRects, setHighlightRects] = useState<Rect[]>([]);
+    const [scrollHint, setScrollHint] = useState<'up' | 'down' | null>(null);
     const [confirmingSkip, setConfirmingSkip] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
-    const scrollSettleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 640);
@@ -49,42 +41,59 @@ const TutorialOverlay: React.FC = () => {
         return () => window.removeEventListener('resize', check);
     }, []);
 
-    const measure = useCallback(() => {
-        if (!tutorial?.highlight?.length) {
-            setHighlightRects([]);
-            return;
-        }
-        measureAfterPaint(tutorial.highlight, setHighlightRects);
-    }, [tutorial?.highlight]);
-
+    // Continuously track the highlighted elements so the spotlight and glow
+    // follow them through any scrolling (the app scrolls an inner container,
+    // which never fires window scroll events) and through layout changes.
+    // One getBoundingClientRect per element per frame is cheap; state only
+    // updates when a rect actually moves.
     useEffect(() => {
         if (!tutorial?.highlight?.length) {
             setHighlightRects([]);
+            setScrollHint(null);
             return;
         }
+        const ids = tutorial.highlight;
 
-        const firstEl = document.getElementById(tutorial.highlight[0]);
-        if (firstEl) {
-            firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Wait for smooth scroll to finish, then measure twice to catch edge cases
-            if (scrollSettleTimer.current) clearTimeout(scrollSettleTimer.current);
-            scrollSettleTimer.current = setTimeout(() => {
-                measure();
-                // Second measure 200ms later handles slow devices
-                scrollSettleTimer.current = setTimeout(measure, 200);
-            }, 400);
-        } else {
-            measure();
-        }
+        let raf = 0;
+        let last: Rect[] = [];
+        let lastHint: 'up' | 'down' | null = null;
+        const track = () => {
+            const rects: Rect[] = [];
+            for (const id of ids) {
+                const el = document.getElementById(id);
+                if (el) {
+                    const r = el.getBoundingClientRect();
+                    rects.push({ top: r.top, left: r.left, width: r.width, height: r.height });
+                }
+            }
 
-        window.addEventListener('resize', measure);
-        window.addEventListener('scroll', measure, { passive: true });
-        return () => {
-            window.removeEventListener('resize', measure);
-            window.removeEventListener('scroll', measure);
-            if (scrollSettleTimer.current) clearTimeout(scrollSettleTimer.current);
+            // The user scrolls the target into view themselves: until the
+            // anchor element is mostly visible we show a directional arrow
+            // instead of the highlight.
+            let hint: 'up' | 'down' | null = null;
+            if (rects.length > 0) {
+                const r = rects[0];
+                const vh = window.innerHeight;
+                const visiblePx = Math.min(r.top + r.height, vh) - Math.max(r.top, 0);
+                if (visiblePx < Math.min(r.height, vh) * 0.5) {
+                    hint = r.top > vh / 2 ? 'down' : 'up';
+                }
+            }
+            if (hint !== lastHint) {
+                lastHint = hint;
+                setScrollHint(hint);
+            }
+
+            const shown = hint ? [] : rects;
+            if (rectsDiffer(shown, last)) {
+                last = shown;
+                setHighlightRects(shown);
+            }
+            raf = requestAnimationFrame(track);
         };
-    }, [tutorial?.highlight, measure]);
+        raf = requestAnimationFrame(track);
+        return () => cancelAnimationFrame(raf);
+    }, [tutorial?.highlight]);
 
     if (!tutorial) return null;
 
@@ -265,6 +274,38 @@ const TutorialOverlay: React.FC = () => {
                     }}
                 />
             ))}
+
+            {/* Scroll hint: target element is off-screen — point the user toward it */}
+            <AnimatePresence>
+                {scrollHint && (
+                    <motion.div
+                        initial={{ opacity: 0, x: '-50%', y: '-50%' }}
+                        animate={{ opacity: 1, x: '-50%', y: '-50%' }}
+                        exit={{ opacity: 0, x: '-50%', y: '-50%' }}
+                        className="absolute left-1/2 top-1/2 pointer-events-none flex flex-col items-center gap-1"
+                    >
+                        {scrollHint === 'up' && (
+                            <motion.div
+                                animate={{ y: [0, -12, 0] }}
+                                transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                            >
+                                <ChevronUp size={44} className="text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" />
+                            </motion.div>
+                        )}
+                        <span className="text-yellow-300 font-semibold text-sm bg-slate-900/85 border border-yellow-500/40 rounded-full px-4 py-1.5">
+                            Scroll {scrollHint} to find it
+                        </span>
+                        {scrollHint === 'down' && (
+                            <motion.div
+                                animate={{ y: [0, 12, 0] }}
+                                transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                            >
+                                <ChevronDown size={44} className="text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" />
+                            </motion.div>
+                        )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* ── MOBILE: bottom sheet (always anchored, never overlaps content) ── */}
             {isMobile && (

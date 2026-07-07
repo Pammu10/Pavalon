@@ -4,7 +4,7 @@ import { getKnownEvil } from './decisions/knowledge';
 import { logger } from '../logger';
 
 const OLLAMA_BASE = process.env.OLLAMA_URL ?? 'http://localhost:11434';
-const MODEL = process.env.OLLAMA_MODEL ?? 'gemma2:2b';
+const MODEL = process.env.OLLAMA_MODEL ?? 'qwen2.5:7b-instruct';
 const TIMEOUT_MS = 6000;
 
 class OllamaClient {
@@ -30,8 +30,9 @@ class OllamaClient {
         fetch(`${OLLAMA_BASE}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            // 7B cold load takes ~22s on the 6GB laptop GPU — keep headroom.
             body: JSON.stringify({ model: MODEL, prompt: 'hi', stream: false, options: { num_predict: 1 } }),
-            signal: AbortSignal.timeout(20000),
+            signal: AbortSignal.timeout(60000),
         })
             .then((res) => logger.info(`[BotEngine] Ollama model ${MODEL} warmed up (${res.ok ? 'ok' : res.status})`))
             .catch((e) => logger.warn(`[BotEngine] Ollama warmup failed: ${e}`));
