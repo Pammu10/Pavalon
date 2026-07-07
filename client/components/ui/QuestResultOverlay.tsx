@@ -1,10 +1,9 @@
-'use client';
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ShieldCheck, ShieldX } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { ShieldCheck, ShieldAlert, CheckCircle, XCircle } from "lucide-react";
+import { motion } from "framer-motion";
 import { useAudio } from "@/components/context/AudioContext";
-import { haptics } from "@/lib/haptics";
+import Spinner from "./Spinner";
 
 interface QuestResultOverlayProps {
   show: boolean;
@@ -15,67 +14,6 @@ interface QuestResultOverlayProps {
   onClose: () => void;
 }
 
-const CARD_REVEAL_START = 3000;
-const CARD_REVEAL_INTERVAL = 520;
-const RESULT_SHOW_DELAY = 700;
-// Must finish before the server advances the phase 8s after the quest result,
-// or onClose fires too late to mark the result as viewed.
-const AUTO_CLOSE_DELAY = 7500;
-
-const FlipCard: React.FC<{
-  vote: "SUCCESS" | "FAIL";
-  isFlipped: boolean;
-  entryDelay: number;
-}> = ({ vote, isFlipped, entryDelay }) => {
-  const isSuccess = vote === "SUCCESS";
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: entryDelay }}
-      className="relative w-12 h-16 sm:w-14 sm:h-20"
-      style={{ perspective: "600px" }}
-    >
-      <motion.div
-        className="w-full h-full relative"
-        style={{ transformStyle: "preserve-3d", WebkitTransformStyle: "preserve-3d" }}
-        animate={{ rotateY: isFlipped ? 180 : 0 }}
-        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-      >
-        {/* Face down */}
-        <div
-          className="absolute inset-0 rounded-lg border-2 border-slate-600 bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center"
-          style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
-        >
-          <div className="w-5 h-5 border-2 border-slate-500 rounded-full opacity-50" />
-        </div>
-
-        {/* Revealed face */}
-        <div
-          className={`absolute inset-0 rounded-lg border-2 flex items-center justify-center ${
-            isSuccess
-              ? "border-blue-500 bg-gradient-to-br from-blue-900 to-blue-950"
-              : "border-red-500 bg-gradient-to-br from-red-900 to-red-950"
-          }`}
-          style={{
-            backfaceVisibility: "hidden",
-            WebkitBackfaceVisibility: "hidden",
-            transform: "rotateY(180deg)",
-          }}
-        >
-          <div className={`absolute inset-0 rounded-lg blur opacity-25 ${isSuccess ? "bg-blue-400" : "bg-red-500"}`} />
-          {isSuccess ? (
-            <ShieldCheck className="relative w-6 h-6 sm:w-8 sm:h-8 text-blue-300" />
-          ) : (
-            <ShieldX className="relative w-6 h-6 sm:w-8 sm:h-8 text-red-400" />
-          )}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
 const QuestResultOverlay: React.FC<QuestResultOverlayProps> = ({
   show,
   isSuccess,
@@ -85,119 +23,123 @@ const QuestResultOverlay: React.FC<QuestResultOverlayProps> = ({
   onClose,
 }) => {
   const { playSound } = useAudio();
-  const [revealedCount, setRevealedCount] = useState(0);
-  const [showResult, setShowResult] = useState(false);
-
-  const totalVotes = successVotes + failVotes;
-  const votes: ("SUCCESS" | "FAIL")[] = [
-    ...Array(successVotes).fill("SUCCESS"),
-    ...Array(failVotes).fill("FAIL"),
-  ];
+  const [isRevealing, setIsRevealing] = useState(false);
 
   useEffect(() => {
-    if (!show) {
-      setRevealedCount(0);
-      setShowResult(false);
-      return;
+    if (show) {
+      playSound(isSuccess ? "quest-success" : "quest-fail");
+      const revealTimer = setTimeout(() => {
+        setIsRevealing(true);
+      }, 3000);
+
+      const closeTimer = setTimeout(onClose, 7500);
+
+      return () => {
+        clearTimeout(revealTimer);
+        clearTimeout(closeTimer);
+      };
+    } else {
+      setIsRevealing(false);
     }
-
-    playSound(isSuccess ? "quest-success" : "quest-fail");
-
-    const timers: ReturnType<typeof setTimeout>[] = [];
-
-    votes.forEach((_, i) => {
-      timers.push(
-        setTimeout(() => {
-          setRevealedCount(i + 1);
-          playSound("card-fan", { manageBgm: false });
-        }, CARD_REVEAL_START + i * CARD_REVEAL_INTERVAL)
-      );
-    });
-
-    timers.push(
-      setTimeout(
-        () => {
-          setShowResult(true);
-          if (isSuccess) haptics.success(); else haptics.failure();
-        },
-        CARD_REVEAL_START + totalVotes * CARD_REVEAL_INTERVAL + RESULT_SHOW_DELAY
-      )
-    );
-    timers.push(setTimeout(onClose, AUTO_CLOSE_DELAY));
-
-    return () => timers.forEach(clearTimeout);
-  }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [show, isSuccess, playSound, onClose]);
 
   if (!show) return null;
 
+  // Suspense view
+  if (!isRevealing) {
+    return createPortal(
+      <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/90 animate-fadeIn px-4 text-center">
+        <motion.h1
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="font-eaglelake text-4xl md:text-6xl font-bold my-4 text-yellow-400"
+          style={{ textShadow: "0 0 15px currentColor" }}
+        >
+          Quest results are in...
+        </motion.h1>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+          className="mt-8"
+        >
+          <Spinner />
+        </motion.div>
+      </div>,
+      document.body
+    );
+  }
+
+  // Revealed view
+  const title = isSuccess ? "Quest Passed" : "Quest Failed";
+  const Icon = isSuccess ? ShieldCheck : ShieldAlert;
   const colorClass = isSuccess ? "text-blue-300" : "text-red-400";
   const borderColor = isSuccess ? "border-blue-400" : "border-red-500";
-  const Icon = isSuccess ? ShieldCheck : ShieldX;
-  const title = isSuccess ? "Quest Passed" : "Quest Failed";
+  const bgPulse = isSuccess ? "bg-blue-500/30" : "bg-red-600/30";
+
+  const results = [
+    ...Array(successVotes).fill("SUCCESS"),
+    ...Array(failVotes).fill("FAIL"),
+  ].sort();
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/92 px-4 text-center animate-fadeIn">
-      {/* Atmospheric background glow */}
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/90 animate-fadeIn px-4 text-center">
+      <div className="relative w-28 h-28 sm:w-40 sm:h-40 mx-auto mb-6">
+        <div
+          className={`absolute inset-0 rounded-full animate-pulse-slow blur-xl ${bgPulse}`}
+        />
+        <div
+          className={`w-full h-full rounded-full border-4 ${borderColor} border-t-transparent animate-spin`}
+        />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Icon className={`${colorClass} w-12 h-12 sm:w-16 sm:h-16`} />
+        </div>
+      </div>
+
+      <motion.h1
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.5 }}
+        className={`font-eaglelake text-4xl md:text-6xl font-bold my-4 uppercase tracking-widest animate-glow ${colorClass}`}
+      >
+        {title}
+      </motion.h1>
+
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 1.5 }}
-        className={`absolute inset-0 opacity-8 ${isSuccess ? "bg-blue-600" : "bg-red-700"}`}
-      />
-
-      {/* Suspense text */}
-      <motion.h2
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.3 }}
-        className="relative font-eaglelake text-3xl sm:text-5xl text-yellow-400 mb-10 sm:mb-12"
-        style={{ textShadow: "0 0 20px rgba(234,179,8,0.5)" }}
+        transition={{ duration: 0.5, delay: 0.8 }}
+        className="flex justify-center gap-2 md:gap-4 my-6"
       >
-        Quest results are in...
-      </motion.h2>
-
-      {/* Vote cards */}
-      <div className="relative flex flex-wrap justify-center gap-2 sm:gap-3 max-w-lg mx-auto mb-10">
-        {votes.map((v, i) => (
-          <FlipCard
-            key={i}
-            vote={v}
-            isFlipped={i < revealedCount}
-            entryDelay={0.05 + i * 0.06}
-          />
-        ))}
-      </div>
-
-      {/* Result */}
-      <AnimatePresence>
-        {showResult && (
+        {results.map((r, i) => (
           <motion.div
-            initial={{ opacity: 0, scale: 0.85, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 200, damping: 20 }}
-            className="relative flex flex-col items-center gap-4"
+            key={i}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", delay: 0.8 + i * 0.1 }}
+            className={`w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center font-bold text-white text-xs md:text-sm shadow-lg ${
+              r === "SUCCESS" ? "bg-blue-600" : "bg-red-700"
+            }`}
           >
-            <div className={`relative w-20 h-20 sm:w-24 sm:h-24`}>
-              <div className={`absolute inset-0 rounded-full blur-xl opacity-40 ${isSuccess ? "bg-blue-500" : "bg-red-600"}`} />
-              <div className={`w-full h-full rounded-full border-4 ${borderColor} flex items-center justify-center`}>
-                <Icon className={`${colorClass} w-10 h-10 sm:w-12 sm:h-12`} />
-              </div>
-            </div>
-
-            <h1
-              className={`font-eaglelake text-4xl sm:text-6xl font-bold uppercase tracking-widest animate-glow ${colorClass}`}
-            >
-              {title}
-            </h1>
-
-            <p className="text-slate-400 text-sm sm:text-base">
-              <span className="font-bold text-red-400">{failVotes}</span> fail vote{failVotes !== 1 ? "s" : ""}
-              {" · "}
-              <span className="font-bold text-slate-300">{failsRequired}</span> needed to fail
-            </p>
+            {r === "SUCCESS" ? (
+              <CheckCircle size={24} />
+            ) : (
+              <XCircle size={24} />
+            )}
           </motion.div>
-        )}
-      </AnimatePresence>
+        ))}
+      </motion.div>
+
+      <motion.p
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, delay: 1.1 }}
+        className="text-slate-300 text-base md:text-lg"
+      >
+        <span className="font-bold text-red-400">{failVotes}</span> Fail vote
+        {failVotes !== 1 ? "s" : ""} submitted.
+      </motion.p>
     </div>,
     document.body
   );
