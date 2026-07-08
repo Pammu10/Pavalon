@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../services/shake_detector.dart';
 import '../state/game_provider.dart';
 import '../widgets/chat_panel.dart';
+import '../widgets/dynamic_background.dart';
 import '../widgets/emote_wheel.dart';
 import '../widgets/overlays/restart_vote_overlay.dart';
 import '../widgets/overlays/tutorial_overlay.dart';
@@ -91,14 +92,7 @@ class _GameShellState extends State<GameShell> {
         chromePhases.contains(state.phase) && state.tutorial == null;
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF17153A), PavalonColors.slate900],
-          ),
-        ),
+      body: DynamicBackground(
         child: SafeArea(
           child: Stack(
             children: [
@@ -158,32 +152,92 @@ class _GameShellState extends State<GameShell> {
               if (state.tutorial != null)
                 Positioned.fill(
                     child: TutorialOverlay(step: state.tutorial!)),
+              // Bottom chrome (chat/emote) — slides away off-phase.
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  ignoring: !showChrome,
+                  child: AnimatedSlide(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOut,
+                    offset: showChrome ? Offset.zero : const Offset(0, 1.3),
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 220),
+                      opacity: showChrome ? 1 : 0,
+                      child: _BottomChromeBar(
+                        onEmote: () => EmoteWheel.show(context),
+                        onChat: () => ChatPanel.show(context),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
-      floatingActionButton: showChrome
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton.small(
-                  heroTag: 'emote',
-                  backgroundColor: PavalonColors.slate800,
-                  foregroundColor: PavalonColors.goldBright,
-                  onPressed: () => EmoteWheel.show(context),
-                  child: const Icon(LucideIcons.smile),
-                ),
-                const SizedBox(height: 10),
-                FloatingActionButton(
-                  heroTag: 'chat',
-                  backgroundColor: PavalonColors.slate800,
-                  foregroundColor: PavalonColors.goldBright,
-                  onPressed: () => ChatPanel.show(context),
-                  child: const Icon(LucideIcons.messageSquare),
-                ),
-              ],
-            )
-          : null,
+    );
+  }
+}
+
+/// Translucent bottom action bar for chat/emotes, shown only during phases
+/// where the game waits on player input (port of the web's floating
+/// action buttons, restyled into a single dismissable ledge).
+class _BottomChromeBar extends StatelessWidget {
+  final VoidCallback onEmote;
+  final VoidCallback onChat;
+  const _BottomChromeBar({required this.onEmote, required this.onChat});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: PavalonColors.slate900.withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(20),
+          border:
+              Border.all(color: PavalonColors.gold.withValues(alpha: 0.35)),
+          boxShadow: const [
+            BoxShadow(
+                color: Colors.black54, blurRadius: 16, offset: Offset(0, 4)),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _chromeButton(LucideIcons.smile, 'Emotes', onEmote),
+            Container(width: 1, height: 26, color: PavalonColors.slate700),
+            _chromeButton(LucideIcons.messageSquare, 'Chat', onChat),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chromeButton(IconData icon, String label, VoidCallback onTap) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: PavalonColors.goldBright, size: 21),
+            const SizedBox(height: 3),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: PavalonColors.goldBright)),
+          ],
+        ),
+      ),
     );
   }
 }
