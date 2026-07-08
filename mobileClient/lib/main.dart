@@ -12,6 +12,7 @@ import 'state/social_provider.dart';
 import 'screens/auth_screen.dart';
 import 'screens/game_shell.dart';
 import 'screens/home_shell.dart';
+import 'widgets/toast_overlay.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,6 +66,7 @@ class PavalonApp extends StatelessWidget {
         title: 'Pavalon',
         debugShowCheckedModeBanner: false,
         theme: buildPavalonTheme(),
+        builder: (context, child) => ToastHost(child: child!),
         home: const RootGate(),
       ),
     );
@@ -85,9 +87,6 @@ class _RootGateState extends State<RootGate> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<GameProvider>().notices.listen(_showNotice);
-    });
   }
 
   @override
@@ -109,29 +108,6 @@ class _RootGateState extends State<RootGate> with WidgetsBindingObserver {
         game.connect(auth.token!);
       }
     }
-  }
-
-  void _showNotice(AppNotice n) {
-    if (!mounted) return;
-    final color = switch (n.kind) {
-      'error' => const Color(0xFF7F1D1D),
-      'success' || 'achievement' => const Color(0xFF14532D),
-      'invite' => const Color(0xFF1E3A8A),
-      _ => PavalonColors.slate800,
-    };
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      backgroundColor: color,
-      duration: Duration(seconds: n.kind == 'invite' ? 10 : 4),
-      content: Text(n.text),
-      action: n.invite != null
-          ? SnackBarAction(
-              label: 'JOIN',
-              textColor: PavalonColors.goldBright,
-              onPressed: () =>
-                  context.read<GameProvider>().acceptInvite(n.invite!.roomCode),
-            )
-          : null,
-    ));
   }
 
   @override

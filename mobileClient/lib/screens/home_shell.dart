@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../state/auth_provider.dart';
 import '../state/social_provider.dart';
+import '../widgets/dynamic_background.dart';
 import 'achievements_screen.dart';
 import 'home_screen.dart';
 import 'leaderboard_screen.dart';
@@ -43,14 +44,7 @@ class _HomeShellState extends State<HomeShell> {
     ];
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF17153A), PavalonColors.slate900],
-          ),
-        ),
+      body: DynamicBackground(
         child: SafeArea(child: IndexedStack(index: _tab, children: pages)),
       ),
       bottomNavigationBar: NavigationBar(

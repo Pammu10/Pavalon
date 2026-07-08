@@ -15,6 +15,15 @@ class AuthProvider extends ChangeNotifier {
   User? user;
   String? get token => store.token;
 
+  /// Transient background theme override while the user is browsing the
+  /// customization picker, before they hit Save (mirrors web's
+  /// GameContext.previewBackground).
+  String? previewBackground;
+  void setPreviewBackground(String? bg) {
+    previewBackground = bg;
+    notifyListeners();
+  }
+
   AuthProvider({required this.api, required this.store});
 
   Future<void> init() async {

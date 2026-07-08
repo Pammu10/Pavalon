@@ -148,7 +148,27 @@ const Map<String, String> kBackgrounds = {
   'tournament': 'assets/background/tournament.jpg',
 };
 
-const kDefaultBackgrounds = ['goodguy', 'badguy', 'forestday', 'forestnight'];
+const kDefaultBackgrounds = ['king', 'goodguy', 'badguy', 'forestday', 'forestnight'];
+
+/// Display names for the theme gallery (mirrors web's AchievementsTab `themes`).
+const Map<String, String> kBackgroundNames = {
+  'king': "King's Hall",
+  'goodguy': "Arthur's Legacy",
+  'badguy': "Assassin's Perch",
+  'forestday': 'Mythical Forest (Day)',
+  'forestnight': 'Mythical Forest (Night)',
+  'cherry': 'Cherry Blossom',
+  'pool': "Morgana's Scrying Pool",
+  'chair': 'The Siege Perilous',
+  'tournament': 'Camelot Tournament Grounds',
+  'ice': 'Frozen Chamber',
+  'fire': 'Crimson Scar of Camlann',
+  'dark': "Mordred's Umbral Sanctum",
+  'light': 'Celestial Zenith',
+  'reddrag': 'Emberwing Dragon',
+  'bluedrag': 'Azure Tempest Dragon',
+  'purpledrag': 'Amethyst Wyrm Dragon',
+};
 
 const kGameTips = [
   'Merlin is powerful but vulnerable. Good must protect him at all costs.',
