@@ -41,7 +41,7 @@ const app = express();
 // --- CORS Configuration ---
 const allowedOrigins = [
     'http://localhost:3000', // For local development
-    'https://pavalononline.pramodhthetechguy.site',
+    'https://pavalononline.pramodhkrishna.dev',
     'https://localhost',
 ];
 
