@@ -32,6 +32,8 @@ import { useInteraction } from "@/components/context/ClientProviders";
 import DragonsBreathScreen from "@/components/screens/DragonsBreathScreen";
 import SocialHub from "@/components/ui/SocialHub";
 import TutorialOverlay from "@/components/ui/TutorialOverlay";
+import EmoteLayer from "@/components/ui/EmoteLayer";
+import TurnAlert from "@/components/ui/TurnAlert";
 
 type Tab =
   | "game"
@@ -280,6 +282,8 @@ const MainContent: React.FC = () => {
       className="flex flex-col h-[100dvh] w-screen"
     >
       {gameState.tutorial && <TutorialOverlay />}
+      {!gameState.tutorial && gameState.roomCode && <EmoteLayer />}
+      {!gameState.tutorial && <TurnAlert />}
       <AnimatePresence>
         {isSocialHubOpen && <SocialHub onClose={closeSocialHub} />}
       </AnimatePresence>
@@ -299,7 +303,7 @@ const MainContent: React.FC = () => {
             <TabsTrigger
               key={id}
               value={id}
-              className="relative flex-1 py-6 font-eagleLake text-lg capitalize transition-colors duration-200 rounded-none 
+              className="relative flex-1 py-6 font-eaglelake text-lg capitalize transition-colors duration-200 rounded-none 
                         text-slate-400 data-[state=active]:text-yellow-500 
                         data-[state=active]:border-b-2 data-[state=active]:border-yellow-500
                         hover:text-white focus-visible:ring-0 focus-visible:ring-offset-0 
@@ -399,7 +403,7 @@ const MainContent: React.FC = () => {
             key={id}
             value={id}
             className="group relative h-full flex-1 flex flex-col items-center justify-center gap-1 text-xs capitalize transition-colors duration-200 
-                     text-slate-400 data-[state=active]:text-yellow-500 font-eagleLake
+                     text-slate-400 data-[state=active]:text-yellow-500 font-eaglelake
                      focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none p-0"
           >
             {icon}
@@ -420,8 +424,12 @@ const MainContent: React.FC = () => {
 export default function GamePage() {
   const params = useParams();
   const router = useRouter();
-  const { gameState, isAuthenticated, isLoading, joinRoom } = useGame();
+  const { gameState, isAuthenticated, isLoading, joinRoom, error } = useGame();
   const roomCodeFromUrl = params.roomCode as string;
+  // Deep-link join may only run once per mount. Without this guard, the
+  // roomCode → null transition after leaving/being kicked re-triggers the
+  // join and snaps the player straight back into the room.
+  const hasAttemptedJoinRef = useRef(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -430,18 +438,24 @@ export default function GamePage() {
       router.replace(`/join/${roomCodeFromUrl}`);
       return;
     }
-    
-    // If the user lands on a game page but isn't in a game state,
-    // and it's not the tutorial, attempt to join or redirect.
-    if (!gameState.roomCode && roomCodeFromUrl.toUpperCase() !== 'TUTORIAL') {
-       joinRoom(roomCodeFromUrl);
-       return;
+
+    if (!gameState.roomCode) {
+      if (hasAttemptedJoinRef.current || roomCodeFromUrl.toUpperCase() === 'TUTORIAL') {
+        // We already joined once (then left / were kicked) or the join
+        // failed (error re-runs this effect) — go home instead of rejoining.
+        router.replace('/');
+      } else {
+        hasAttemptedJoinRef.current = true;
+        joinRoom(roomCodeFromUrl);
+      }
+      return;
     }
-    
-    if (gameState.roomCode && gameState.roomCode !== roomCodeFromUrl) {
+
+    hasAttemptedJoinRef.current = true;
+    if (gameState.roomCode !== roomCodeFromUrl) {
       router.replace(`/game/${gameState.roomCode}`);
     }
-  }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router, joinRoom]);
+  }, [isLoading, isAuthenticated, gameState.roomCode, roomCodeFromUrl, router, joinRoom, error]);
 
   if (isLoading || !isAuthenticated || (gameState.roomCode !== roomCodeFromUrl && !isLoading)) {
     return (

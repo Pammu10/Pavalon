@@ -27,6 +27,9 @@ export interface Player {
   selectedBorder?: string | null;
   selectedIcon?: string | null;
   selectedBackground?: string | null;
+  // Server-computed, per-viewer: what this client knows about this player
+  // mid-game ('Evil' for Merlin/evil-team vision, 'Mystic' for Percival).
+  visibleAs?: "Evil" | "Mystic";
 }
 
 export enum GamePhase {
@@ -137,6 +140,7 @@ export interface TutorialStep {
     text: string;
     highlight?: string[];
     actionRequired?: string;
+    actionText?: string;
     isFinalStep?: boolean;
 }
 
@@ -167,6 +171,7 @@ export interface GameState {
   assassinationTargetId: string | null;
   selectedRoles: Role[];
   tutorial?: TutorialStep | null;
+  cpuConfig?: { difficulty: 'easy' | 'medium' | 'hard'; personas: { name: string; difficulty?: 'easy' | 'medium' | 'hard' }[] } | null;
 }
 
 export interface RoleDescription {
@@ -340,6 +345,7 @@ export interface ClientToServerEvents {
 
   // Shared Events
   sendMessage: (messageText: string) => void;
+  sendEmote: (emote: string) => void;
   
   // Dragon's Breath Events
   startDragonsBreath: () => void;
@@ -351,6 +357,10 @@ export interface ClientToServerEvents {
   
   // Tutorial Event
   advanceTutorial: () => void;
+
+  // CPU Game
+  startCPUGame: (data: { difficulty: 'easy' | 'medium' | 'hard'; playerCount: number }) => void;
+  addBot: (difficulty: 'easy' | 'medium' | 'hard') => void;
 
   // Social Events
   'social:invite_to_game': (data: { friendId: number }) => void;
@@ -364,6 +374,7 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   updateGameState: (gameState: GameState) => void;
   chatMessage: (message: Message) => void;
+  emote: (data: { playerId: string; emote: string }) => void;
   error: (message: string) => void;
   achievementUnlocked: (achievement: Achievement) => void;
   kicked: (reason: string) => void;

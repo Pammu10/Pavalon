@@ -4,7 +4,11 @@ import { User } from './types';
 import { Socket } from 'socket.io';
 import * as express from 'express';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-for-avalon';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is not set!');
+}
 
 export const generateToken = (user: User): string => {
     return jwt.sign({ id: user.id, username: user.username, isAdmin: user.is_admin }, JWT_SECRET, { expiresIn: '7d' });

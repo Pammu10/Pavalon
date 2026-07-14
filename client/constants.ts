@@ -46,7 +46,7 @@ export const ROLES: Record<Role, { alignment: Alignment, description: string, vi
         description: "You are the evil killer. If the forces of Good succeed on three quests, you have one chance to assassinate Merlin to win.",
         vision: "You see your fellow Minions of Mordred, but not Oberon.",
         img: "/characters/assassin.png",
-        strategy: "Your main job is to identify Merlin. Pay attention to who seem to have too much information.",
+        strategy: "Your main job is to identify Merlin. Pay attention to those who seem to have too much information.",
         color: "text-red-600",
       bgColor:
         "bg-gradient-to-br from-red-600/15 to-red-800/10 border-2 border-red-400/40 backdrop-blur-sm",
@@ -111,3 +111,6 @@ export const QUEST_CONFIGURATIONS: Record<number, { teamSize: number; failsRequi
     9: [{ teamSize: 3, failsRequired: 1 }, { teamSize: 4, failsRequired: 1 }, { teamSize: 4, failsRequired: 1 }, { teamSize: 5, failsRequired: 2 }, { teamSize: 5, failsRequired: 1 }],
     10: [{ teamSize: 3, failsRequired: 1 }, { teamSize: 4, failsRequired: 1 }, { teamSize: 4, failsRequired: 1 }, { teamSize: 5, failsRequired: 2 }, { teamSize: 5, failsRequired: 1 }],
 };
+// Emotes and quick-chat phrases. Must stay in sync with server constants.ts ALLOWED_EMOTES.
+export const EMOTE_EMOJIS = ['👍', '👎', '😂', '🤔', '😱', '😈', '👀', '🤥', '⚔️', '🛡️', '❤️', '🔥'];
+export const EMOTE_PHRASES = ['Trust me!', "I'm good!", 'Sus...', 'Liar!', 'Nice one!', 'Hmm...', 'Take me!', 'Bold move.', 'I knew it!', 'GG!'];

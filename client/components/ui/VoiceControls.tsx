@@ -49,7 +49,7 @@ const VoiceControls: React.FC = () => {
         <div className="p-2 md:p-4 space-y-4 max-h-full overflow-y-auto scroll-hide">
             {/* Master Control */}
             <div className="space-y-3">
-                <h4 className="font-eagleLake text-yellow-500 text-lg">Master Controls</h4>
+                <h4 className="font-eaglelake text-yellow-500 text-lg">Master Controls</h4>
                 <Toggle label="Voice Chat" enabled={isVoiceEnabled} onToggle={toggleVoiceChat} Icon={Headset} OffIcon={Headset} />
             </div>
 
@@ -70,14 +70,14 @@ const VoiceControls: React.FC = () => {
                 <>
                     {/* My Controls */}
                     <div className="space-y-3 pt-4 border-t border-slate-700/50">
-                        <h4 className="font-eagleLake text-yellow-500 text-lg">My Controls</h4>
+                        <h4 className="font-eaglelake text-yellow-500 text-lg">My Controls</h4>
                         <Toggle label="Microphone" enabled={!isMuted} onToggle={toggleMute} Icon={Mic} OffIcon={MicOff} />
                         <Toggle label="Mic Monitoring" enabled={micMonitoring} onToggle={toggleMicMonitoring} Icon={Ear} OffIcon={EarOff} />
                     </div>
 
                     {/* Individual Player Controls */}
                     <div className="space-y-3 pt-4 border-t border-slate-700/50">
-                        <h4 className="font-eagleLake text-yellow-500 text-lg">Player Volumes</h4>
+                        <h4 className="font-eaglelake text-yellow-500 text-lg">Player Volumes</h4>
                         {otherPlayers.map(player => {
                             const state = peerStates[player.id] || { volume: 1, isMuted: false, isSpeaking: false };
                             

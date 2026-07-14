@@ -52,11 +52,12 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const wasPausedByVisibility = useRef(false);
 
   useEffect(() => {
-    // Preload audio
+    // preload='none': eagerly fetching ~8MB of audio competes with the LCP
+    // background image on page load. play() fetches on demand.
     Object.entries(AUDIO_FILES).forEach(([key, src]) => {
       const audio = new Audio(src);
-      audio.preload = 'auto';
-      
+      audio.preload = 'none';
+
       if (key === 'background-lobby') {
         audio.loop = true;
         audio.volume = 0.1; // Lobby music at 10% volume
@@ -70,6 +71,23 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         sfxRefs.current[key as SoundEffect] = audio;
       }
     });
+
+    // Warm the small SFX after the page has fully loaded; the two big
+    // music tracks stay unloaded until first play().
+    const warmSfx = () => {
+      Object.values(sfxRefs.current).forEach(audio => {
+        if (audio) {
+          audio.preload = 'auto';
+          audio.load();
+        }
+      });
+    };
+    if (document.readyState === 'complete') {
+      warmSfx();
+      return;
+    }
+    window.addEventListener('load', warmSfx, { once: true });
+    return () => window.removeEventListener('load', warmSfx);
   }, []);
 
     useEffect(() => {
@@ -133,8 +151,12 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (sfx) {
       await new Promise<void>(resolve => {
         sfx.currentTime = 0;
-        const onEnded = () => {
+        const cleanup = () => {
           sfx.removeEventListener('ended', onEnded);
+          sfx.removeEventListener('error', onError);
+        };
+        const onEnded = () => {
+          cleanup();
           resolve();
         };
         const onError = (e: any) => {
@@ -142,7 +164,7 @@ export const AudioProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             if (e.name !== 'NotAllowedError') {
                 console.error(`Error playing sound ${sound}:`, e);
             }
-            sfx.removeEventListener('error', onError);
+            cleanup();
             resolve();
         }
         sfx.addEventListener('ended', onEnded);

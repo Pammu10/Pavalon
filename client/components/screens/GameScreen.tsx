@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useGame } from "@/components/context/GameContext";
 import { GamePhase, Player, Alignment, Role, Quest } from "@/types";
 import Card from "@/components/ui/Card";
@@ -9,14 +9,50 @@ import QuestResultOverlay from "@/components/ui/QuestResultOverlay";
 import PlayerTile from "../ui/PlayerTile";
 import { GamePhaseHeader } from "../ui/GamePhaseHeader";
 import { usePlayerVisionMap } from "@/hooks/usePlayerVision";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence, type TargetAndTransition } from "framer-motion";
 import { ROLES } from "@/constants";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import Spinner from "../ui/Spinner";
 import { toast } from "sonner";
 import { useAudio } from "@/components/context/AudioContext";
 import SwipeableCard from "@/components/ui/SwipeableCard";
+import TeamVoteRevealOverlay from "@/components/ui/TeamVoteRevealOverlay";
+import { haptics } from "@/lib/haptics";
+import { ShieldAlert } from "lucide-react";
 import Image from "next/image";
+
+const PHASE_VARIANTS: Record<string, { initial: TargetAndTransition; animate: TargetAndTransition; exit: TargetAndTransition }> = {
+  [GamePhase.TEAM_SELECTION]: {
+    initial: { opacity: 0, x: 40 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -40 },
+  },
+  [GamePhase.TEAM_VOTE]: {
+    initial: { opacity: 0, scale: 0.94, y: 12 },
+    animate: { opacity: 1, scale: 1, y: 0 },
+    exit: { opacity: 0, scale: 1.04, y: -12 },
+  },
+  [GamePhase.QUEST_VOTE]: {
+    initial: { opacity: 0, y: 24 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -16 },
+  },
+  [GamePhase.QUEST_RESULT]: {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+  },
+  [GamePhase.ASSASSINATION]: {
+    initial: { opacity: 0, scale: 1.04 },
+    animate: { opacity: 1, scale: 1 },
+    exit: { opacity: 0 },
+  },
+  default: {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+  },
+};
 
 // --- Reusable UI Components ---
 
@@ -149,7 +185,7 @@ const TeamSelection: React.FC = () => {
       {isLeader && (
         <div id="propose-team-button" className="text-center mt-6">
           <Button
-            onClick={() => selectTeam(pendingTeam)}
+            onClick={() => { haptics.confirm(); selectTeam(pendingTeam); }}
             disabled={!canSubmit || isPaused}
           >
             Propose Team ({pendingTeam.length}/{currentQuest.teamSize})
@@ -168,8 +204,28 @@ const TeamVote: React.FC = () => {
   const votedPlayerIds = gameState.players.filter(p => p.hasVoted).map(p => p.id);
   const visiblePlayerMap = usePlayerVisionMap();
 
+  const rejectionsLeft = 5 - gameState.voteTrack;
+
   return (
     <Card className="w-full">
+      {rejectionsLeft <= 2 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={`flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-2.5 mb-4 ${
+            rejectionsLeft === 1
+              ? 'bg-red-950/80 border-red-500 animate-pulse'
+              : 'bg-amber-950/60 border-amber-600'
+          }`}
+        >
+          <ShieldAlert size={18} className={rejectionsLeft === 1 ? 'text-red-400' : 'text-amber-400'} />
+          <p className={`text-sm font-bold text-center ${rejectionsLeft === 1 ? 'text-red-300' : 'text-amber-300'}`}>
+            {rejectionsLeft === 1
+              ? 'FINAL VOTE — if this team is rejected, Evil wins!'
+              : `Careful — ${rejectionsLeft} more rejections and Evil wins.`}
+          </p>
+        </motion.div>
+      )}
       <div className="flex justify-center flex-wrap gap-4 bg-slate-900/50 p-4 rounded-lg mb-4">
         {teamOnMission.map((p) => (
           <div key={p.id} className="w-28 md:w-36">
@@ -190,8 +246,8 @@ const TeamVote: React.FC = () => {
         <div id="team-vote-buttons" className="flex justify-center mt-6">
           <SwipeableCard
             title="Vote on Team"
-            onSwipeRight={() => voteOnTeam("APPROVE")}
-            onSwipeLeft={() => voteOnTeam("REJECT")}
+            onSwipeRight={() => { haptics.confirm(); voteOnTeam("APPROVE"); }}
+            onSwipeLeft={() => { haptics.confirm(); voteOnTeam("REJECT"); }}
             rightLabel="Approve"
             leftLabel="Reject"
             disabled={isPaused}
@@ -281,8 +337,8 @@ const QuestVote: React.FC = () => {
             <div id="quest-vote-buttons" className="flex justify-center mt-6">
               <SwipeableCard
                 title="Vote on Quest"
-                onSwipeRight={() => voteOnQuest("SUCCESS")}
-                onSwipeLeft={() => voteOnQuest("FAIL")}
+                onSwipeRight={() => { haptics.confirm(); voteOnQuest("SUCCESS"); }}
+                onSwipeLeft={() => { haptics.confirm(); voteOnQuest("FAIL"); }}
                 rightLabel="Success"
                 leftLabel="Fail"
                 disabled={isPaused}
@@ -305,17 +361,24 @@ const QuestVote: React.FC = () => {
 };
 
 const QuestResult: React.FC = () => {
-  const { gameState, hasViewedCurrentQuestResult, markQuestResultAsViewed } = useGame();
-  
+  const { gameState, hasViewedCurrentQuestResult, markQuestResultAsViewed, teamVoteReveal } = useGame();
+
   const quest = gameState.questHistory[gameState.currentQuest - 1];
-  if (!quest || hasViewedCurrentQuestResult) return null;
+  // Phase guard: during the exit animation this component still renders with
+  // the *advanced* game state (next quest, status ACTIVE, not yet viewed) —
+  // without the guard the overlay remounts and plays the fail sting right
+  // after a passed quest's success sting.
+  if (gameState.phase !== GamePhase.QUEST_RESULT || !quest || hasViewedCurrentQuestResult) return null;
 
   const failVotes = quest.results.filter((r) => r.vote === "FAIL").length;
   const successVotes = quest.results.filter((r) => r.vote === "SUCCESS").length;
 
   return (
     <QuestResultOverlay
-      show={true}
+      // Defer the quest reveal (and its sound) until the team-vote reveal
+      // animation has finished — the two are on independent client timers,
+      // and bots can resolve the quest before the vote reveal has closed.
+      show={!teamVoteReveal}
       isSuccess={quest.status === "PASSED"}
       failVotes={failVotes}
       successVotes={successVotes}
@@ -333,7 +396,11 @@ const Assassination: React.FC = () => {
 
   const isAssassin = player?.role === Role.ASSASSIN;
   const isEvilTeam = player?.alignment === Alignment.EVIL && player?.role !== Role.OBERON;
-  const potentialTargets = gameState.players.filter(p => p.alignment === Alignment.GOOD);
+  // Other players' alignment is no longer sent mid-game; the assassin may
+  // target anyone who isn't themselves or a known evil teammate.
+  const potentialTargets = gameState.players.filter(
+    p => p.id !== playerId && p.visibleAs !== 'Evil'
+  );
   const selectedTargetId = gameState.assassinationTargetId;
   const isPaused = !!gameState.reconnectingPlayer;
   const visiblePlayerMap = usePlayerVisionMap();
@@ -438,7 +505,25 @@ const Assassination: React.FC = () => {
 // -- Main Game Screen Component --
 
 const GameScreen: React.FC = () => {
-  const { gameState } = useGame();
+  const { gameState, teamVoteReveal, clearTeamVoteReveal } = useGame();
+  const { playSound } = useAudio();
+  const prevPhaseRef = useRef(gameState.phase);
+
+  // Play a phase-transition sound when the phase changes
+  useEffect(() => {
+    if (gameState.phase !== prevPhaseRef.current) {
+      if (gameState.phase === GamePhase.ASSASSINATION) {
+        // Assassination has its own dramatic audio handled inside the component
+      } else if (
+        gameState.phase === GamePhase.TEAM_SELECTION ||
+        gameState.phase === GamePhase.TEAM_VOTE ||
+        gameState.phase === GamePhase.QUEST_VOTE
+      ) {
+        playSound('transition', { manageBgm: false });
+      }
+      prevPhaseRef.current = gameState.phase;
+    }
+  }, [gameState.phase, playSound]);
 
   const renderPhaseComponent = () => {
     switch (gameState.phase) {
@@ -458,8 +543,6 @@ const GameScreen: React.FC = () => {
   };
 
   const questProgressData = gameState.questHistory.map((quest) => {
-    // If game is in assassination, any "ACTIVE" quest must have been the one that
-    // passed to trigger the win condition. This corrects the UI state.
     const finalStatus =
       gameState.phase === GamePhase.ASSASSINATION && quest.status === "ACTIVE"
         ? "PASSED"
@@ -474,6 +557,8 @@ const GameScreen: React.FC = () => {
     };
   });
 
+  const variants = PHASE_VARIANTS[gameState.phase] ?? PHASE_VARIANTS.default;
+
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col items-center">
       {gameState.questHistory.length > 0 && (
@@ -484,11 +569,28 @@ const GameScreen: React.FC = () => {
           />
         </div>
       )}
-      
+
       <div className="w-full bg-gradient-to-br from-slate-800/40 to-black/40 border border-slate-600/30 shadow-slate-700/20 shadow-inner rounded-2xl p-4 sm:p-6 mb-6 backdrop-blur-sm">
         <GamePhaseHeader />
       </div>
-      <div className="w-full animate-slideInUp">{renderPhaseComponent()}</div>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={gameState.phase}
+          className="w-full"
+          initial={variants.initial}
+          animate={variants.animate}
+          exit={variants.exit}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+        >
+          {renderPhaseComponent()}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Dramatic vote reveal overlay */}
+      {teamVoteReveal && (
+        <TeamVoteRevealOverlay data={teamVoteReveal} onClose={clearTeamVoteReveal} />
+      )}
     </div>
   );
 };

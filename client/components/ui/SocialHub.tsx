@@ -179,10 +179,10 @@ const SuggestionItem: React.FC<{ suggestion: FriendSuggestion, onAdd: (username:
 
 
 const EmptyState: React.FC<{ icon: React.ReactNode, title: string, message: string }> = ({ icon, title, message }) => (
-    <div className="flex flex-col items-center justify-center text-center text-slate-500 py-8 sm:py-12">
-        <div className="mb-4">{icon}</div>
-        <h3 className="font-bold text-lg text-slate-400">{title}</h3>
-        <p className="text-sm max-w-xs">{message}</p>
+    <div className="flex flex-col items-center justify-center text-center py-8 sm:py-12">
+        <div className="mb-4 text-slate-400">{icon}</div>
+        <h3 className="font-bold text-lg text-slate-200">{title}</h3>
+        <p className="text-sm max-w-xs text-slate-400 mt-1">{message}</p>
     </div>
 );
 
@@ -232,13 +232,18 @@ const SocialHubContent: React.FC<{ onClose?: () => void, asScreen?: boolean }> =
         setIsAdding(false);
     };
 
+    // As a full screen this renders unboxed; Card's translucent panel (and its
+    // backdrop blur, which can't be reliably overridden with utility classes)
+    // is only wanted in the floating-modal presentation.
+    const Container: React.ElementType = asScreen ? 'div' : Card;
+
     return (
-        <Card className={cn(
+        <Container className={cn(
             "flex flex-col",
-            asScreen ? "bg-transparent border-none shadow-none p-0" : "p-3 sm:p-4 md:p-6 h-[85vh] max-h-[700px]"
+            asScreen ? "p-0" : "p-3 sm:p-4 md:p-6 h-[85vh] max-h-[700px]"
         )}>
             <div className="flex justify-between items-center mb-4">
-                <h1 className="font-eagleLake text-2xl sm:text-3xl text-yellow-500">Social Hub</h1>
+                <h1 className="font-eaglelake text-2xl sm:text-3xl text-yellow-500">Social Hub</h1>
                 {!asScreen && onClose && (
                     <Button variant="icon-danger" onClick={onClose} className="w-10 h-10 p-0 flex items-center justify-center rounded-full"><X size={20} /></Button>
                 )}
@@ -331,7 +336,7 @@ const SocialHubContent: React.FC<{ onClose?: () => void, asScreen?: boolean }> =
                     </TabsContent>
                 </div>
             </Tabs>
-        </Card>
+        </Container>
     );
 };
 

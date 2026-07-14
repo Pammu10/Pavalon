@@ -6,7 +6,7 @@ import Card from "@/components/ui/Card";
 import { Player, Role, Alignment } from "@/types";
 import { ROLES, EVIL_PLAYER_COUNT } from "@/constants";
 import Spinner from "@/components/ui/Spinner";
-import { Copy, LogOut, ShieldAlert, Flame, Check, Users } from "lucide-react";
+import { Copy, LogOut, ShieldAlert, Flame, Check, Users, Bot as BotIcon } from "lucide-react";
 import PlayerTile from "@/components/ui/PlayerTile";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -308,7 +308,7 @@ const GameTips: React.FC = () => {
 
 
 const LobbyView: React.FC = () => {
-    const { gameState, playerId, startGame, leaveRoom, kickPlayer, startDragonsBreath, justJoined, clearJustJoined, openSocialHub, friendRequests, updateSelectedRoles } = useGame();
+    const { gameState, playerId, startGame, leaveRoom, kickPlayer, startDragonsBreath, justJoined, clearJustJoined, openSocialHub, friendRequests, updateSelectedRoles, addBot } = useGame();
     const { playSound } = useAudio();
     const { roomCode, players } = gameState;
     const isPaused = !!gameState.reconnectingPlayer;
@@ -506,8 +506,31 @@ const LobbyView: React.FC = () => {
                 </div>
               ))}
             </div>
+
+            {/* Fill empty seats with CPU players (host only) */}
+            {currentPlayer?.isHost && players.length < 10 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 bg-slate-800/40 rounded-lg p-3">
+                <span className="flex items-center gap-1.5 text-sm text-slate-300 font-bold">
+                  <BotIcon size={16} className="text-slate-400" />
+                  Add a CPU player:
+                </span>
+                <div className="flex gap-2">
+                  {(['easy', 'medium', 'hard'] as const).map((difficulty) => (
+                    <Button
+                      key={difficulty}
+                      variant="secondary"
+                      onClick={() => addBot(difficulty)}
+                      disabled={isPaused}
+                      className="text-xs py-1.5 px-3 capitalize"
+                    >
+                      {difficulty}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          
+
           <GameTips />
 
           {canStartPavalon && <FinalRosterDisplay finalRoles={finalRoles} />}
@@ -537,7 +560,7 @@ const LobbyView: React.FC = () => {
               <div className="mt-8 p-4 bg-slate-800/40 rounded-lg">
                 <Button disabled={true}>Need 5-10 Players for Pavalon</Button>
                 <p className="text-red-400 mt-2 font-semibold">
-                  You currently have {players.length} players.
+                  {players.length === 1 ? 'Only 1 player is here so far.' : `You currently have ${players.length} players.`}
                 </p>
                 {canStartDragonsBreath && (
                     <div className="mt-4 pt-4 border-t border-slate-700">

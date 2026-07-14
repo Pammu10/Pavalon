@@ -30,7 +30,7 @@ const RestartVoteOverlay: React.FC = () => {
     return createPortal(
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-[100] animate-fadeIn p-4">
             <Card className="w-full max-w-md animate-slideInUp border-2 border-yellow-700/50">
-                <h2 className="font-eagleLake text-2xl text-yellow-500 text-center">Restart Game Vote</h2>
+                <h2 className="font-eaglelake text-2xl text-yellow-500 text-center">Restart Game Vote</h2>
                 <p className="text-center text-slate-300 mt-2 mb-4">
                     <span className="font-bold">{restartVote.initiatorName}</span> has initiated a vote to restart the game.
                 </p>

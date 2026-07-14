@@ -1,3 +1,15 @@
+declare global {
+    namespace Express {
+        interface Request {
+            user: User;
+        }
+    }
+}
+
+export function toErrorMessage(err: unknown): string {
+    return err instanceof Error ? err.message : String(err);
+}
+
 export enum Role {
     MERLIN = 'Merlin',
     PERCIVAL = 'Percival',
@@ -27,6 +39,10 @@ export interface Player {
     selectedBorder?: string | null;
     selectedIcon?: string | null;
     selectedBackground?: string | null;
+    // Server-computed, per-viewer: what the receiving player knows about this
+    // player mid-game ('Evil' for Merlin/evil-team vision, 'Mystic' for
+    // Percival). Only ever set on redacted copies sent to clients.
+    visibleAs?: 'Evil' | 'Mystic';
 }
 
 export enum GamePhase {
@@ -131,7 +147,22 @@ export interface TutorialStep {
     text: string;
     highlight?: string[];
     actionRequired?: string;
+    actionText?: string;
     isFinalStep?: boolean;
+}
+
+export type BotDifficulty = 'easy' | 'medium' | 'hard';
+
+export interface CpuPersonaRef {
+    name: string;
+    difficulty: BotDifficulty;
+    selectedBorder?: string;
+    selectedIcon?: string;
+}
+
+export interface CpuGameConfig {
+    difficulty: BotDifficulty;
+    personas: CpuPersonaRef[];
 }
 
 
@@ -162,6 +193,7 @@ export interface GameState {
     assassinationTargetId: string | null;
     selectedRoles: Role[];
     tutorial?: TutorialStep | null;
+    cpuConfig?: CpuGameConfig | null;
 }
 
 export interface RoleDescription {
@@ -307,6 +339,7 @@ export interface ClientToServerEvents {
     
     // Shared Events
     sendMessage: (messageText: string) => void;
+    sendEmote: (emote: string) => void;
 
     // Dragon's Breath Events
     startDragonsBreath: () => void;
@@ -318,6 +351,10 @@ export interface ClientToServerEvents {
     
     // Tutorial Event
     advanceTutorial: () => void;
+
+    // CPU Game
+    startCPUGame: (data: { difficulty: 'easy' | 'medium' | 'hard'; playerCount: number }) => void;
+    addBot: (difficulty: 'easy' | 'medium' | 'hard') => void;
 
     // Social Events
     'social:invite_to_game': (data: { friendId: number }) => void;
@@ -331,6 +368,7 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
     updateGameState: (gameState: GameState) => void;
     chatMessage: (message: Message) => void;
+    emote: (data: { playerId: string; emote: string }) => void;
     error: (message: string) => void;
     achievementUnlocked: (achievement: Achievement) => void;
     kicked: (reason: string) => void;

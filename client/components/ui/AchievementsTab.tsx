@@ -294,10 +294,10 @@ const AchievementsTab: React.FC = () => {
     return (
         <div className="space-y-8">
             <Card id="profile-customization-card">
-                <h2 className="font-eagleLake text-3xl mb-4 text-center text-yellow-500">Profile Customization</h2>
+                <h2 className="font-eaglelake text-3xl mb-4 text-center text-yellow-500">Profile Customization</h2>
                 
                 <div className="mb-8">
-                    <h3 className="text-xl font-eagleLake text-center text-slate-300 mb-4">Live Preview</h3>
+                    <h3 className="text-xl font-eaglelake text-center text-slate-300 mb-4">Live Preview</h3>
                     <div className="flex justify-center items-center">
                         <div className="w-40 transform-gpu transition-transform duration-300 hover:scale-105">
                             {previewPlayer ? <PlayerTile player={previewPlayer} /> : <div className="aspect-[3/4] bg-slate-800 rounded-xl flex items-center justify-center"><Spinner size="sm" /></div>}
@@ -306,7 +306,7 @@ const AchievementsTab: React.FC = () => {
                 </div>
 
                 <div className="flex-1 mb-6">
-                    <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eagleLake">
+                    <label className="flex items-center gap-2 mb-2 text-lg text-yellow-400 font-eaglelake">
                         <VenetianMask />
                         Custom Title
                     </label>
@@ -457,7 +457,7 @@ const AchievementsTab: React.FC = () => {
             </Card>
 
             <Card>
-                <h2 className="font-eagleLake text-3xl mb-6 text-center text-yellow-500">Achievements</h2>
+                <h2 className="font-eaglelake text-3xl mb-6 text-center text-yellow-500">Achievements</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                      {achievements.map(ach => (
                         ach.unlocked 

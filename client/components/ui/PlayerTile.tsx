@@ -1,12 +1,27 @@
 import React, { memo } from 'react';
-import { Player } from '@/types';
+import { Player, GamePhase } from '@/types';
 import { useGame } from '../context/GameContext';
 import { useVoice } from '../context/VoiceContext';
-import { Crown, Ghost, Shield, Swords, Eye, Mic, Gem } from 'lucide-react';
+import { Crown, Ghost, Shield, Swords, Eye, Mic, Gem, ShieldCheck, HelpCircle, Skull, NotebookPen, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROLES } from '@/constants';
 import { ICON_MAP } from './AvailableIcons';
 import { motion, AnimatePresence } from 'framer-motion';
+import { haptics } from '@/lib/haptics';
+
+const MARKABLE_PHASES: GamePhase[] = [
+  GamePhase.TEAM_SELECTION,
+  GamePhase.TEAM_VOTE,
+  GamePhase.QUEST_VOTE,
+  GamePhase.QUEST_RESULT,
+  GamePhase.ASSASSINATION,
+];
+
+const MARK_CONFIG = {
+  trusted: { icon: ShieldCheck, classes: 'bg-blue-900/90 text-blue-300 border-blue-500', title: 'Marked: Trusted' },
+  suspect: { icon: HelpCircle, classes: 'bg-amber-900/90 text-amber-300 border-amber-500', title: 'Marked: Suspect' },
+  evil: { icon: Skull, classes: 'bg-red-900/90 text-red-300 border-red-500', title: 'Marked: Evil' },
+} as const;
 
 interface PlayerTileProps {
   player: Player;
@@ -25,7 +40,7 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
   className = '',
   isKnownAs = null,
 }) => {
-  const { playerId } = useGame();
+  const { playerId, gameState, activeEmotes, suspicionMarks, cycleSuspicionMark } = useGame();
   const { peerStates, isSelfSpeaking } = useVoice();
 
   const isLocalPlayer = player.id === playerId;
@@ -33,6 +48,10 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
   const isSpeaking = isLocalPlayer ? isSelfSpeaking : voiceState?.isSpeaking ?? false;
 
   const isDisconnected = player.status === 'DISCONNECTED';
+
+  const activeEmote = activeEmotes[player.id];
+  const canMark = !isLocalPlayer && MARKABLE_PHASES.includes(gameState.phase);
+  const mark = suspicionMarks[player.userId];
   const borderClass = player.selectedBorder && player.selectedBorder !== 'default' ? `border-style-${player.selectedBorder}` : 'border-slate-600';
 
   const IconComponent = player.selectedIcon && ICON_MAP[player.selectedIcon] 
@@ -62,8 +81,8 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
         </div>
 
       {/* Info Box */}
-      <div className="relative w-full bg-black/50 backdrop-blur-sm rounded-md p-2 text-center z-10">
-        <div className="text-base font-bold text-slate-100 truncate w-full flex items-center justify-center gap-1.5 h-6">
+      <div className="relative w-full bg-gradient-to-t from-slate-950/80 to-slate-900/40 backdrop-blur-sm rounded-md p-2 text-center z-10 border-t border-white/5">
+        <div title={player.name} className="text-sm sm:text-base font-bold text-slate-100 truncate w-full flex items-center justify-center gap-1.5 h-6">
             <AnimatePresence>
                 {isSpeaking && (
                     <motion.div
@@ -85,8 +104,74 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
         ) : <div className="h-4" />}
       </div>
 
+      {/* Emote bubble */}
+      <AnimatePresence>
+        {activeEmote && (
+          <motion.div
+            key={activeEmote.key}
+            initial={{ opacity: 0, scale: 0.3, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.6, y: -14 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+            className="absolute -top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+          >
+            {activeEmote.emote.length > 2 ? (
+              <div className="bg-slate-900/95 border border-yellow-500/70 rounded-xl rounded-bl-sm px-2.5 py-1 shadow-lg whitespace-nowrap">
+                <span className="text-xs font-bold text-slate-100 italic">{activeEmote.emote}</span>
+              </div>
+            ) : (
+              <motion.span
+                className="block text-3xl drop-shadow-lg"
+                animate={{ y: [0, -4, 0] }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                {activeEmote.emote}
+              </motion.span>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Suspicion mark (private deduction note) */}
+      {canMark && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            haptics.tap();
+            cycleSuspicionMark(player.userId);
+          }}
+          title={mark ? MARK_CONFIG[mark].title : 'Add deduction note'}
+          className={cn(
+            'absolute top-1.5 left-1.5 z-20 w-6 h-6 rounded-full flex items-center justify-center border transition-all active:scale-90',
+            mark
+              ? MARK_CONFIG[mark].classes
+              : 'bg-slate-800/70 text-slate-500 border-slate-600/50 opacity-60 hover:opacity-100'
+          )}
+        >
+          {mark ? (
+            React.createElement(MARK_CONFIG[mark].icon, { size: 14 })
+          ) : (
+            <NotebookPen size={12} />
+          )}
+        </button>
+      )}
+      {/* Read-only mark badge outside markable phases */}
+      {!canMark && !isLocalPlayer && mark && (
+        <div
+          title={MARK_CONFIG[mark].title}
+          className={cn('absolute top-1.5 left-1.5 z-20 w-6 h-6 rounded-full flex items-center justify-center border', MARK_CONFIG[mark].classes)}
+        >
+          {React.createElement(MARK_CONFIG[mark].icon, { size: 14 })}
+        </div>
+      )}
+
       {/* Status Icons */}
       <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
+        {player.userId < 0 && (
+          <div className="w-6 h-6 bg-slate-700/80 text-slate-300 rounded-full flex items-center justify-center" title="CPU Player">
+            <Bot size={12} />
+          </div>
+        )}
         {player.isHost && (
           <div className="w-6 h-6 bg-yellow-800/80 text-yellow-300 rounded-full flex items-center justify-center" title="Host">
             <Crown size={14} />

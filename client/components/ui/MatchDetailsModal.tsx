@@ -40,7 +40,7 @@ const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({ matchId, onClose 
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="font-eagleLake text-2xl text-yellow-500">Match Details</h2>
+                    <h2 className="font-eaglelake text-2xl text-yellow-500">Match Details</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
                 </div>
                 
@@ -60,7 +60,7 @@ const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({ matchId, onClose 
                                         <p className="font-bold text-lg text-white">{player.username}</p>
                                         <p className={`text-sm ${alignmentColor}`}>{player.role}</p>
                                     </div>
-                                    <span className={`font-bold font-eagleLake text-sm ${player.won ? 'text-green-400' : 'text-red-500'}`}>
+                                    <span className={`font-bold font-eaglelake text-sm ${player.won ? 'text-green-400' : 'text-red-500'}`}>
                                         {player.won ? 'VICTORY' : 'DEFEAT'}
                                     </span>
                                 </div>

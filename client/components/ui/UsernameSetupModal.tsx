@@ -87,7 +87,7 @@ const UsernameSetupModal: React.FC<UsernameSetupModalProps> = ({ suggestedUserna
     return createPortal(
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-[100] animate-fadeIn p-4">
             <Card className="w-full max-w-md animate-slideInUp border-2 border-yellow-700/50" onClick={e => e.stopPropagation()}>
-                <h2 className="font-eagleLake text-3xl text-yellow-500 text-center mb-2">Welcome to Pavalon!</h2>
+                <h2 className="font-eaglelake text-3xl text-yellow-500 text-center mb-2">Welcome to Pavalon!</h2>
                 <p className="text-center text-slate-300 mb-6">Let's set up your in-game identity.</p>
 
                 <div className="space-y-4">

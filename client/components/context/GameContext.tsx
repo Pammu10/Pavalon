@@ -11,6 +11,14 @@ interface Settings {
     skipIntro: boolean;
 }
 
+export interface TeamVoteRevealData {
+    votes: { playerId: string; vote: 'APPROVE' | 'REJECT' }[];
+    players: Player[];
+    wasApproved: boolean;
+}
+
+export type SuspicionMark = 'trusted' | 'suspect' | 'evil';
+
 interface GameContextType {
     gameState: GameState;
     playerId: string | null;
@@ -27,6 +35,12 @@ interface GameContextType {
     hasViewedCurrentQuestResult: boolean;
     hasViewedEndGameResult: boolean;
     justJoined: boolean;
+    teamVoteReveal: TeamVoteRevealData | null;
+    clearTeamVoteReveal: () => void;
+    activeEmotes: Record<string, { emote: string; key: number }>;
+    sendEmote: (emote: string) => void;
+    suspicionMarks: Record<number, SuspicionMark>;
+    cycleSuspicionMark: (userId: number) => void;
     // Username Modal State
     isUsernameModalOpen: boolean;
     suggestedUsername: string;
@@ -80,6 +94,9 @@ interface GameContextType {
     returnToLobby: () => void;
     // Tutorial
     advanceTutorial: () => void;
+    // CPU Game
+    startCPUGame: (data: { difficulty: 'easy' | 'medium' | 'hard'; playerCount: number }) => void;
+    addBot: (difficulty: 'easy' | 'medium' | 'hard') => void;
     // Social Functions
     addFriend: (username: string) => Promise<void>;
     respondToFriendRequest: (requesterId: number, action: 'accept' | 'decline') => Promise<void>;
@@ -156,6 +173,27 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [isConnected, setIsConnected] = useState<boolean>(false);
 
+    const [teamVoteReveal, setTeamVoteReveal] = useState<TeamVoteRevealData | null>(null);
+    const clearTeamVoteReveal = useCallback(() => setTeamVoteReveal(null), []);
+
+    // Emote reactions: playerId -> latest emote (key forces re-animation on repeat)
+    const [activeEmotes, setActiveEmotes] = useState<Record<string, { emote: string; key: number }>>({});
+    const emoteTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+    // Private per-game deduction notes: userId -> mark. Never sent to the server.
+    const [suspicionMarks, setSuspicionMarks] = useState<Record<number, SuspicionMark>>({});
+    const cycleSuspicionMark = useCallback((userId: number) => {
+        setSuspicionMarks(prev => {
+            const order: (SuspicionMark | null)[] = [null, 'trusted', 'suspect', 'evil'];
+            const current = prev[userId] ?? null;
+            const next = order[(order.indexOf(current) + 1) % order.length];
+            const updated = { ...prev };
+            if (next === null) delete updated[userId];
+            else updated[userId] = next;
+            return updated;
+        });
+    }, []);
+
     const prevRoomCode = useRef(gameState.roomCode);
     
     // Fetch friend requests for notification badges using React Query
@@ -201,9 +239,52 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else if (!gameState.roomCode && prevRoomCode.current) {
             router.push('/');
         }
+        if (gameState.roomCode !== prevRoomCode.current) {
+            setSuspicionMarks({});
+        }
         prevRoomCode.current = gameState.roomCode;
     }, [gameState.roomCode, router]);
+
+    // Reset deduction notes whenever a fresh game starts (role reveal)
+    useEffect(() => {
+        if (gameState.phase === GamePhase.ROLE_REVEAL) {
+            setSuspicionMarks({});
+        }
+    }, [gameState.phase]);
     
+    // Trigger the team-vote reveal overlay when the phase moves past TEAM_VOTE.
+    // Votes are redacted while voting is open, so the reveal is built from the
+    // server's post-vote records (approvedVote / pastVotes) on the next state.
+    const prevPhaseForRevealRef = useRef(gameState.phase);
+    useEffect(() => {
+        const prevPhase = prevPhaseForRevealRef.current;
+        const { phase } = gameState;
+        prevPhaseForRevealRef.current = phase;
+
+        if (prevPhase === GamePhase.TEAM_VOTE && (phase === GamePhase.QUEST_VOTE || phase === GamePhase.TEAM_SELECTION)) {
+            const quest = gameState.questHistory[gameState.currentQuest - 1];
+            const wasApproved = phase === GamePhase.QUEST_VOTE;
+            const record = wasApproved
+                ? quest?.approvedVote
+                : quest?.pastVotes[quest.pastVotes.length - 1];
+            if (record && record.votes.length > 0) {
+                setTeamVoteReveal({ votes: record.votes, players: gameState.players, wasApproved });
+            }
+        }
+
+        // The quest-result / end-game presentations own the screen and audio;
+        // a reveal still on screen at that point must yield (bots can finish
+        // the quest vote before the reveal animation has ended).
+        if (
+            phase === GamePhase.QUEST_RESULT ||
+            phase === GamePhase.END_GAME ||
+            phase === GamePhase.LOBBY ||
+            phase === GamePhase.ROLE_REVEAL
+        ) {
+            setTeamVoteReveal(null);
+        }
+    }, [gameState]);
+
     useEffect(() => {
         // If we just entered a room and there's a pending invite
         if (gameState.roomCode && inviteQueue !== null) {
@@ -364,29 +445,35 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, []);
 
     // --- Socket Event Handlers (wrapped in useCallback) ---
+    // Tracks the last applied state so phase transitions can be computed
+    // outside the setGameState updater (updaters must stay pure — calling
+    // other setters inside one runs them twice in dev and can loop).
+    const lastAppliedStateRef = useRef<GameState>(initialGameState);
+
     const handleUpdate = useCallback((newState: GameState) => {
-        setGameState(prevState => {
-            if (newState.phase === GamePhase.LOBBY && prevState.phase === GamePhase.HOME) {
-                setJustJoined(true);
-            }
-            const isNewGameStarting = (prevState.phase === GamePhase.END_GAME && newState.phase === GamePhase.LOBBY) || 
-                                      (prevState.phase === GamePhase.LOBBY && newState.phase === GamePhase.ROLE_REVEAL);
-            if (isNewGameStarting) {
-                setHasViewedRole(false);
-                if (prevState.roomCode) {
-                    const keysToRemove: string[] = [];
-                    for (let i = 0; i < sessionStorage.length; i++) {
-                        const key = sessionStorage.key(i);
-                        if (key && key.startsWith('viewed') && key.includes(prevState.roomCode)) {
-                            keysToRemove.push(key);
-                        }
+        const prevState = lastAppliedStateRef.current;
+        lastAppliedStateRef.current = newState;
+
+        if (newState.phase === GamePhase.LOBBY && prevState.phase === GamePhase.HOME) {
+            setJustJoined(true);
+        }
+        const isNewGameStarting = (prevState.phase === GamePhase.END_GAME && newState.phase === GamePhase.LOBBY) ||
+                                  (prevState.phase === GamePhase.LOBBY && newState.phase === GamePhase.ROLE_REVEAL);
+        if (isNewGameStarting) {
+            setHasViewedRole(false);
+            if (prevState.roomCode) {
+                const keysToRemove: string[] = [];
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    if (key && key.startsWith('viewed') && key.includes(prevState.roomCode)) {
+                        keysToRemove.push(key);
                     }
-                    keysToRemove.forEach(key => sessionStorage.removeItem(key));
                 }
-                setViewedSessionKeys(new Set());
+                keysToRemove.forEach(key => sessionStorage.removeItem(key));
             }
-            return newState;
-        });
+            setViewedSessionKeys(new Set());
+        }
+        setGameState(newState);
         setMessages(newState.chat || []);
     }, []);
 
@@ -409,9 +496,16 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [playSound, queryClient]);
 
     const handleKicked = useCallback((reason: string) => {
-        toast.error(reason, {
-            description: "You have been removed from the game."
-        });
+        // The server sends 'kicked' for voluntary leaves too — don't present
+        // those as if the player was removed by someone else.
+        if (reason.startsWith('You have left')) {
+            toast.info(reason);
+        } else {
+            toast.error(reason, {
+                description: "You have been removed from the game."
+            });
+        }
+        lastAppliedStateRef.current = initialGameState;
         setGameState(initialGameState);
         setMessages([]);
         setHasViewedRole(false);
@@ -428,6 +522,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setToken(null);
         setUser(null);
         setIsAuthenticated(false);
+        lastAppliedStateRef.current = initialGameState;
         setGameState(initialGameState);
         setHasViewedRole(false);
         setViewedSessionKeys(new Set());
@@ -507,10 +602,24 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [playSound, acceptInvite, declineInvite]);
 
 
+    const handleEmote = useCallback(({ playerId: senderId, emote }: { playerId: string; emote: string }) => {
+        setActiveEmotes(prev => ({ ...prev, [senderId]: { emote, key: Date.now() } }));
+        if (emoteTimersRef.current[senderId]) clearTimeout(emoteTimersRef.current[senderId]);
+        emoteTimersRef.current[senderId] = setTimeout(() => {
+            setActiveEmotes(prev => {
+                const updated = { ...prev };
+                delete updated[senderId];
+                return updated;
+            });
+            delete emoteTimersRef.current[senderId];
+        }, 3000);
+    }, []);
+
     // --- Socket Listener `useEffect` ---
     useEffect(() => {
         socketService.on('updateGameState', handleUpdate);
         socketService.on('chatMessage', handleChatMessage);
+        socketService.on('emote', handleEmote);
         socketService.on('error', handleError);
         socketService.on('achievementUnlocked', handleAchievementUnlocked);
         socketService.on('kicked', handleKicked);
@@ -524,6 +633,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => {
             socketService.off('updateGameState', handleUpdate);
             socketService.off('chatMessage', handleChatMessage);
+            socketService.off('emote', handleEmote);
             socketService.off('error', handleError);
             socketService.off('achievementUnlocked', handleAchievementUnlocked);
             socketService.off('kicked', handleKicked);
@@ -534,7 +644,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             socketService.off('social:request_cancelled', handleSocialRequestCancelled);
             socketService.off('social:invite_received', handleInviteReceived);
         };
-    }, [handleUpdate, handleChatMessage, handleError, handleAchievementUnlocked, handleKicked, handleSocialStatus, handleRequestReceived, handleRequestAccepted, handleFriendRemoved, handleSocialRequestCancelled, handleInviteReceived]);
+    }, [handleUpdate, handleChatMessage, handleEmote, handleError, handleAchievementUnlocked, handleKicked, handleSocialStatus, handleRequestReceived, handleRequestAccepted, handleFriendRemoved, handleSocialRequestCancelled, handleInviteReceived]);
 
     useEffect(() => {
         const handleConnectError = (err: Error) => {
@@ -747,8 +857,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const advanceTutorial = () => socketService.emit('advanceTutorial');
+    const startCPUGame = (data: { difficulty: 'easy' | 'medium' | 'hard'; playerCount: number }) =>
+        socketService.emit('startCPUGame', data);
+    const addBot = (difficulty: 'easy' | 'medium' | 'hard') => socketService.emit('addBot', difficulty);
     const kickPlayer = (playerIdToKick: string) => socketService.emit('kickPlayer', playerIdToKick);
     const sendMessage = (messageText: string) => socketService.emit('sendMessage', messageText);
+    const sendEmote = useCallback((emote: string) => socketService.emit('sendEmote', emote), []);
     const startGame = (data: { selectedRoles: Role[] }) => {
         setHasViewedRole(false);
         socketService.emit('startGame', data);
@@ -777,7 +891,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const value: GameContextType = {
         gameState, playerId, error, messages, user, token, isAuthenticated, authError,
         isLoading, isConnected, hasViewedRole, settings, hasViewedCurrentQuestResult,
-        hasViewedEndGameResult, justJoined, isUsernameModalOpen, suggestedUsername, openUsernameModal,
+        hasViewedEndGameResult, justJoined, teamVoteReveal, clearTeamVoteReveal,
+        activeEmotes, sendEmote, suspicionMarks, cycleSuspicionMark,
+        isUsernameModalOpen, suggestedUsername, openUsernameModal,
         closeUsernameModal, friendRequests, pendingInvites, isSocialHubOpen,
         openSocialHub, closeSocialHub, previewBackground, setPreviewBackground, setHasViewedRole, markQuestResultAsViewed,
         markEndGameAsViewed, clearJustJoined, updateSettings, updateUser, updateUsername,
@@ -785,18 +901,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updateSelectedRoles, selectTeam, updatePendingTeam, updateAssassinationTarget,
         voteOnTeam, voteOnQuest, assassinate, playerReady, playerReadyForNextGame, sendMessage,
         initiateRestart, voteOnRestart, startDragonsBreath, drawCard, playCard, placeDragonCard,
-        endFutureView, returnToLobby, advanceTutorial, addFriend, respondToFriendRequest, removeFriend,
+        endFutureView, returnToLobby, advanceTutorial, startCPUGame, addBot, addFriend, respondToFriendRequest, removeFriend,
         cancelFriendRequest, inviteFriendToGame, acceptInvite, declineInvite, googleLogin, linkGoogleAccount,
     };
 
     return (
         <GameContext.Provider value={value}>
             {children}
-            {error && (
-                <div className="animate-fadeIn fixed bottom-5 left-5 z-[100] bg-red-800/80 backdrop-blur-md text-white font-bold py-3 px-6 rounded-lg shadow-2xl border-2 border-red-600">
-                    Error: {error}
-                </div>
-            )}
         </GameContext.Provider>
     );
 };
