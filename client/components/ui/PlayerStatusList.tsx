@@ -19,13 +19,14 @@ const PlayerStatusList: React.FC<PlayerStatusListProps> = ({
       <h4 className="font-eaglelake text-xl text-yellow-500 mb-3 text-center">
         {title}
       </h4>
-      <ul className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-left">
+      <ul className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-left">
         {players.map((p) => {
           const isReady = readyPlayerIds.includes(p.id);
           return (
             <li
               key={p.id}
-              className={`text-slate-300 truncate ${
+              title={p.name}
+              className={`text-slate-300 max-w-full truncate ${
                 p.status === 'DISCONNECTED' ? 'text-slate-500 italic' : ''
               }`}
             >

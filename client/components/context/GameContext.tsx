@@ -445,29 +445,35 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, []);
 
     // --- Socket Event Handlers (wrapped in useCallback) ---
+    // Tracks the last applied state so phase transitions can be computed
+    // outside the setGameState updater (updaters must stay pure — calling
+    // other setters inside one runs them twice in dev and can loop).
+    const lastAppliedStateRef = useRef<GameState>(initialGameState);
+
     const handleUpdate = useCallback((newState: GameState) => {
-        setGameState(prevState => {
-            if (newState.phase === GamePhase.LOBBY && prevState.phase === GamePhase.HOME) {
-                setJustJoined(true);
-            }
-            const isNewGameStarting = (prevState.phase === GamePhase.END_GAME && newState.phase === GamePhase.LOBBY) || 
-                                      (prevState.phase === GamePhase.LOBBY && newState.phase === GamePhase.ROLE_REVEAL);
-            if (isNewGameStarting) {
-                setHasViewedRole(false);
-                if (prevState.roomCode) {
-                    const keysToRemove: string[] = [];
-                    for (let i = 0; i < sessionStorage.length; i++) {
-                        const key = sessionStorage.key(i);
-                        if (key && key.startsWith('viewed') && key.includes(prevState.roomCode)) {
-                            keysToRemove.push(key);
-                        }
+        const prevState = lastAppliedStateRef.current;
+        lastAppliedStateRef.current = newState;
+
+        if (newState.phase === GamePhase.LOBBY && prevState.phase === GamePhase.HOME) {
+            setJustJoined(true);
+        }
+        const isNewGameStarting = (prevState.phase === GamePhase.END_GAME && newState.phase === GamePhase.LOBBY) ||
+                                  (prevState.phase === GamePhase.LOBBY && newState.phase === GamePhase.ROLE_REVEAL);
+        if (isNewGameStarting) {
+            setHasViewedRole(false);
+            if (prevState.roomCode) {
+                const keysToRemove: string[] = [];
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    if (key && key.startsWith('viewed') && key.includes(prevState.roomCode)) {
+                        keysToRemove.push(key);
                     }
-                    keysToRemove.forEach(key => sessionStorage.removeItem(key));
                 }
-                setViewedSessionKeys(new Set());
+                keysToRemove.forEach(key => sessionStorage.removeItem(key));
             }
-            return newState;
-        });
+            setViewedSessionKeys(new Set());
+        }
+        setGameState(newState);
         setMessages(newState.chat || []);
     }, []);
 
@@ -499,6 +505,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 description: "You have been removed from the game."
             });
         }
+        lastAppliedStateRef.current = initialGameState;
         setGameState(initialGameState);
         setMessages([]);
         setHasViewedRole(false);
@@ -515,6 +522,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setToken(null);
         setUser(null);
         setIsAuthenticated(false);
+        lastAppliedStateRef.current = initialGameState;
         setGameState(initialGameState);
         setHasViewedRole(false);
         setViewedSessionKeys(new Set());

@@ -68,7 +68,7 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
     <div className="bg-slate-800/50 p-4 rounded-lg text-center flex flex-col items-center justify-center gap-2">
       <div className="text-yellow-400">{icon}</div>
       <p className="text-slate-400 text-sm font-bold uppercase tracking-wider">{title}</p>
-      <p className="font-eagleLake text-4xl text-white">{value}</p>
+      <p className="font-eaglelake text-4xl text-white">{value}</p>
     </div>
   );
   
@@ -101,7 +101,7 @@ const MatchHistoryRow: React.FC<{ match: Match; onSelect: (id: number) => void; 
             <p className="font-bold text-white">{match.role}</p>
             <p className="text-xs text-slate-400">{new Date(match.playedAt).toLocaleDateString()}</p>
           </div>
-          <div className={`font-eagleLake font-bold px-3 py-1 rounded-full text-sm ${match.won ? "text-green-300 bg-green-900/50" : "text-red-300 bg-red-900/50"}`}>
+          <div className={`font-eaglelake font-bold px-3 py-1 rounded-full text-sm ${match.won ? "text-green-300 bg-green-900/50" : "text-red-300 bg-red-900/50"}`}>
             {match.won ? "Victory" : "Defeat"}
           </div>
         </button>
@@ -148,7 +148,7 @@ const MyStatsTab: React.FC = () => {
         <>
         <Card>
              <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
-                <h2 className="font-eagleLake text-3xl text-yellow-500">My Pavalon Stats</h2>
+                <h2 className="font-eaglelake text-3xl text-yellow-500">My Pavalon Stats</h2>
             </div>
             <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -157,14 +157,14 @@ const MyStatsTab: React.FC = () => {
                     <StatCard title="Overall Win Rate" value={`${stats.winRate}%`} icon={<TrendingUp size={24}/>} />
                 </div>
                 <div>
-                    <h3 className="font-eagleLake text-xl my-4 text-center text-white">Performance by Alignment</h3>
+                    <h3 className="font-eaglelake text-xl my-4 text-center text-white">Performance by Alignment</h3>
                     <div className="space-y-4 bg-slate-900/40 p-4 rounded-lg">
                         <WinRateBar rate={stats.goodWinRate} alignment={Alignment.GOOD} totalGames={stats.goodGames} />
                         <WinRateBar rate={stats.evilWinRate} alignment={Alignment.EVIL} totalGames={stats.evilGames} />
                     </div>
                 </div>
                 <div>
-                    <h3 className="font-eagleLake text-xl my-4 text-center text-white">Recent Match History</h3>
+                    <h3 className="font-eaglelake text-xl my-4 text-center text-white">Recent Match History</h3>
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2 scroll-hide">
                     {stats.recentMatches.length > 0 ? (
                         stats.recentMatches.map((match) => (
@@ -220,7 +220,7 @@ const DragonsBreathStatsTab: React.FC = () => {
         return (
             <Card className="text-center py-12">
                 <Flame size={48} className="mx-auto text-slate-500 mb-4" />
-                <h3 className="text-2xl font-eagleLake text-slate-300">No Games Played</h3>
+                <h3 className="text-2xl font-eaglelake text-slate-300">No Games Played</h3>
                 <p className="text-slate-400 mt-2">You haven't played any Dragon's Breath games yet. <br/>Challenge a friend in a 2-player lobby!</p>
             </Card>
         )
@@ -229,14 +229,14 @@ const DragonsBreathStatsTab: React.FC = () => {
     return (
         <div className="space-y-8">
             <Card>
-                <h2 className="font-eagleLake text-3xl text-yellow-500 text-center mb-6">Overall Performance</h2>
+                <h2 className="font-eaglelake text-3xl text-yellow-500 text-center mb-6">Overall Performance</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <StatCard title="Total Games" value={stats.totalGames} icon={<Swords size={24} />} />
                     <StatCard title="Total Wins" value={stats.totalWins} icon={<Trophy size={24} />} />
                 </div>
             </Card>
             <Card>
-                <h2 className="font-eagleLake text-3xl text-yellow-500 text-center mb-6">Head-to-Head</h2>
+                <h2 className="font-eaglelake text-3xl text-yellow-500 text-center mb-6">Head-to-Head</h2>
                 <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                     {stats.opponentStats.map(op => (
                         <HeadToHeadStatRow key={op.opponentId} opponentStat={op} />
@@ -244,7 +244,7 @@ const DragonsBreathStatsTab: React.FC = () => {
                 </div>
             </Card>
             <Card>
-                <h2 className="font-eagleLake text-3xl text-yellow-500 text-center mb-6">Recent Matches</h2>
+                <h2 className="font-eaglelake text-3xl text-yellow-500 text-center mb-6">Recent Matches</h2>
                 <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
                     {stats.matchHistory.map(match => (
                         <div key={match.id} className={`flex justify-between items-center p-3 rounded-lg ${match.won ? 'bg-green-800/20' : 'bg-red-800/20'}`}>
@@ -252,7 +252,7 @@ const DragonsBreathStatsTab: React.FC = () => {
                                 <p className="text-white">vs <span className="font-bold">{match.opponentName}</span></p>
                                 <p className="text-xs text-slate-400">{new Date(match.playedAt).toLocaleString()}</p>
                             </div>
-                            <span className={`font-eagleLake font-bold px-3 py-1 rounded-full text-sm ${match.won ? "text-green-300 bg-green-900/50" : "text-red-300 bg-red-900/50"}`}>
+                            <span className={`font-eaglelake font-bold px-3 py-1 rounded-full text-sm ${match.won ? "text-green-300 bg-green-900/50" : "text-red-300 bg-red-900/50"}`}>
                                 {match.won ? 'VICTORY' : 'DEFEAT'}
                             </span>
                         </div>
@@ -273,7 +273,7 @@ const LeaderboardList: React.FC<{ title: string; icon: React.ReactNode; entries:
 
     return (
         <Card className="flex-1 min-w-[300px] w-full flex flex-col bg-slate-900/70">
-            <h3 className="font-eagleLake text-2xl text-yellow-500 mb-4 flex items-center gap-3 border-b-2 border-slate-700 pb-3">
+            <h3 className="font-eaglelake text-2xl text-yellow-500 mb-4 flex items-center gap-3 border-b-2 border-slate-700 pb-3">
                 <div className="bg-slate-800 p-3 rounded-full">{icon}</div>
                 {title}
             </h3>
@@ -394,7 +394,7 @@ const LeaderboardScreen: React.FC = () => {
     return (
         <div className="animate-fadeIn max-w-7xl mx-auto space-y-6 pb-16 md:pb-0">
             <Card>
-                <h1 className="font-eagleLake text-4xl text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Hall of Heroes</h1>
+                <h1 className="font-eaglelake text-4xl text-center text-yellow-500" style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}>Hall of Heroes</h1>
             </Card>
             <Tabs defaultValue="my-stats" className="w-full">
                 <TabsList className="w-full max-w-2xl mx-auto grid grid-cols-2 md:grid-cols-4 bg-slate-800/50 p-1 h-auto gap-1 rounded-lg">

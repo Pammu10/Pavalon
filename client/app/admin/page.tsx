@@ -614,7 +614,7 @@ const AdminPageContent: React.FC = () => {
           <GrantAchievementModal />
         ))}
       <h1
-        className="font-eagleLake text-5xl text-center text-yellow-500"
+        className="font-eaglelake text-5xl text-center text-yellow-500"
         style={{ textShadow: "0 0 15px rgba(234, 179, 8, 0.4)" }}
       >
         Admin Panel

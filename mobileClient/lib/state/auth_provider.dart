@@ -61,6 +61,21 @@ class AuthProvider extends ChangeNotifier {
     await _applySession(r.token, r.user);
   }
 
+  /// Google sign-in with an OAuth access token (see GoogleAuth).
+  /// Returns true when the server created a fresh account.
+  Future<bool> googleLogin(String accessToken) async {
+    final r = await api.googleAuth(accessToken);
+    await _applySession(r.token, r.user);
+    return r.isNewUser;
+  }
+
+  /// Links the signed-in account to a Google identity.
+  Future<void> linkGoogleAccount(String accessToken) async {
+    await api.linkGoogle(accessToken);
+    final u = user;
+    if (u != null) updateUserLocal(u.copyWith(isGoogleLinked: true));
+  }
+
   Future<void> _applySession(String token, User u) async {
     api.setToken(token);
     await store.saveSession(token, u);

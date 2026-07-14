@@ -4,6 +4,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Spinner from "@/components/ui/Spinner";
 import { useGoogleLogin } from '@react-oauth/google';
+import GoogleAuthProvider from "@/components/context/GoogleAuthProvider";
 import { toast } from "sonner";
 
 interface AuthScreenProps {
@@ -173,4 +174,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onRegisterSucce
   );
 };
 
-export default AuthScreen;
+const AuthScreenWithGoogle: React.FC<AuthScreenProps> = (props) => (
+    <GoogleAuthProvider>
+        <AuthScreen {...props} />
+    </GoogleAuthProvider>
+);
+
+export default AuthScreenWithGoogle;

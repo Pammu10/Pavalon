@@ -182,9 +182,8 @@ class _GameShellState extends State<GameShell> {
   }
 }
 
-/// Translucent bottom action bar for chat/emotes, shown only during phases
-/// where the game waits on player input (port of the web's floating
-/// action buttons, restyled into a single dismissable ledge).
+/// Floating emote/chat buttons in the bottom corners, matching the web's
+/// circular gold-ringed action buttons.
 class _BottomChromeBar extends StatelessWidget {
   final VoidCallback onEmote;
   final VoidCallback onChat;
@@ -194,24 +193,12 @@ class _BottomChromeBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(
-          color: PavalonColors.slate900.withValues(alpha: 0.85),
-          borderRadius: BorderRadius.circular(20),
-          border:
-              Border.all(color: PavalonColors.gold.withValues(alpha: 0.35)),
-          boxShadow: const [
-            BoxShadow(
-                color: Colors.black54, blurRadius: 16, offset: Offset(0, 4)),
-          ],
-        ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _chromeButton(LucideIcons.smile, 'Emotes', onEmote),
-            Container(width: 1, height: 26, color: PavalonColors.slate700),
             _chromeButton(LucideIcons.messageSquare, 'Chat', onChat),
           ],
         ),
@@ -220,22 +207,24 @@ class _BottomChromeBar extends StatelessWidget {
   }
 
   Widget _chromeButton(IconData icon, String label, VoidCallback onTap) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: PavalonColors.goldBright, size: 21),
-            const SizedBox(height: 3),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: PavalonColors.goldBright)),
-          ],
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: PavalonColors.slate900.withValues(alpha: 0.85),
+            shape: BoxShape.circle,
+            border: Border.all(color: PavalonColors.gold, width: 2),
+            boxShadow: const [
+              BoxShadow(
+                  color: Colors.black54, blurRadius: 12, offset: Offset(0, 4)),
+            ],
+          ),
+          child: Icon(icon, color: PavalonColors.goldBright, size: 24),
         ),
       ),
     );

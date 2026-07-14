@@ -68,6 +68,20 @@ class ApiService {
     );
   }
 
+  Future<({String token, User user, bool isNewUser})> googleAuth(
+      String accessToken) async {
+    final d = await _send('POST', '/auth/google', {'accessToken': accessToken})
+        as Map<String, dynamic>;
+    return (
+      token: d['token'] as String,
+      user: User.fromJson(d['user'] as Map<String, dynamic>),
+      isNewUser: d['isNewUser'] == true,
+    );
+  }
+
+  Future<void> linkGoogle(String accessToken) =>
+      _send('POST', '/user/link-google', {'accessToken': accessToken});
+
   Future<User> verifyToken() async {
     final d = await _send('GET', '/verify-token') as Map<String, dynamic>;
     return User.fromJson(d['user'] as Map<String, dynamic>);

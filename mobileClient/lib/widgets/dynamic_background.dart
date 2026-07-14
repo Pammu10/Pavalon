@@ -37,13 +37,13 @@ class DynamicBackground extends StatelessWidget {
             fit: BoxFit.cover,
           ),
         ),
-        Container(color: Colors.black.withValues(alpha: 0.35)),
+        Container(color: Colors.black.withValues(alpha: 0.30)),
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: RadialGradient(
               center: Alignment.center,
               radius: 1.1,
-              colors: [Colors.transparent, Colors.black54],
+              colors: [Colors.transparent, Color(0xB3000000)],
               stops: [0.4, 1.0],
             ),
           ),

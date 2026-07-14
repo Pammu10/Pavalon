@@ -12,7 +12,7 @@ const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseClasses =
-    "font-eaglelake rounded-lg shadow-lg transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:scale-100 [-webkit-tap-highlight-color:transparent]";
+    "font-eaglelake rounded-lg shadow-lg transform transition-all duration-200 ease-in-out focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-40 disabled:saturate-50 disabled:cursor-not-allowed disabled:shadow-none disabled:scale-100 [-webkit-tap-highlight-color:transparent]";
 
   const variantClasses = {
     primary:

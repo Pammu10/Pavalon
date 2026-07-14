@@ -52,6 +52,13 @@ ThemeData buildPavalonTheme() {
   final base = ThemeData(
     brightness: Brightness.dark,
     useMaterial3: true,
+    // Eagle Lake is the web body font — every text run uses it, not just
+    // headings.
+    fontFamily: display,
+    // The web has no ripple/ink affordances.
+    splashFactory: NoSplash.splashFactory,
+    splashColor: Colors.transparent,
+    highlightColor: Colors.transparent,
     scaffoldBackgroundColor: PavalonColors.slate900,
     colorScheme: const ColorScheme.dark(
       primary: PavalonColors.gold,
@@ -78,14 +85,42 @@ ThemeData buildPavalonTheme() {
       contentTextStyle: TextStyle(color: Colors.white),
       behavior: SnackBarBehavior.floating,
     ),
+    // Inputs: web style — solid slate-900 fill, 2px slate-700 border,
+    // radius 6, 18px text, slate-500 hint, gold focus border.
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: PavalonColors.slate900,
+      hintStyle: const TextStyle(
+          fontFamily: display, color: PavalonColors.slate500, fontSize: 18),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: const BorderSide(color: PavalonColors.slate700, width: 2),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: const BorderSide(color: Color(0xFFCA8A04), width: 2),
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: const BorderSide(color: PavalonColors.slate700, width: 2),
+      ),
+    ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFFCA8A04),
         foregroundColor: Colors.white,
-        textStyle:
-            const TextStyle(fontFamily: display, fontWeight: FontWeight.bold),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        textStyle: const TextStyle(
+            fontFamily: display, fontSize: 18, fontWeight: FontWeight.bold),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: PavalonColors.slate400,
+        textStyle: const TextStyle(fontFamily: display, fontSize: 15),
       ),
     ),
   );

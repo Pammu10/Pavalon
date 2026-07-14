@@ -561,6 +561,7 @@ class User {
     String? selectedBorder,
     String? selectedIcon,
     String? selectedBackground,
+    bool? isGoogleLinked,
   }) =>
       User(
         id: id,
@@ -570,7 +571,7 @@ class User {
         selectedBorder: selectedBorder ?? this.selectedBorder,
         selectedIcon: selectedIcon ?? this.selectedIcon,
         selectedBackground: selectedBackground ?? this.selectedBackground,
-        isGoogleLinked: isGoogleLinked,
+        isGoogleLinked: isGoogleLinked ?? this.isGoogleLinked,
       );
 }
 

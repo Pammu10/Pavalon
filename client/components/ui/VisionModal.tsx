@@ -53,7 +53,7 @@ const VisionModal: React.FC<VisionModalProps> = ({ isOpen, onClose, visiblePlaye
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="font-eagleLake text-2xl text-yellow-500 flex items-center gap-2">
+                    <h2 className="font-eaglelake text-2xl text-yellow-500 flex items-center gap-2">
                         <Eye /> Your Vision
                     </h2>
                      <Button
