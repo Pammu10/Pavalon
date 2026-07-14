@@ -16,23 +16,37 @@ class QuestProgress extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const Icon(LucideIcons.swords,
+                size: 16, color: PavalonColors.gold),
+            const SizedBox(width: 8),
+            Text(
+                'Quest Progress ${gameState.currentQuest} of '
+                '${gameState.questHistory.length}',
+                style: eagle(18, color: Colors.white)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
             for (final quest in gameState.questHistory) ...[
-              _QuestMedallion(
-                quest: quest,
-                isCurrent: quest.questNumber == gameState.currentQuest,
-                // During assassination the deciding quest already passed.
-                displayStatus: gameState.phase == GamePhase.assassination &&
-                        quest.status == 'ACTIVE'
-                    ? 'PASSED'
-                    : quest.status,
-                onTap: () => _showDetails(context, quest),
+              Expanded(
+                child: _QuestChip(
+                  quest: quest,
+                  isCurrent: quest.questNumber == gameState.currentQuest,
+                  // During assassination the deciding quest already passed.
+                  displayStatus: gameState.phase == GamePhase.assassination &&
+                          quest.status == 'ACTIVE'
+                      ? 'PASSED'
+                      : quest.status,
+                  onTap: () => _showDetails(context, quest),
+                ),
               ),
               if (quest.questNumber != gameState.questHistory.length)
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
             ]
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         // Vote track
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -124,12 +138,14 @@ class QuestProgress extends StatelessWidget {
   }
 }
 
-class _QuestMedallion extends StatelessWidget {
+/// Web-style quest chip: rounded tile with status icon, "Quest N" and
+/// "M Knights"; the active quest is gold-tinted with a gold ring.
+class _QuestChip extends StatelessWidget {
   final Quest quest;
   final bool isCurrent;
   final String displayStatus;
   final VoidCallback onTap;
-  const _QuestMedallion({
+  const _QuestChip({
     required this.quest,
     required this.isCurrent,
     required this.displayStatus,
@@ -138,39 +154,61 @@ class _QuestMedallion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (color, icon) = switch (displayStatus) {
-      'PASSED' => (PavalonColors.goodDeep, LucideIcons.shieldCheck),
-      'FAILED' => (PavalonColors.evilDeep, LucideIcons.shieldClose),
-      _ => (PavalonColors.slate700, null),
+    final (bg, icon, iconColor) = switch (displayStatus) {
+      'PASSED' => (
+          PavalonColors.goodDeep.withValues(alpha: 0.45),
+          LucideIcons.shieldCheck,
+          Colors.white
+        ),
+      'FAILED' => (
+          PavalonColors.evilDeep.withValues(alpha: 0.45),
+          LucideIcons.shieldClose,
+          Colors.white
+        ),
+      _ => isCurrent
+          ? (
+              const Color(0xFF854D0E).withValues(alpha: 0.7),
+              LucideIcons.swords,
+              Colors.white
+            )
+          : (
+              PavalonColors.slate800.withValues(alpha: 0.6),
+              LucideIcons.circleQuestionMark,
+              PavalonColors.slate500
+            ),
     };
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 400),
-        width: isCurrent ? 52 : 44,
-        height: isCurrent ? 52 : 44,
+        padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color,
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: isCurrent ? PavalonColors.gold : PavalonColors.slate600,
-              width: isCurrent ? 2.5 : 1.5),
+              color: isCurrent ? PavalonColors.gold : PavalonColors.slate700,
+              width: isCurrent ? 2 : 1),
           boxShadow: isCurrent
               ? [
                   BoxShadow(
-                      color: PavalonColors.gold.withValues(alpha: 0.5),
+                      color: PavalonColors.gold.withValues(alpha: 0.35),
                       blurRadius: 10)
                 ]
               : null,
         ),
-        child: Center(
-          child: icon != null
-              ? Icon(icon, color: Colors.white, size: 22)
-              : Text('${quest.teamSize}',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: PavalonColors.slate300)),
+        child: Column(
+          children: [
+            Icon(icon, color: iconColor, size: 16),
+            const SizedBox(height: 4),
+            Text('Quest ${quest.questNumber}',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isCurrent ? Colors.white : PavalonColors.slate300)),
+            Text('${quest.teamSize} Knights',
+                style: const TextStyle(
+                    fontSize: 9, color: PavalonColors.slate400)),
+          ],
         ),
       ),
     );

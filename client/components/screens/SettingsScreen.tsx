@@ -7,6 +7,7 @@ import AchievementsTab from "../ui/AchievementsTab";
 import Spinner from "../ui/Spinner";
 import { toast } from "sonner";
 import { useGoogleLogin } from '@react-oauth/google';
+import GoogleAuthProvider from "@/components/context/GoogleAuthProvider";
 import { TUTORIAL_SEEN_KEY } from "@/components/ui/TutorialPromptModal";
 import { BookOpen } from "lucide-react";
 
@@ -126,14 +127,14 @@ const SettingsScreen: React.FC = () => {
   return (
     <div className="animate-fadeIn max-w-2xl mx-auto space-y-6 pb-16 md:pb-0">
       <Card>
-        <h2 className="font-eagleLake text-3xl mb-6 text-center text-yellow-500">Settings</h2>
+        <h2 className="font-eaglelake text-3xl mb-6 text-center text-yellow-500">Settings</h2>
         <div className="space-y-3">
             <Toggle label="Skip Story Intro" enabled={settings.skipIntro} onToggle={handleToggleSkipIntro} />
             <Toggle label="Mute Background Music" enabled={isBgmMuted} onToggle={toggleBgm} />
         </div>
 
         <div className="mt-6 border-t-2 border-slate-700 pt-4">
-            <h3 className="font-eagleLake text-xl mb-4 text-center text-yellow-500">Change Username</h3>
+            <h3 className="font-eaglelake text-xl mb-4 text-center text-yellow-500">Change Username</h3>
             <div className="flex flex-col sm:flex-row items-stretch gap-3">
                 <input
                     type="text"
@@ -166,7 +167,7 @@ const SettingsScreen: React.FC = () => {
 
         {user && !user.isGoogleLinked && (
             <div className="mt-6 border-t-2 border-slate-700 pt-4">
-                <h3 className="font-eagleLake text-xl mb-4 text-center text-yellow-500">Link Account</h3>
+                <h3 className="font-eaglelake text-xl mb-4 text-center text-yellow-500">Link Account</h3>
                 <p className="text-center text-slate-400 text-sm mb-4">Connect your Google account for a faster login experience.</p>
                 <div className="flex justify-center">
                     <Button
@@ -189,7 +190,7 @@ const SettingsScreen: React.FC = () => {
                     </Button>
                 </div>
                 <div className="border-t-2 border-slate-700 pt-4">
-                    <h3 className="font-eagleLake text-xl mb-2 text-center text-red-500">Danger Zone</h3>
+                    <h3 className="font-eaglelake text-xl mb-2 text-center text-red-500">Danger Zone</h3>
                     <p className="text-slate-400 text-center text-xs mb-4">Kicking a player will immediately end the current game for everyone.</p>
                     <div className="space-y-2">
                         {gameState.players.map(p => {
@@ -209,7 +210,7 @@ const SettingsScreen: React.FC = () => {
         )}
 
         <div className="mt-6 border-t-2 border-slate-700 pt-4">
-            <h3 className="font-eagleLake text-xl mb-2 text-center text-yellow-500">How to Play</h3>
+            <h3 className="font-eaglelake text-xl mb-2 text-center text-yellow-500">How to Play</h3>
             <p className="text-slate-400 text-sm text-center mb-4">
                 Replay the interactive tutorial to brush up on the rules.
             </p>
@@ -245,4 +246,10 @@ const SettingsScreen: React.FC = () => {
   );
 };
 
-export default SettingsScreen;
+const SettingsScreenWithGoogle: React.FC = () => (
+    <GoogleAuthProvider>
+        <SettingsScreen />
+    </GoogleAuthProvider>
+);
+
+export default SettingsScreenWithGoogle;

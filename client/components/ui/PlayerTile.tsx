@@ -81,8 +81,8 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
         </div>
 
       {/* Info Box */}
-      <div className="relative w-full bg-black/50 backdrop-blur-sm rounded-md p-2 text-center z-10">
-        <div className="text-base font-bold text-slate-100 truncate w-full flex items-center justify-center gap-1.5 h-6">
+      <div className="relative w-full bg-gradient-to-t from-slate-950/80 to-slate-900/40 backdrop-blur-sm rounded-md p-2 text-center z-10 border-t border-white/5">
+        <div title={player.name} className="text-sm sm:text-base font-bold text-slate-100 truncate w-full flex items-center justify-center gap-1.5 h-6">
             <AnimatePresence>
                 {isSpeaking && (
                     <motion.div

@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _roomCode.addListener(_onRoomCodeChanged);
     _gyro = gyroscopeEventStream().listen((e) {
       if (!mounted) return;
       setState(() {
@@ -43,6 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _roomCode.dispose();
     super.dispose();
   }
+
+  // Join is disabled until a code is typed, as on the web.
+  void _onRoomCodeChanged() => setState(() {});
 
   void _maybeShowTutorialPrompt() {
     if (_promptChecked) return;
@@ -216,11 +220,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final connected = game.isConnected;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          const SizedBox(height: 16),
-          // Crest with gyro parallax
+          const SizedBox(height: 24),
+          // Title with gyro parallax (mobile-only flourish; static look
+          // matches the web title block)
           Transform(
             alignment: Alignment.center,
             transform: Matrix4.identity()
@@ -229,66 +234,59 @@ class _HomeScreenState extends State<HomeScreen> {
               ..rotateY(-_tiltX * pi / 180),
             child: Column(
               children: [
-                const Icon(LucideIcons.crown,
-                    size: 56, color: PavalonColors.gold),
-                const SizedBox(height: 8),
                 Text('PAVALON',
-                    style: eagle(36, shadows: [
-                      const Shadow(color: PavalonColors.gold, blurRadius: 26)
-                    ])),
-                Text('THE SHATTERED THRONE',
-                    style: eagle(13, color: const Color(0xFFFDE68A))),
+                    style: eagle(36,
+                        shadows: [
+                          const Shadow(color: Color(0x80EAB308), blurRadius: 25)
+                        ]).copyWith(letterSpacing: 2)),
+                const SizedBox(height: 8),
+                Text('The Shattered Throne',
+                    style: eagle(18,
+                            color: const Color(0xCCFDE68A),
+                            weight: FontWeight.normal)
+                        .copyWith(letterSpacing: 3)),
               ],
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 40),
           PavalonCard(
+            transparent: true,
             child: Column(
               children: [
                 PavalonButton(
                   label: connected ? 'Host New Game' : 'Connecting...',
                   expand: true,
+                  height: 56,
                   onPressed: connected ? () => game.joinRoom() : null,
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 Row(children: [
                   const Expanded(child: Divider(color: PavalonColors.slate700)),
                   const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    padding: EdgeInsets.symmetric(horizontal: 8),
                     child: Text('OR',
                         style: TextStyle(color: PavalonColors.slate500)),
                   ),
                   const Expanded(child: Divider(color: PavalonColors.slate700)),
                 ]),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 TextField(
                   controller: _roomCode,
                   textCapitalization: TextCapitalization.characters,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      letterSpacing: 4, fontWeight: FontWeight.bold),
-                  decoration: InputDecoration(
-                    hintText: 'ROOM CODE',
-                    filled: true,
-                    fillColor: PavalonColors.slate900,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
+                  style: const TextStyle(fontSize: 18, color: Colors.white),
+                  decoration: const InputDecoration(hintText: 'ROOM CODE'),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 PavalonButton(
                   label: 'Join Game',
                   variant: PavalonButtonVariant.secondary,
                   expand: true,
-                  onPressed: connected && _roomCode.text.trim().isNotEmpty ||
-                          connected
-                      ? () {
-                          final code = _roomCode.text.trim();
-                          if (code.isNotEmpty) game.joinRoom(code);
-                        }
+                  height: 56,
+                  onPressed: connected && _roomCode.text.trim().isNotEmpty
+                      ? () => game.joinRoom(_roomCode.text.trim())
                       : null,
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
@@ -296,15 +294,18 @@ class _HomeScreenState extends State<HomeScreen> {
                         label: 'Play vs CPU',
                         icon: LucideIcons.bot,
                         variant: PavalonButtonVariant.secondary,
+                        height: 48,
+                        small: true,
                         onPressed: connected ? _openCpuSheet : null,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: PavalonButton(
                         label: 'How to Play',
-                        icon: LucideIcons.bookOpen,
                         variant: PavalonButtonVariant.secondary,
+                        height: 48,
+                        small: true,
                         onPressed: connected
                             ? () => game.joinRoom('TUTORIAL')
                             : null,
@@ -312,15 +313,42 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
+                const Divider(color: PavalonColors.slate700, height: 1),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'Logged in as ',
+                          style: const TextStyle(
+                              color: PavalonColors.slate400, fontSize: 14),
+                          children: [
+                            TextSpan(
+                                text: auth.user?.username ?? '',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    PavalonButton(
+                      label: 'Log Out',
+                      variant: PavalonButtonVariant.danger,
+                      small: true,
+                      onPressed: () => auth.logout(),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          Text('Logged in as ${auth.user?.username ?? ''}',
-              style: const TextStyle(color: PavalonColors.slate400)),
           if (!connected)
             const Padding(
-              padding: EdgeInsets.only(top: 10),
+              padding: EdgeInsets.only(top: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

@@ -92,18 +92,33 @@ function SwipeableCard({
           ref={containerRef} 
           className="relative w-full h-16 rounded-full bg-slate-900/80 border border-slate-400/30 shadow-inner shadow-black/50 overflow-hidden flex items-center"
         >
+            {/* Resting hints so the swipe directions are readable before any drag */}
+            {!disabled && !lockedChoice && (
+                <div className="absolute inset-0 z-0 flex items-center justify-between px-5 pointer-events-none select-none">
+                    <span className={cn(
+                        "flex items-center gap-1.5 text-red-300/80 text-sm font-eaglelake tracking-wide",
+                        leftSwipeDisabled && "opacity-0"
+                    )}>
+                        {leftIcon} {leftLabel}
+                    </span>
+                    <span className="flex items-center gap-1.5 text-blue-300/80 text-sm font-eaglelake tracking-wide">
+                        {rightLabel} {rightIcon}
+                    </span>
+                </div>
+            )}
+
             <AnimatePresence>
             {!disabled && (
                 <>
-                <motion.div 
-                    style={{ width: leftFillWidth }} 
+                <motion.div
+                    style={{ width: leftFillWidth }}
                     className={cn(
-                        "absolute top-0 left-0 bottom-0 bg-red-600 flex items-center justify-start pl-6 overflow-hidden",
+                        "absolute top-0 left-0 bottom-0 bg-red-600 flex items-center justify-start overflow-hidden",
                         isAtEnd === 'left' && "animate-vote-glow-red",
                         lockedChoice && lockedChoice !== 'left' && 'opacity-30'
                     )}
                 >
-                    <div className={cn( "flex items-center gap-2 text-slate-100 font-bold text-lg font-eaglelake whitespace-nowrap", isAtEnd === 'left' && "animate-bounce-vote-text" )}>
+                    <div className={cn( "flex items-center gap-2 pl-6 text-slate-100 font-bold text-lg font-eaglelake whitespace-nowrap", isAtEnd === 'left' && "animate-bounce-vote-text" )}>
                         {leftIcon} {leftLabel}
                     </div>
                 </motion.div>
@@ -111,12 +126,12 @@ function SwipeableCard({
                 <motion.div 
                     style={{ width: rightFillWidth }} 
                     className={cn(
-                        "absolute top-0 right-0 bottom-0 bg-blue-600 flex items-center justify-end pr-6 overflow-hidden",
+                        "absolute top-0 right-0 bottom-0 bg-blue-600 flex items-center justify-end overflow-hidden",
                          isAtEnd === 'right' && "animate-vote-glow-blue",
                          lockedChoice && lockedChoice !== 'right' && 'opacity-30'
                     )}
                 >
-                     <div className={cn( "flex items-center gap-2 text-slate-100 font-bold text-lg font-eaglelake whitespace-nowrap", isAtEnd === 'right' && "animate-bounce-vote-text" )}>
+                     <div className={cn( "flex items-center gap-2 pr-6 text-slate-100 font-bold text-lg font-eaglelake whitespace-nowrap", isAtEnd === 'right' && "animate-bounce-vote-text" )}>
                         {rightLabel} {rightIcon}
                     </div>
                 </motion.div>

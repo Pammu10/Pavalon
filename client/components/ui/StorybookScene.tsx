@@ -13,7 +13,7 @@ const storySlides = [
     audio: "narration1" as const,
   },
   {
-    text: "Merlin foresaw the threat. traitors hidden among the King’s own",
+    text: "Merlin foresaw the threat: traitors hidden among the King’s own.",
     image: "/story/slide2.jpeg",
     audio: "narration2" as const,
   },
@@ -100,6 +100,13 @@ export const StorybookScene = ({ onSkip }: { onSkip: () => void }) => {
                 </motion.div>
             </AnimatePresence>
         </div>
+
+        <button
+            onClick={onSkip}
+            className="absolute top-6 right-6 z-10 px-4 py-2 text-sm font-bold text-amber-200/80 hover:text-amber-100 border border-amber-500/40 hover:border-amber-400 rounded-full transition"
+        >
+            Skip intro
+        </button>
 
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 mt-8 flex justify-center items-center space-x-8 z-10">
             <button

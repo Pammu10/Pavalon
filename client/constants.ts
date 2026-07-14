@@ -46,7 +46,7 @@ export const ROLES: Record<Role, { alignment: Alignment, description: string, vi
         description: "You are the evil killer. If the forces of Good succeed on three quests, you have one chance to assassinate Merlin to win.",
         vision: "You see your fellow Minions of Mordred, but not Oberon.",
         img: "/characters/assassin.png",
-        strategy: "Your main job is to identify Merlin. Pay attention to who seem to have too much information.",
+        strategy: "Your main job is to identify Merlin. Pay attention to those who seem to have too much information.",
         color: "text-red-600",
       bgColor:
         "bg-gradient-to-br from-red-600/15 to-red-800/10 border-2 border-red-400/40 backdrop-blur-sm",

@@ -411,3 +411,61 @@
 .animate-bounce-vote-text {
   animation: bounce-vote-text 1.5s ease-in-out infinite;
 }
+
+/* Ambient ember twinkle (landing screen) */
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+.animate-twinkle {
+  animation: twinkle 3.5s ease-in-out infinite;
+}
+
+/* Hanging-banner sway (landing screen) */
+@keyframes sway {
+  0%, 100% {
+    transform: rotate(-3deg) translateY(0);
+  }
+  50% {
+    transform: rotate(3deg) translateY(4px);
+  }
+}
+.animate-sway {
+  animation: sway 5s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+/* Gentle float for decorative icons */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+/* Swipe-vote orb lock-in confirmation (glow only — transform is owned by framer-motion) */
+@keyframes lock-in {
+  0% {
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(250, 204, 21, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0);
+  }
+}
+.animate-lock-in {
+  animation: lock-in 0.6s ease-out;
+}

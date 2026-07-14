@@ -303,7 +303,7 @@ const MainContent: React.FC = () => {
             <TabsTrigger
               key={id}
               value={id}
-              className="relative flex-1 py-6 font-eagleLake text-lg capitalize transition-colors duration-200 rounded-none 
+              className="relative flex-1 py-6 font-eaglelake text-lg capitalize transition-colors duration-200 rounded-none 
                         text-slate-400 data-[state=active]:text-yellow-500 
                         data-[state=active]:border-b-2 data-[state=active]:border-yellow-500
                         hover:text-white focus-visible:ring-0 focus-visible:ring-offset-0 
@@ -403,7 +403,7 @@ const MainContent: React.FC = () => {
             key={id}
             value={id}
             className="group relative h-full flex-1 flex flex-col items-center justify-center gap-1 text-xs capitalize transition-colors duration-200 
-                     text-slate-400 data-[state=active]:text-yellow-500 font-eagleLake
+                     text-slate-400 data-[state=active]:text-yellow-500 font-eaglelake
                      focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none p-0"
           >
             {icon}

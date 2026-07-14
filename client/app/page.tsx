@@ -7,18 +7,22 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Spinner from "@/components/ui/Spinner";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import HomeScreen from "@/components/screens/HomeScreen";
 import { Tab } from "@/types";
 import { Swords, Users, Trophy, Settings, Star, ShieldAlert } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import LeaderboardScreen from "@/components/screens/LeaderboardScreen";
-import SettingsScreen from "@/components/screens/SettingsScreen";
-import AchievementsTab from "@/components/ui/AchievementsTab";
-import AdminPage from "@/app/admin/page";
-import SocialHub from "@/components/ui/SocialHub";
 import TutorialPromptModal, { shouldShowTutorialPrompt, dismissTutorialPrompt } from "@/components/ui/TutorialPromptModal";
-import CPUGameSetupModal from "@/components/screens/CPUGameSetupModal";
 import { Bot } from "lucide-react";
+
+// Loaded on demand (tab switch / modal open) to keep them out of the
+// initial bundle for the home page.
+const LeaderboardScreen = dynamic(() => import("@/components/screens/LeaderboardScreen"));
+const SettingsScreen = dynamic(() => import("@/components/screens/SettingsScreen"));
+const AchievementsTab = dynamic(() => import("@/components/ui/AchievementsTab"));
+const AdminPage = dynamic(() => import("@/app/admin/page"));
+const SocialHub = dynamic(() => import("@/components/ui/SocialHub"));
+const CPUGameSetupModal = dynamic(() => import("@/components/screens/CPUGameSetupModal"));
 
 const JoinHostView: React.FC = () => {
   const { joinRoom, user, logout, isConnected } = useGame();
@@ -33,16 +37,19 @@ const JoinHostView: React.FC = () => {
   };
 
   return (
-    <div className="animate-fadeIn flex flex-col items-center justify-between min-h-full py-4 sm:py-6">
-      {/* Top Card: Title */}
-      <Card className="w-full max-w-md bg-transparent border-none shadow-none backdrop-blur-none p-0 mb-2">
+    <div className="animate-fadeIn flex flex-col items-center justify-center gap-8 sm:gap-12 min-h-full py-4 sm:py-6">
+      {/* Title */}
+      <div className="w-full max-w-2xl">
         <h1
           className="font-eaglelake text-4xl sm:text-5xl font-bold text-yellow-500 text-center tracking-wider leading-tight"
           style={{ textShadow: "0 0 25px rgba(234, 179, 8, 0.5)" }}
         >
-          PAVALON: THE SHATTERED THRONE
+          PAVALON
         </h1>
-      </Card>
+        <p className="font-eaglelake text-lg sm:text-xl text-amber-200/80 text-center tracking-widest mt-2">
+          The Shattered Throne
+        </p>
+      </div>
 
       {/* Bottom Card: Actions */}
       <div className="w-full max-w-md">
@@ -206,7 +213,7 @@ const MainPageView: React.FC = () => {
                         <TabsTrigger
                             key={id}
                             value={id}
-                            className="relative flex-1 py-6 font-eagleLake text-lg capitalize transition-colors duration-200 rounded-none 
+                            className="relative flex-1 py-6 font-eaglelake text-lg capitalize transition-colors duration-200 rounded-none 
                                         text-slate-400 data-[state=active]:text-yellow-500 
                                         data-[state=active]:border-b-2 data-[state=active]:border-yellow-500
                                         hover:text-white focus-visible:ring-0 focus-visible:ring-offset-0 
@@ -252,7 +259,7 @@ const MainPageView: React.FC = () => {
                         key={id}
                         value={id}
                         className="group relative h-full flex-1 flex flex-col items-center justify-center gap-1 text-xs capitalize transition-colors duration-200 
-                                    text-slate-400 data-[state=active]:text-yellow-500 font-eagleLake
+                                    text-slate-400 data-[state=active]:text-yellow-500 font-eaglelake
                                     focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none p-0"
                     >
                         {icon}
@@ -293,6 +300,16 @@ export default function Home() {
     }
   }, [isAuthenticated, gameState.roomCode, introCompleted]);
 
+  const shouldRedirectToGame = isAuthenticated && !!gameState.roomCode && gameState.roomCode !== 'TUTORIAL';
+
+  useEffect(() => {
+    // Navigation is a side effect; calling router.replace during render
+    // triggers "Cannot update Router while rendering Home".
+    if (shouldRedirectToGame) {
+      router.replace(`/game/${gameState.roomCode}`);
+    }
+  }, [shouldRedirectToGame, gameState.roomCode, router]);
+
 
   if (isLoading) {
     return (
@@ -302,8 +319,7 @@ export default function Home() {
     );
   }
   
-  if (isAuthenticated && gameState.roomCode && gameState.roomCode !== 'TUTORIAL') {
-    router.replace(`/game/${gameState.roomCode}`);
+  if (shouldRedirectToGame) {
     return (
         <div className="flex items-center justify-center h-screen w-screen">
             <Spinner size="lg" />

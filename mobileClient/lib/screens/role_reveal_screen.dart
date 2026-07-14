@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import '../core/constants.dart';
@@ -181,7 +182,11 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: eagle(16)),
+          Row(children: [
+            const Icon(LucideIcons.star, size: 16, color: PavalonColors.gold),
+            const SizedBox(width: 8),
+            Text(title, style: eagle(16)),
+          ]),
           const SizedBox(height: 8),
           Text(description,
               style: const TextStyle(
@@ -198,8 +203,13 @@ class _RoleRevealScreenState extends State<RoleRevealScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Strategic Tips',
-                    style: eagle(13, color: const Color(0xFFFBBF24))),
+                Row(children: [
+                  const Icon(LucideIcons.zap,
+                      size: 13, color: Color(0xFFFBBF24)),
+                  const SizedBox(width: 6),
+                  Text('Strategic Tips',
+                      style: eagle(13, color: const Color(0xFFFBBF24))),
+                ]),
                 const SizedBox(height: 4),
                 Text(strategy,
                     style: const TextStyle(

@@ -114,9 +114,12 @@ class _GameScreenState extends State<GameScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              QuestProgress(gameState: state),
-              const SizedBox(height: 12),
-              _phaseHeader(state),
+              PavalonCard(
+                padding: const EdgeInsets.all(12),
+                child: QuestProgress(gameState: state),
+              ),
+              const SizedBox(height: 16),
+              _phaseHeader(game, state),
               const SizedBox(height: 12),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
@@ -199,37 +202,106 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _phaseHeader(GameState state) {
+  Widget _phaseHeader(GameProvider game, GameState state) {
+    // Copy mirrors the web GamePhaseHeader exactly.
+    final isLeader = state.leader?.id == game.playerId;
+    final quest = state.activeQuest;
+    final onTeam =
+        quest?.approvedVote?.team.any((p) => p.id == game.playerId) ?? false;
+    final isAssassin = game.me?.role == Role.assassin;
+
     final (title, subtitle) = switch (state.phase) {
-      GamePhase.teamSelection => (
-          'Quest ${state.currentQuest} — Team Selection',
-          '${state.leader?.name ?? '...'} is choosing the next quest team'
-        ),
+      GamePhase.teamSelection => isLeader
+          ? (
+              'Your Turn, Leader',
+              'Select ${quest?.teamSize ?? '...'} knights for the quest.'
+            )
+          : (
+              'Awaiting a New Team',
+              'Waiting for ${state.leader?.name ?? 'the leader'} to propose a team.'
+            ),
       GamePhase.teamVote => (
-          'Vote on the Team',
-          'Approve or reject ${state.leader?.name ?? "the leader"}\'s proposal'
+          'All Knights, Cast Your Vote!',
+          'Does this proposed team inspire your trust?'
         ),
-      GamePhase.questVote => (
-          'The Quest Is Underway',
-          'The chosen knights decide its fate in secret'
-        ),
+      GamePhase.questVote => onTeam
+          ? ('Your Sacred Mission', 'Vote to determine the fate of the quest.')
+          : (
+              'Awaiting Mission Results',
+              'The chosen knights are on their quest.'
+            ),
       GamePhase.questResult => ('Quest Result', 'The outcome is revealed...'),
-      GamePhase.assassination => (
-          'A Fateful Choice',
-          'The Assassin hunts for Merlin'
-        ),
+      GamePhase.assassination => isAssassin
+          ? (
+              'The Assassin Strikes!',
+              'Identify and eliminate Merlin to claim victory.'
+            )
+          : (
+              'A Fateful Choice',
+              'The Assassin is making their move... Pray for Merlin.'
+            ),
       _ => ('', ''),
     };
-    return PavalonCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+
+    final legend = <(IconData, Color, Color, String)>[
+      if (state.players.any((p) => p.isHost))
+        (LucideIcons.crown, Color(0xCC854D0E), PavalonColors.goldBright, 'Host'),
+      if (state.leader != null)
+        (LucideIcons.crown, Color(0xCC1E40AF), PavalonColors.good,
+            'Quest Leader'),
+      if (state.players.any((p) => p.visibleAs == 'Evil'))
+        (LucideIcons.eye, Color(0xCC7F1D1D), PavalonColors.evil, 'Known Evil'),
+      if (state.players.any((p) => p.visibleAs == 'Mystic'))
+        (LucideIcons.eye, Color(0xCC581C87), Color(0xFFC084FC),
+            'Mystic Vision'),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
         children: [
-          Text(title, textAlign: TextAlign.center, style: eagle(18)),
+          Text(title,
+              textAlign: TextAlign.center,
+              style: eagle(24, shadows: [
+                const Shadow(color: Color(0x66EAB308), blurRadius: 15)
+              ])),
           const SizedBox(height: 4),
           Text(subtitle,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                  fontSize: 12.5, color: PavalonColors.slate400)),
+                  fontSize: 15, color: PavalonColors.slate300)),
+          if (legend.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.only(top: 12),
+              decoration: BoxDecoration(
+                  border: Border(
+                      top: BorderSide(
+                          color:
+                              PavalonColors.slate700.withValues(alpha: 0.5)))),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 16,
+                runSpacing: 6,
+                children: [
+                  for (final (icon, bg, fg, label) in legend)
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration:
+                            BoxDecoration(color: bg, shape: BoxShape.circle),
+                        child: Icon(icon, size: 12, color: fg),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(label,
+                          style: const TextStyle(
+                              fontSize: 12, color: PavalonColors.slate300)),
+                    ]),
+                ],
+              ),
+            ),
+          ],
           if (state.voteTrack >= 3 && state.phase == GamePhase.teamVote) ...[
             const SizedBox(height: 8),
             Container(

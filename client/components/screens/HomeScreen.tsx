@@ -39,7 +39,6 @@ export default function HomeScreen({ onEnter, shouldSkipStory }: { onEnter: () =
 
      
       <div className="absolute inset-0">
-        
         <div className="absolute top-20 left-4 sm:left-20 w-8 h-16 bg-gradient-to-b from-red-800 to-red-900 opacity-60 animate-sway"></div>
         <div
           className="absolute top-32 right-4 sm:right-32 w-6 h-12 bg-gradient-to-b from-blue-800 to-blue-900 opacity-50 animate-sway"
@@ -50,14 +49,13 @@ export default function HomeScreen({ onEnter, shouldSkipStory }: { onEnter: () =
           style={{ animationDelay: "2s" }}
         ></div>
 
-    
         <div className="absolute top-40 left-1/4 w-2 h-2 bg-yellow-400 rounded-full animate-twinkle opacity-80"></div>
         <div
           className="absolute top-60 right-1/3 w-1 h-1 bg-amber-300 rounded-full animate-twinkle opacity-60"
           style={{ animationDelay: "0.5s" }}
         ></div>
         <div
-          className="absolute bottom-40 left-2/3 w-3 h-3 bg-gold-400 rounded-full animate-twinkle opacity-70"
+          className="absolute bottom-40 left-2/3 w-3 h-3 bg-amber-400 rounded-full animate-twinkle opacity-70"
           style={{ animationDelay: "1.5s" }}
         ></div>
         <div
@@ -66,7 +64,6 @@ export default function HomeScreen({ onEnter, shouldSkipStory }: { onEnter: () =
         ></div>
       </div>
 
-      <div className="absolute inset-0 border-8 border-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 opacity-20 pointer-events-none"></div>
       <div className="absolute top-4 left-4 right-4 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-30"></div>
       <div className="absolute bottom-4 left-4 right-4 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-30"></div>
 
@@ -77,10 +74,12 @@ export default function HomeScreen({ onEnter, shouldSkipStory }: { onEnter: () =
         <div className="absolute top-4 sm:top-8 right-4 sm:right-8 opacity-30">
           <Castle className="w-8 sm:w-12 h-8 sm:h-12 text-amber-400 animate-float" />
         </div>
-        <div className="absolute top-4 sm:top-8 right-12 sm:right-16 opacity-30">
-          <Sword className="w-8 sm:w-12 h-8 sm:h-12 text-steel-400 animate-float" style={{ animationDelay: "1s" }} />
+        <div className="absolute top-4 sm:top-8 right-16 sm:right-24 opacity-30">
+          <Sword className="w-8 sm:w-12 h-8 sm:h-12 text-slate-300 animate-float" style={{ animationDelay: "1.5s" }} />
         </div>
-        <div className="absolute bottom-4 sm:bottom-8 left-1/2 transform -translate-x-1/2 opacity-30">
+        {/* bottom-left, mirroring the castle top-right; centered it overlaps
+            the crest circles */}
+        <div className="absolute bottom-8 sm:bottom-12 left-4 sm:left-8 opacity-30">
           <Shield className="w-8 sm:w-12 h-8 sm:h-12 text-emerald-400 animate-float" style={{ animationDelay: "2s" }} />
         </div>
 
@@ -126,13 +125,10 @@ export default function HomeScreen({ onEnter, shouldSkipStory }: { onEnter: () =
 
 
         <div
-          className={`transition-all duration-1000 delay-500 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+          className={`relative group transition-all duration-1000 delay-500 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
         >
-          
-          
             <div className="absolute -inset-2 bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
 
-          
             <button
               onClick={() => {
                 if (!shouldSkipStory) {
@@ -166,14 +162,14 @@ export default function HomeScreen({ onEnter, shouldSkipStory }: { onEnter: () =
         >
           
           <div className="relative">
-            <div className="w-12 sm:w-16 h-12 sm:h-16 border-2 border-amber-500 rounded-full flex items-center justify-center animate-spin-superslow bg-gradient-to-br from-amber-800 to-amber-900">
+            <div className="w-12 sm:w-16 h-12 sm:h-16 border-2 border-amber-500 rounded-full flex items-center justify-center bg-gradient-to-br from-amber-800 to-amber-900">
               <Crown className="w-6 sm:w-8 h-6 sm:h-8 text-yellow-400" />
             </div>
             <div className="absolute -top-1 -left-1 w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
           </div>
 
           <div className="relative" style={{ animationDelay: "1s" }}>
-            <div className="w-12 sm:w-16 h-12 sm:h-16 border-2 border-emerald-500 rounded-full flex items-center justify-center animate-spin-superslow bg-gradient-to-br from-emerald-800 to-emerald-900">
+            <div className="w-12 sm:w-16 h-12 sm:h-16 border-2 border-emerald-500 rounded-full flex items-center justify-center bg-gradient-to-br from-emerald-800 to-emerald-900">
               <Shield className="w-6 sm:w-8 h-6 sm:h-8 text-emerald-400" />
             </div>
             <div
@@ -183,7 +179,7 @@ export default function HomeScreen({ onEnter, shouldSkipStory }: { onEnter: () =
           </div>
 
           <div className="relative" style={{ animationDelay: "2s" }}>
-            <div className="w-12 sm:w-16 h-12 sm:h-16 border-2 border-red-500 rounded-full flex items-center justify-center animate-spin-superslow bg-gradient-to-br from-red-800 to-red-900">
+            <div className="w-12 sm:w-16 h-12 sm:h-16 border-2 border-red-500 rounded-full flex items-center justify-center bg-gradient-to-br from-red-800 to-red-900">
               <Sword className="w-6 sm:w-8 h-6 sm:h-8 text-red-400" />
             </div>
             <div

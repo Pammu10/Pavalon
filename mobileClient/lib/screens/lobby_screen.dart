@@ -115,29 +115,72 @@ class _LobbyScreenState extends State<LobbyScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Game Lobby', style: eagle(26)),
-              PavalonButton(
-                label: 'Leave',
-                icon: LucideIcons.logOut,
-                variant: PavalonButtonVariant.danger,
-                onPressed: () => game.leaveRoom(),
+              Expanded(
+                flex: 3,
+                child: Semantics(
+                  button: true,
+                  label: 'Invite Friends',
+                  child: GestureDetector(
+                    onTap: () {
+                      Haptics.tap();
+                      SharePlus.instance.share(ShareParams(
+                          text:
+                              'Join my Pavalon game!\nCode: ${state.roomCode}'));
+                    },
+                    child: Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: PavalonColors.slate800.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: PavalonColors.slate700),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(LucideIcons.users,
+                              size: 16, color: PavalonColors.gold),
+                          SizedBox(width: 8),
+                          Text('Invite Friends',
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: PavalonColors.gold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: PavalonButton(
+                  label: 'Leave',
+                  icon: LucideIcons.logOut,
+                  variant: PavalonButtonVariant.danger,
+                  small: true,
+                  height: 40,
+                  expand: true,
+                  onPressed: () => game.leaveRoom(),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 24),
 
           // Room code + share
           PavalonCard(
+            borderColor: PavalonColors.slate700.withValues(alpha: 0.6),
             child: Column(
               children: [
                 const Text('ROOM CODE',
                     style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 13,
                         letterSpacing: 3,
-                        color: PavalonColors.slate400)),
-                const SizedBox(height: 6),
+                        fontWeight: FontWeight.bold,
+                        color: PavalonColors.slate300)),
+                const SizedBox(height: 8),
                 InkWell(
                   onTap: () {
                     Haptics.tap();
@@ -145,26 +188,30 @@ class _LobbyScreenState extends State<LobbyScreen> {
                         text:
                             'Join my Pavalon game!\nCode: ${state.roomCode}'));
                   },
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 18, vertical: 8),
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: PavalonColors.slate900,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: PavalonColors.slate700),
+                      color: PavalonColors.slate900.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: PavalonColors.slate700, width: 2),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(state.roomCode ?? '',
                             style: const TextStyle(
-                                fontSize: 26,
-                                letterSpacing: 5,
-                                fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 10),
-                        const Icon(LucideIcons.share2,
-                            size: 18, color: PavalonColors.gold),
+                                fontFamily: 'monospace',
+                                fontFamilyFallback: ['Courier'],
+                                fontSize: 30,
+                                letterSpacing: 3,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white)),
+                        const SizedBox(width: 16),
+                        const Icon(LucideIcons.copy,
+                            size: 24, color: PavalonColors.gold),
                       ],
                     ),
                   ),
@@ -172,7 +219,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 24),
 
           // Players
           SectionTitle('Players (${players.length}/10)'),
@@ -235,6 +282,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
                           child: PavalonButton(
                             label: d[0].toUpperCase() + d.substring(1),
                             variant: PavalonButtonVariant.secondary,
+                            small: true,
+                            height: 40,
+                            expand: true,
                             onPressed:
                                 isPaused ? null : () => game.addBot(d),
                           ),

@@ -560,7 +560,7 @@ const LobbyView: React.FC = () => {
               <div className="mt-8 p-4 bg-slate-800/40 rounded-lg">
                 <Button disabled={true}>Need 5-10 Players for Pavalon</Button>
                 <p className="text-red-400 mt-2 font-semibold">
-                  You currently have {players.length} players.
+                  {players.length === 1 ? 'Only 1 player is here so far.' : `You currently have ${players.length} players.`}
                 </p>
                 {canStartDragonsBreath && (
                     <div className="mt-4 pt-4 border-t border-slate-700">
