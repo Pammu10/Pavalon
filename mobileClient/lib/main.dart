@@ -6,6 +6,7 @@ import 'services/audio_service.dart';
 import 'services/haptics.dart';
 import 'services/session_store.dart';
 import 'services/socket_service.dart';
+import 'services/voice_service.dart';
 import 'state/auth_provider.dart';
 import 'state/game_provider.dart';
 import 'state/social_provider.dart';
@@ -61,6 +62,7 @@ class PavalonApp extends StatelessWidget {
         ChangeNotifierProvider(
             create: (_) =>
                 SocialProvider(api: api, socketService: socketService)),
+        ChangeNotifierProvider(create: (_) => VoiceService(api: api)),
       ],
       child: MaterialApp(
         title: 'Pavalon',
@@ -114,6 +116,9 @@ class _RootGateState extends State<RootGate> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final game = context.watch<GameProvider>();
+
+    final roomCode = context.select<GameProvider, String?>((g) => g.gameState.roomCode);
+    context.read<VoiceService>().syncRoom(roomCode);
 
     switch (auth.status) {
       case AuthStatus.loading:

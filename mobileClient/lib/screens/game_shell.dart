@@ -5,12 +5,14 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../models/models.dart';
 import '../services/shake_detector.dart';
+import '../services/voice_service.dart';
 import '../state/game_provider.dart';
 import '../widgets/chat_panel.dart';
 import '../widgets/dynamic_background.dart';
 import '../widgets/emote_wheel.dart';
 import '../widgets/overlays/restart_vote_overlay.dart';
 import '../widgets/overlays/tutorial_overlay.dart';
+import '../widgets/voice_panel.dart';
 import 'dragons_breath_screen.dart';
 import 'end_game_screen.dart';
 import 'game_screen.dart';
@@ -199,6 +201,16 @@ class _BottomChromeBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _chromeButton(LucideIcons.smile, 'Emotes', onEmote),
+            Consumer<VoiceService>(
+              builder: (context, voice, _) => _chromeButton(
+                voice.isMuted ? LucideIcons.micOff : LucideIcons.mic,
+                'Mic',
+                () => context.read<VoiceService>().toggleMute(),
+                muted: voice.isMuted,
+              ),
+            ),
+            _chromeButton(
+                LucideIcons.headphones, 'Voice', () => VoicePanel.show(context)),
             _chromeButton(LucideIcons.messageSquare, 'Chat', onChat),
           ],
         ),
@@ -206,7 +218,10 @@ class _BottomChromeBar extends StatelessWidget {
     );
   }
 
-  Widget _chromeButton(IconData icon, String label, VoidCallback onTap) {
+  Widget _chromeButton(IconData icon, String label, VoidCallback onTap,
+      {bool muted = false}) {
+    final ringColor = muted ? PavalonColors.evil : PavalonColors.gold;
+    final iconColor = muted ? PavalonColors.evil : PavalonColors.goldBright;
     return Semantics(
       button: true,
       label: label,
@@ -218,13 +233,13 @@ class _BottomChromeBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: PavalonColors.slate900.withValues(alpha: 0.85),
             shape: BoxShape.circle,
-            border: Border.all(color: PavalonColors.gold, width: 2),
+            border: Border.all(color: ringColor, width: 2),
             boxShadow: const [
               BoxShadow(
                   color: Colors.black54, blurRadius: 12, offset: Offset(0, 4)),
             ],
           ),
-          child: Icon(icon, color: PavalonColors.goldBright, size: 24),
+          child: Icon(icon, color: iconColor, size: 24),
         ),
       ),
     );
