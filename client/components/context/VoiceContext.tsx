@@ -61,6 +61,9 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // Latest volume/mute settings, applied to late-arriving participants.
     const peerStatesRef = useRef(peerStates);
     peerStatesRef.current = peerStates;
+    // Latest mute setting, applied by connect() below to avoid a stale closure.
+    const isMutedRef = useRef(isMuted);
+    isMutedRef.current = isMuted;
 
     const applyPeerAudio = useCallback((participant: RemoteParticipant) => {
         const state = peerStatesRef.current[participant.identity] ?? defaultPeerState;
@@ -127,13 +130,18 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 await room.connect(data.url, data.token);
                 if (cancelled) return;
                 try {
-                    await room.localParticipant.setMicrophoneEnabled(!isMuted);
+                    await room.localParticipant.setMicrophoneEnabled(!isMutedRef.current);
                     setPermissionState("granted");
                 } catch (err: any) {
+                    if (cancelled) return;
                     if (err?.name === "NotAllowedError") {
                         setPermissionState("denied");
+                        room.disconnect();
                     } else {
-                        throw err;
+                        console.error("[voice] Failed to start microphone:", err);
+                        toast.error("Microphone unavailable", {
+                            description: "Could not start your microphone. You can still hear others.",
+                        });
                     }
                 }
             } catch (err) {
@@ -155,8 +163,6 @@ export const VoiceProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             setPeerStates({});
             setIsSelfSpeaking(false);
         };
-        // isMuted intentionally excluded: mute toggles are applied imperatively below.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gameState.roomCode, isVoiceEnabled, applyPeerAudio]);
 
     // Reset permission state when leaving the room so the user can be prompted again.
