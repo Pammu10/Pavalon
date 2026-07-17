@@ -853,7 +853,6 @@ export class GameService {
 
         const { name, userId } = gameState.reconnectingPlayer;
         logger.info('Reconnect timeout', { name, roomCode });
-        const disconnectedPlayer = gameState.players.find((p) => p.userId === userId);
         this.reconnectionTimers.delete(roomCode);
 
         if (gameState.phase === GamePhase.LOBBY || gameState.phase === GamePhase.DRAGONS_BREATH) {
