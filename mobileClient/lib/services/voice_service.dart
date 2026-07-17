@@ -28,6 +28,7 @@ class VoiceService extends ChangeNotifier {
   bool _isSelfSpeaking = false;
   VoiceStatus _status = VoiceStatus.disconnected;
   final Map<int, PeerAudioState> _peers = {};
+  int _syncGeneration = 0;
 
   bool get isMuted => _isMuted;
   bool get isSelfSpeaking => _isSelfSpeaking;
@@ -36,13 +37,30 @@ class VoiceService extends ChangeNotifier {
   PeerAudioState peerState(int userId) => _peers.putIfAbsent(userId, PeerAudioState.new);
 
   /// Join/leave so that the connected room matches [roomCode].
+  ///
+  /// Guarded by a generation counter: this is called on every RootGate
+  /// rebuild, so overlapping calls are expected. A stale continuation
+  /// (superseded by a newer call before it finishes an await) bails out
+  /// instead of mutating shared state or winning a race against the
+  /// current attempt.
   Future<void> syncRoom(String? roomCode) async {
-    if (roomCode == _roomCode) return;
-    await _disconnect();
-    _roomCode = roomCode;
-    if (roomCode == null) return;
+    final gen = ++_syncGeneration;
+    if (roomCode == _roomCode) {
+      // Same room: nothing to do unless we're stuck in permissionDenied and
+      // the user has since granted mic access (e.g. via system settings).
+      if (_status != VoiceStatus.permissionDenied) return;
+      final micStatus = await Permission.microphone.status;
+      if (gen != _syncGeneration || !micStatus.isGranted) return;
+      // Fall through and (re)join now that permission is granted.
+    } else {
+      await _disconnect();
+      if (gen != _syncGeneration) return;
+      _roomCode = roomCode;
+      if (roomCode == null) return;
+    }
 
     final mic = await Permission.microphone.request();
+    if (gen != _syncGeneration) return;
     if (!mic.isGranted) {
       _status = VoiceStatus.permissionDenied;
       notifyListeners();
@@ -51,11 +69,15 @@ class VoiceService extends ChangeNotifier {
 
     _status = VoiceStatus.connecting;
     notifyListeners();
+
+    Room? room;
+    EventsListener<RoomEvent>? listener;
     try {
-      final creds = await api.voiceToken(roomCode);
-      final room = Room();
-      _room = room;
-      _listener = room.createListener()
+      final creds = await api.voiceToken(roomCode!);
+      if (gen != _syncGeneration) return;
+
+      room = Room();
+      listener = room.createListener()
         ..on<ActiveSpeakersChangedEvent>(_onActiveSpeakers)
         ..on<TrackSubscribedEvent>((e) => _applyPeerAudio(e.participant))
         ..on<ParticipantDisconnectedEvent>((e) {
@@ -76,13 +98,30 @@ class VoiceService extends ChangeNotifier {
           notifyListeners();
         });
       await room.connect(creds.url, creds.token);
+      if (gen != _syncGeneration) {
+        await listener.dispose();
+        await room.disconnect();
+        await room.dispose();
+        return;
+      }
       await room.localParticipant?.setMicrophoneEnabled(!_isMuted);
+      if (gen != _syncGeneration) {
+        await listener.dispose();
+        await room.disconnect();
+        await room.dispose();
+        return;
+      }
+      _room = room;
+      _listener = listener;
       _status = VoiceStatus.connected;
     } catch (e) {
       debugPrint('[voice] failed to join: $e');
-      await _disconnect();
+      await listener?.dispose();
+      await room?.disconnect();
+      await room?.dispose();
+      if (gen == _syncGeneration) await _disconnect();
     }
-    notifyListeners();
+    if (gen == _syncGeneration) notifyListeners();
   }
 
   void _onActiveSpeakers(ActiveSpeakersChangedEvent e) {
