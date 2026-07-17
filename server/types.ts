@@ -383,7 +383,6 @@ export interface ServerToClientEvents {
 
     // Voice Chat
     'voice:user-joined': (data: { socketId: string }) => void;
-    'voice:user-left': (data: { socketId: string }) => void;
     'voice:offer': (data: { fromId: string, sdp: any }) => void;
     'voice:answer': (data: { fromId: string, sdp: any }) => void;
     'voice:ice-candidate': (data: { fromId: string, candidate: any }) => void;
