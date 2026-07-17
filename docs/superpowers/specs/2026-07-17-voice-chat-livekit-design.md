@@ -34,7 +34,9 @@ Rather than patching each defect in a fragile mesh architecture, voice chat move
 ### Room and identity mapping
 
 - One LiveKit room per game room, named by the game `roomCode`.
-- LiveKit participant identity is the player id, so player tiles map directly to voice participants on both clients.
+- LiveKit participant identity is `String(player.userId)`.
+  The socket-based player id changes on reconnect, while `userId` is stable, and both clients already have `userId` on every player, so tiles map directly to voice participants.
+- Bots have `userId < 0` and never join voice.
 
 ### Token endpoint (game server)
 
