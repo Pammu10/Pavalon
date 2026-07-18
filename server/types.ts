@@ -358,11 +358,6 @@ export interface ClientToServerEvents {
 
     // Social Events
     'social:invite_to_game': (data: { friendId: number }) => void;
-
-    // Voice Chat
-    'voice:offer': (data: { targetId: string, sdp: any }) => void;
-    'voice:answer': (data: { targetId: string, sdp: any }) => void;
-    'voice:ice-candidate': (data: { targetId: string, candidate: any }) => void;
 }
 
 export interface ServerToClientEvents {
@@ -380,11 +375,4 @@ export interface ServerToClientEvents {
     'social:friend_removed': (data: { friendId: number }) => void;
     'social:request_cancelled': (data: { requesterId: number }) => void;
     'social:invite_received': (data: GameInvite) => void;
-
-    // Voice Chat
-    'voice:user-joined': (data: { socketId: string }) => void;
-    'voice:user-left': (data: { socketId: string }) => void;
-    'voice:offer': (data: { fromId: string, sdp: any }) => void;
-    'voice:answer': (data: { fromId: string, sdp: any }) => void;
-    'voice:ice-candidate': (data: { fromId: string, candidate: any }) => void;
 }

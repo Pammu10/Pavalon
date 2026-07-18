@@ -178,6 +178,13 @@ class ApiService {
   Future<void> cancelRequest(int recipientId) =>
       _send('DELETE', '/social/request/cancel/$recipientId');
 
+  // --- Voice ---
+  Future<({String url, String token})> voiceToken(String roomCode) async {
+    final d = await _send('GET', '/voice/token?roomCode=${Uri.encodeQueryComponent(roomCode)}')
+        as Map<String, dynamic>;
+    return (url: d['url'] as String, token: d['token'] as String);
+  }
+
   // --- Admin ---
   Future<List<Map<String, dynamic>>> adminRooms() async =>
       ((await _send('GET', '/admin/rooms')) as List)

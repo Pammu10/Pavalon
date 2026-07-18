@@ -6,10 +6,10 @@ import { config } from './config';
 import { logger } from './logger';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth';
-import webrtcRoutes from './routes/webrtc';
 import { createUserRouter } from './routes/user';
 import { createSocialRouter } from './routes/social';
 import { createAdminRouter } from './routes/admin';
+import { createVoiceRouter } from './routes/voice';
 import { registerSocketHandlers } from './socket/handlers';
 import { GameService } from './services/gameService';
 import { SocialService } from './services/socialService';
@@ -38,7 +38,7 @@ app.use('/api', authRoutes);
 app.use('/api', createUserRouter(gameService));
 app.use('/api/social', createSocialRouter(socialService));
 app.use('/api/admin', createAdminRouter(gameService));
-app.use('/api/webrtc', webrtcRoutes);
+app.use('/api/voice', createVoiceRouter(gameService));
 
 app.use(errorHandler);
 

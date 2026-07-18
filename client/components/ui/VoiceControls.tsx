@@ -1,7 +1,7 @@
 import React from 'react';
 import { useVoice } from '../context/VoiceContext';
 import { useGame } from '../context/GameContext';
-import { Mic, MicOff, Volume2, VolumeX, Ear, EarOff, Headset } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Headset } from 'lucide-react';
 
 const Toggle: React.FC<{ label: string; enabled: boolean; onToggle: () => void, Icon: React.FC<any>, OffIcon: React.FC<any> }> = ({ label, enabled, onToggle, Icon, OffIcon }) => (
     <div className="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
@@ -20,7 +20,7 @@ const Toggle: React.FC<{ label: string; enabled: boolean; onToggle: () => void, 
 
 const VoiceControls: React.FC = () => {
     const { gameState, playerId } = useGame();
-    const { isMuted, peerStates, permissionState, toggleMute, setPeerVolume, togglePeerMute, micMonitoring, toggleMicMonitoring, isVoiceEnabled, toggleVoiceChat } = useVoice();
+    const { isMuted, peerStates, permissionState, toggleMute, setPeerVolume, togglePeerMute, isVoiceEnabled, toggleVoiceChat, connectionState } = useVoice();
     const { players, roomCode } = gameState;
 
     if (permissionState === 'denied') {
@@ -43,7 +43,7 @@ const VoiceControls: React.FC = () => {
         )
     }
 
-    const otherPlayers = players.filter(p => p.id !== playerId);
+    const otherPlayers = players.filter(p => p.id !== playerId && p.userId > 0);
 
     return (
         <div className="p-2 md:p-4 space-y-4 max-h-full overflow-y-auto scroll-hide">
@@ -51,6 +51,13 @@ const VoiceControls: React.FC = () => {
             <div className="space-y-3">
                 <h4 className="font-eaglelake text-yellow-500 text-lg">Master Controls</h4>
                 <Toggle label="Voice Chat" enabled={isVoiceEnabled} onToggle={toggleVoiceChat} Icon={Headset} OffIcon={Headset} />
+                {isVoiceEnabled && connectionState !== 'connected' && (
+                    <p className="text-sm text-slate-400 text-center">
+                        {connectionState === 'reconnecting' ? 'Reconnecting to voice…' :
+                         connectionState === 'connecting' ? 'Connecting to voice…' :
+                         'Voice disconnected.'}
+                    </p>
+                )}
             </div>
 
             {/* Conditional Content */}
@@ -72,22 +79,22 @@ const VoiceControls: React.FC = () => {
                     <div className="space-y-3 pt-4 border-t border-slate-700/50">
                         <h4 className="font-eaglelake text-yellow-500 text-lg">My Controls</h4>
                         <Toggle label="Microphone" enabled={!isMuted} onToggle={toggleMute} Icon={Mic} OffIcon={MicOff} />
-                        <Toggle label="Mic Monitoring" enabled={micMonitoring} onToggle={toggleMicMonitoring} Icon={Ear} OffIcon={EarOff} />
                     </div>
 
                     {/* Individual Player Controls */}
                     <div className="space-y-3 pt-4 border-t border-slate-700/50">
                         <h4 className="font-eaglelake text-yellow-500 text-lg">Player Volumes</h4>
                         {otherPlayers.map(player => {
-                            const state = peerStates[player.id] || { volume: 1, isMuted: false, isSpeaking: false };
-                            
+                            const key = String(player.userId);
+                            const state = peerStates[key] || { volume: 1, isMuted: false, isSpeaking: false };
+
                             return (
                                 <div key={player.id} className="p-3 bg-slate-800/50 rounded-lg">
                                     <div className="flex items-center justify-between mb-2">
                                         <span className={`font-semibold transition-all ${state.isSpeaking ? 'text-green-400 animate-pulse' : 'text-slate-300'}`}>
                                             {player.name}
                                         </span>
-                                        <button onClick={() => togglePeerMute(player.id)}>
+                                        <button onClick={() => togglePeerMute(key)}>
                                             {state.isMuted ? <VolumeX className="text-red-400" size={20} /> : <Volume2 className="text-slate-400 hover:text-white" size={20} />}
                                         </button>
                                     </div>
@@ -97,7 +104,7 @@ const VoiceControls: React.FC = () => {
                                         max="1"
                                         step="0.01"
                                         value={state.volume}
-                                        onChange={(e) => setPeerVolume(player.id, parseFloat(e.target.value))}
+                                        onChange={(e) => setPeerVolume(key, parseFloat(e.target.value))}
                                         className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
                                         disabled={state.isMuted}
                                     />

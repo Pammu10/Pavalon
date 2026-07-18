@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/constants.dart';
 import '../core/theme.dart';
 import '../models/models.dart';
+import '../services/voice_service.dart';
 import '../state/game_provider.dart';
 
 /// Port of the web PlayerTile: bordered avatar card with name/title,
@@ -35,6 +36,8 @@ class PlayerTile extends StatelessWidget {
     final emote = game.activeEmotes[player.id];
     final borderSpec = kBorderStyles[player.selectedBorder];
     final icon = kIconMap[player.selectedIcon] ?? LucideIcons.gem;
+    final isSpeaking = context.select<VoiceService, bool>((v) =>
+        v.isPeerSpeaking(player.userId) || (isLocal && v.isSelfSpeaking));
 
     final tile = AnimatedScale(
       scale: isSelected ? 1.05 : 1.0,
@@ -52,6 +55,9 @@ class PlayerTile extends StatelessWidget {
                   end: Alignment.bottomRight)
               : null,
           color: borderSpec == null ? PavalonColors.slate600 : null,
+          border: isSpeaking
+              ? Border.all(color: Colors.greenAccent, width: 3)
+              : null,
           boxShadow: [
             if (borderSpec != null)
               BoxShadow(
@@ -61,6 +67,11 @@ class PlayerTile extends StatelessWidget {
             if (isSelected)
               const BoxShadow(
                   color: PavalonColors.gold, blurRadius: 12, spreadRadius: 1),
+            if (isSpeaking)
+              BoxShadow(
+                  color: Colors.greenAccent.withValues(alpha: 0.65),
+                  blurRadius: 14,
+                  spreadRadius: 2),
           ],
         ),
         padding: const EdgeInsets.all(3.5),

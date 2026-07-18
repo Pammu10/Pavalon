@@ -44,7 +44,7 @@ const PlayerTile: React.FC<PlayerTileProps> = ({
   const { peerStates, isSelfSpeaking } = useVoice();
 
   const isLocalPlayer = player.id === playerId;
-  const voiceState = peerStates[player.id];
+  const voiceState = peerStates[String(player.userId)];
   const isSpeaking = isLocalPlayer ? isSelfSpeaking : voiceState?.isSpeaking ?? false;
 
   const isDisconnected = player.status === 'DISCONNECTED';

@@ -80,10 +80,6 @@ export function registerSocketHandlers(
 
         socket.on('social:invite_to_game', ({ friendId }) => socialService.handleGameInvite(user, friendId as number));
 
-        socket.on('voice:offer', ({ targetId, sdp }) => socket.to(targetId as string).emit('voice:offer', { fromId: socket.id, sdp }));
-        socket.on('voice:answer', ({ targetId, sdp }) => socket.to(targetId as string).emit('voice:answer', { fromId: socket.id, sdp }));
-        socket.on('voice:ice-candidate', ({ targetId, candidate }) => socket.to(targetId as string).emit('voice:ice-candidate', { fromId: socket.id, candidate }));
-
         socket.on('disconnect', () => {
             logger.info('User disconnected', { username: user.username, socketId: socket.id });
             socialService.removeUser(authed);

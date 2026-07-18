@@ -428,7 +428,6 @@ export class GameService {
         };
         gameState.players.push(newPlayer);
         this.socialService.updateUserStatus(user.id, true, code);
-        socket.broadcast.to(code).emit('voice:user-joined', { socketId: socket.id });
         this.broadcastState(gameState);
     }
 
@@ -461,8 +460,6 @@ export class GameService {
             selected_icon: string;
             selected_background: string;
         }>('SELECT selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1', [user.id]);
-
-        socket.broadcast.to(roomCode).emit('voice:user-joined', { socketId: socket.id });
 
         const oldPlayerId = player.id;
         const newPlayerId = socket.id;
@@ -853,10 +850,6 @@ export class GameService {
 
         const { name, userId } = gameState.reconnectingPlayer;
         logger.info('Reconnect timeout', { name, roomCode });
-        const disconnectedPlayer = gameState.players.find((p) => p.userId === userId);
-        if (disconnectedPlayer) {
-            this.io.to(roomCode).emit('voice:user-left', { socketId: disconnectedPlayer.id });
-        }
         this.reconnectionTimers.delete(roomCode);
 
         if (gameState.phase === GamePhase.LOBBY || gameState.phase === GamePhase.DRAGONS_BREATH) {
@@ -896,7 +889,6 @@ export class GameService {
         const disconnectedPlayer = this.getPlayer(gameState, playerId);
         if (!disconnectedPlayer) return;
 
-        this.io.to(roomCode).emit('voice:user-left', { socketId: playerId });
         disconnectedPlayer.status = 'DISCONNECTED';
         this.addLog(gameState, `${disconnectedPlayer.name} has disconnected.`, 'system');
 
@@ -1317,7 +1309,6 @@ export class GameService {
         if (!leavingPlayer) return;
 
         this.socialService.updateUserStatus(leavingPlayer.userId, false, undefined);
-        this.io.to(roomCode).emit('voice:user-left', { socketId: playerId });
         const socket = this.io.sockets.sockets.get(playerId);
         if (socket) { socket.emit('kicked', 'You have left the lobby.'); socket.leave(roomCode); }
 
@@ -1343,7 +1334,6 @@ export class GameService {
 
         const kickedPlayerName = playerToKick.name;
         const kickedSocket = this.io.sockets.sockets.get(playerIdToKick);
-        this.io.to(roomCode).emit('voice:user-left', { socketId: playerIdToKick });
 
         if (kickedSocket) { kickedSocket.emit('kicked', 'You have been kicked from the game by the host.'); kickedSocket.leave(roomCode); }
 
