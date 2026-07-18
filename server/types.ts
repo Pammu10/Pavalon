@@ -375,7 +375,4 @@ export interface ServerToClientEvents {
     'social:friend_removed': (data: { friendId: number }) => void;
     'social:request_cancelled': (data: { requesterId: number }) => void;
     'social:invite_received': (data: GameInvite) => void;
-
-    // Voice Chat
-    'voice:user-joined': (data: { socketId: string }) => void;
 }

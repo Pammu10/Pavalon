@@ -428,7 +428,6 @@ export class GameService {
         };
         gameState.players.push(newPlayer);
         this.socialService.updateUserStatus(user.id, true, code);
-        socket.broadcast.to(code).emit('voice:user-joined', { socketId: socket.id });
         this.broadcastState(gameState);
     }
 
@@ -461,8 +460,6 @@ export class GameService {
             selected_icon: string;
             selected_background: string;
         }>('SELECT selected_title, selected_border, selected_icon, selected_background FROM users WHERE id = $1', [user.id]);
-
-        socket.broadcast.to(roomCode).emit('voice:user-joined', { socketId: socket.id });
 
         const oldPlayerId = player.id;
         const newPlayerId = socket.id;
