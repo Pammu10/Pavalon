@@ -1,0 +1,12 @@
+{
+  "name": "pavalon-voice-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Manual/opt-in E2E verification of Pavalon's LiveKit voice chat, run against a real LiveKit Cloud project.",
+  "scripts": {
+    "test": "node run-all.js"
+  },
+  "dependencies": {
+    "playwright-core": "^1.61.1"
+  }
+}
