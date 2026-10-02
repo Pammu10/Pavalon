@@ -1,6 +1,7 @@
 import { Player, GameState, Message } from '../types';
 import { BotPersona, ChatTrigger, IBotGameActions } from './types';
-import { ollamaClient, buildSystemPrompt } from './llm';
+import { ollamaClient, buildSystemPrompt, buildChatPrompt } from './llm';
+import { cleanLlmLine, composeReply } from './thoughts';
 
 export function maybeSendChat(
     persona: BotPersona,
@@ -19,8 +20,9 @@ export function maybeSendChat(
 }
 
 /**
- * Called when a human sends a chat message.
- * Decides which bot (if any) should reply, then tries LLM → falls back to scripted.
+ * Called when a human sends a chat message. At most one bot answers: the one
+ * named, else (sometimes) a random one. LLM reply when available, otherwise a
+ * scripted answer from public evidence; silence beats an off-topic line.
  */
 export async function handleIncomingChatMessage(
     message: Message,
@@ -32,42 +34,26 @@ export async function handleIncomingChatMessage(
     if (message.senderUserId < 0) return; // ignore bot messages
 
     const text = message.text.toLowerCase();
-    const isQuestion = message.text.includes('?');
-
-    for (const bot of bots) {
-        const persona = personas.find((p) => p.name === bot.name);
-        if (!persona) continue;
-
-        const mentioned = text.includes(bot.name.toLowerCase());
-        const shouldReply =
-            mentioned ||
-            (isQuestion && Math.random() < 0.5) ||
-            Math.random() < persona.chatFrequency * 0.3;
-
-        if (!shouldReply) continue;
-
-        const delay = 1400 + bots.indexOf(bot) * 700 + Math.random() * 600;
-
-        setTimeout(async () => {
-            // Guard: don't reply if game is over
-            if (!gameState.roomCode) return;
-
-            const systemPrompt = buildSystemPrompt(bot, gameState, persona);
-            const llmReply = await ollamaClient.generate(systemPrompt, message.text);
-
-            if (llmReply) {
-                gameService.handleSendMessage(bot.id, llmReply);
-            } else {
-                // Scripted fallback
-                const trigger: ChatTrigger = (() => {
-                    const quest = gameState.questHistory[gameState.currentQuest - 1];
-                    if (quest?.team.some((p) => p.id === bot.id)) return 'on_the_team';
-                    return 'not_on_team';
-                })();
-                maybeSendChat(persona, trigger, bot.id, gameService, message.senderName, 0);
-            }
-        }, delay);
-
-        break; // only one bot replies per message
+    const personaOf = (b: Player) => personas.find((p) => p.name === b.name);
+    let bot = bots.find((b) => text.includes(b.name.toLowerCase()));
+    if (!bot) {
+        const candidate = bots[Math.floor(Math.random() * bots.length)];
+        const chance = message.text.includes('?') ? 0.6 : (personaOf(candidate)?.chatFrequency ?? 0) * 0.3;
+        if (!candidate || Math.random() >= chance) return;
+        bot = candidate;
     }
+    const persona = personaOf(bot);
+    if (!persona) return;
+    const responder = bot;
+
+    setTimeout(async () => {
+        if (!gameState.roomCode) return; // game over
+        const llm = await ollamaClient.generate(
+            buildSystemPrompt(responder, gameState, persona),
+            buildChatPrompt(gameState, message),
+        );
+        const reply = cleanLlmLine(responder, gameState, llm)
+            ?? composeReply(responder, gameState, message.text, message.senderId);
+        if (reply) gameService.handleSendMessage(responder.id, reply);
+    }, 1400 + Math.random() * 1200);
 }

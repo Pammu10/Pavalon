@@ -8,6 +8,7 @@ import { decideQuestVote } from './decisions/questVote';
 import { decideAssassination } from './decisions/assassination';
 import {
     composeAssassinationThought,
+    composeQuestResultThought,
     composeTeamSelectionThought,
     composeTeamVoteThought,
     speakThought,
@@ -19,6 +20,10 @@ function jitter(min: number, max: number): number {
 
 function isPhaseActive(gameState: GameState, phase: GamePhase): boolean {
     return gameState.phase === phase;
+}
+
+function pickOne<T>(arr: T[]): T | undefined {
+    return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function getPersona(name: string): BotPersona | undefined {
@@ -51,6 +56,9 @@ export class BotEngine {
                 break;
             case GamePhase.QUEST_VOTE:
                 this.handleQuestVote(gameState, bots);
+                break;
+            case GamePhase.QUEST_RESULT:
+                this.handleQuestResult(gameState, bots);
                 break;
             case GamePhase.ASSASSINATION:
                 this.handleAssassination(gameState, bots);
@@ -111,11 +119,18 @@ export class BotEngine {
 
     private handleTeamSelection(gameState: GameState, bots: typeof gameState.players): void {
         const leaderBot = bots.find((b) => b.id === gameState.leader?.id);
+        // A rejection just sent us back here: one non-leader bot reacts.
+        if (gameState.voteTrack > 0) {
+            const reactor = pickOne(bots.filter((b) => b.id !== leaderBot?.id));
+            const p = reactor && getPersona(reactor.name);
+            if (p) maybeSendChat(p, 'team_rejected', reactor.id, this.gameService, undefined, 900);
+        }
         if (!leaderBot) return; // human is leader
 
         const persona = getPersona(leaderBot.name);
         if (!persona) return;
         const [min, max] = persona.timing.teamSelect;
+        maybeSendChat(persona, 'became_leader', leaderBot.id, this.gameService, undefined, 1500);
 
         setTimeout(() => {
             if (!isPhaseActive(gameState, GamePhase.TEAM_SELECTION)) return;
@@ -161,6 +176,9 @@ export class BotEngine {
         const quest = gameState.questHistory[gameState.currentQuest - 1];
         if (!quest) return;
         const botsOnTeam = bots.filter((b) => quest.team.some((t) => t.id === b.id));
+        const cheerer = pickOne(botsOnTeam);
+        const cheerPersona = cheerer && getPersona(cheerer.name);
+        if (cheerPersona) maybeSendChat(cheerPersona, 'on_the_team', cheerer.id, this.gameService, undefined, 700);
 
         botsOnTeam.forEach((bot, i) => {
             const persona = getPersona(bot.name);
@@ -176,6 +194,25 @@ export class BotEngine {
                 this.gameService.handleVoteOnQuest(bot.id, vote);
             }, delay);
         });
+    }
+
+    /** The quest card flip: one bot reacts; on a fail, another points at the team. */
+    private handleQuestResult(gameState: GameState, bots: typeof gameState.players): void {
+        const quest = gameState.questHistory[gameState.currentQuest - 1];
+        if (!quest) return;
+        const [first, second] = [...bots].sort(() => Math.random() - 0.5);
+        const firstPersona = first && getPersona(first.name);
+        if (firstPersona) {
+            const trigger = quest.status === 'PASSED' ? 'quest_passed' : 'quest_failed';
+            maybeSendChat(firstPersona, trigger, first.id, this.gameService, undefined, 2500);
+        }
+        // Prefer a bot that was on the failed team: "it wasn't me" is the natural reply.
+        const accuser = bots.find((b) => quest.team.some((t) => t.id === b.id)) ?? second;
+        const accuserPersona = accuser && getPersona(accuser.name);
+        if (accuserPersona && quest.status === 'FAILED') {
+            speakThought(accuser, accuserPersona, gameState,
+                composeQuestResultThought(accuser, gameState), this.gameService, 4500);
+        }
     }
 
     private handleAssassination(gameState: GameState, bots: typeof gameState.players): void {

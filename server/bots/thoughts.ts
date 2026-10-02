@@ -144,6 +144,77 @@ export function composeAssassinationThought(
     ]);
 }
 
+/** Reaction to a failed quest: point at the team on the public record. */
+export function composeQuestResultThought(bot: Player, gameState: GameState): string | null {
+    const quest = gameState.questHistory[gameState.currentQuest - 1];
+    if (quest?.status !== 'FAILED') return null;
+    const others = quest.team.filter((p) => p.id !== bot.id);
+    if (others.length === 0) return null;
+    const names = others.map((p) => p.name).join(' and ');
+    if (others.length < quest.team.length) {
+        // Anyone on a failed team says this: true for Good, a cover story for Evil.
+        return pick([
+            `That fail wasn't mine. Which leaves ${names}.`,
+            `I was on it and I didn't fail it. Look at ${names}.`,
+        ]);
+    }
+    return pick([
+        `Quest ${quest.questNumber} failed with ${names} aboard. Remember that.`,
+        `So one of ${names} is lying to us.`,
+    ]);
+}
+
+const ACCUSATION = /\b(sus|evil|lying|liar|traitor|fail(ed)?|minion|spy)\b/;
+
+/**
+ * Scripted answer to a human's chat line, built from public evidence only.
+ * Null when there's nothing worth saying (better silent than off-topic).
+ */
+export function composeReply(bot: Player, gameState: GameState, text: string, senderId: string): string | null {
+    const lower = text.toLowerCase();
+    const facts = getPublicFacts(gameState);
+    const named = gameState.players.filter((p) => p.id !== senderId && lower.includes(p.name.toLowerCase()));
+
+    // Accused: defend with our own record.
+    if (named.some((p) => p.id === bot.id) && ACCUSATION.test(lower)) {
+        const alibi = (facts.get(bot.id) ?? []).find((f) => f.weight < 0);
+        return alibi
+            ? pick([`Me? I ${alibi.text}.`, `Check the record. I ${alibi.text}.`])
+            : pick([`Me? Nothing on the record says so.`, `Accusing me won't find your traitor.`]);
+    }
+
+    // Asked about someone: give our read on them.
+    const subject = named.find((p) => p.id !== bot.id);
+    if (subject) {
+        const bad = topSuspicionFact(facts, subject.id);
+        if (bad) return pick([`${subject.name} ${bad.text}. That says enough.`, `Can't ignore that ${subject.name} ${bad.text}.`]);
+        const good = (facts.get(subject.id) ?? []).find((f) => f.weight < 0);
+        if (good) return `${subject.name} ${good.text}, so I lean trust.`;
+        return pick([`Nothing on ${subject.name} yet, either way.`, `No read on ${subject.name} so far.`]);
+    }
+
+    // Open question: name our top suspect, if the record gives us one.
+    if (text.includes('?')) {
+        const target = mostSuspect(gameState.players.filter((p) => p.id !== bot.id), buildSuspicionScores(gameState));
+        const fact = target && topSuspicionFact(facts, target.id);
+        if (target && fact) return pick([`Right now? ${target.name}. They ${fact.text}.`, `My eyes are on ${target.name}. They ${fact.text}.`]);
+        return pick([`Too early to call. Watch who fails quests.`, `No hard evidence yet. Let the quests talk.`]);
+    }
+    return null;
+}
+
+/** Trim LLM output to one clean chat line; null if unusable or it would leak hidden info. */
+export function cleanLlmLine(bot: Player, gameState: GameState, raw: string | null): string | null {
+    const first = raw?.split('\n').map((l) => l.trim()).find(Boolean);
+    if (!first) return null;
+    // Models like to echo "Name: ..." and wrap the line in quotes.
+    const line = (first.toLowerCase().startsWith(`${bot.name.toLowerCase()}:`) ? first.slice(bot.name.length + 1) : first)
+        .trim()
+        .replace(/^["']|["']$/g, '');
+    if (line.length < 2 || line.length > 220) return null;
+    return leaksHiddenInfo(bot, gameState, line) ? null : line;
+}
+
 function rephrasePrompt(bot: Player, persona: BotPersona): string {
     const style = {
         easy: 'excitable and casual, maybe an exclamation mark',
@@ -175,21 +246,17 @@ export function speakThought(
 
     setTimeout(async () => {
         if (!gameState.roomCode) return;
-        let text = thought;
         const llm = await ollamaClient.generate(
             rephrasePrompt(bot, persona),
             `Rephrase: "${thought}"`,
         );
-        if (llm && llm.length > 2 && llm.length < 220) {
-            text = llm.replace(/^["']|["']$/g, '');
-        }
-        gameService.handleSendMessage(bot.id, text);
+        gameService.handleSendMessage(bot.id, cleanLlmLine(bot, gameState, llm) ?? thought);
     }, delayMs);
 }
 
 /**
- * Sanity guard used by tests: a spoken line must never contain hidden-role
- * vocabulary that could leak a bot's private knowledge.
+ * A spoken line must never contain hidden-role vocabulary that could leak a
+ * bot's private knowledge. Gates every LLM line (cleanLlmLine) and the tests.
  */
 export function leaksHiddenInfo(bot: Player, gameState: GameState, line: string): boolean {
     const lower = line.toLowerCase();

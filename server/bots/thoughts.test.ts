@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { GameState, GamePhase, Player, Role, Alignment } from '../types';
 import {
     buildSuspicionScores,
@@ -6,11 +6,16 @@ import {
     topSuspicionFact,
 } from './decisions/knowledge';
 import {
+    cleanLlmLine,
     composeAssassinationThought,
+    composeQuestResultThought,
+    composeReply,
     composeTeamSelectionThought,
     composeTeamVoteThought,
     leaksHiddenInfo,
 } from './thoughts';
+import { handleIncomingChatMessage } from './chat';
+import { ALL_PERSONAS } from './personas';
 
 const player = (id: string, name: string, role: Role, alignment: Alignment): Player => ({
     id, userId: id.startsWith('cpu') ? -1 : 1, name, role, alignment,
@@ -167,5 +172,70 @@ describe('spoken thoughts', () => {
         expect(leaksHiddenInfo(rupert, gs, "I'm evil and proud")).toBe(true);
         expect(leaksHiddenInfo(rupert, gs, 'Alice is evil, trust me')).toBe(true);
         expect(leaksHiddenInfo(rupert, gs, 'Alice was on the failed quest')).toBe(false);
+    });
+});
+
+describe('chat replies', () => {
+    const named = (gs: GameState, name: string) => gs.players.find((p) => p.name === name)!;
+
+    it('answers a question about a player with their public record', () => {
+        const gs = fixture();
+        const reply = composeReply(named(gs, 'Carol'), gs, 'Carol what about Alice?', 'p-bob')!;
+        expect(reply).toContain('Alice');
+        expect(reply).toContain('Quest 1 when it failed');
+    });
+
+    it('defends itself with its own record when accused', () => {
+        const gs = fixture();
+        const reply = composeReply(named(gs, 'Carol'), gs, 'Carol is sus', 'p-bob')!;
+        expect(reply).toContain('helped pass Quest 2');
+    });
+
+    it('stays quiet rather than answering off-topic', () => {
+        const gs = fixture();
+        expect(composeReply(named(gs, 'Carol'), gs, 'hello all', 'p-bob')).toBeNull();
+    });
+
+    it('the named bot answers, not whoever sits first', async () => {
+        vi.useFakeTimers();
+        try {
+            const gs = fixture();
+            const sent: string[] = [];
+            const actions = { handleSendMessage: (id: string) => sent.push(id) } as never;
+            // Personas are matched by name, so borrow real ones for the two bots.
+            const [rupertPersona, carolPersona] = ALL_PERSONAS;
+            const bots = [{ ...named(gs, 'Rupert'), name: rupertPersona.name }, { ...named(gs, 'Carol'), name: carolPersona.name }];
+            gs.players = gs.players.map((p) => bots.find((b) => b.id === p.id) ?? p);
+            for (let i = 0; i < 20; i++) {
+                await handleIncomingChatMessage(
+                    { senderId: 'p-bob', senderUserId: 1, senderName: 'Bob', text: `${carolPersona.name}, who do you suspect?` },
+                    bots, gs, [rupertPersona, carolPersona], actions,
+                );
+                await vi.runAllTimersAsync();
+            }
+            expect(sent.length).toBe(20);
+            expect(new Set(sent)).toEqual(new Set(['cpu-2']));
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('cleans LLM output and drops leaks', () => {
+        const gs = fixture();
+        const carol = named(gs, 'Carol');
+        expect(cleanLlmLine(carol, gs, 'Carol: "I trust Dave."\nAnd more rambling')).toBe('I trust Dave.');
+        expect(cleanLlmLine(carol, gs, "I'm Merlin, so trust me")).toBeNull();
+        expect(cleanLlmLine(carol, gs, null)).toBeNull();
+    });
+
+    it('a bot on a failed quest deflects onto its teammates', () => {
+        const gs = fixture();
+        gs.currentQuest = 1; // Quest 1 failed with Rupert + Alice
+        const onTeam = composeQuestResultThought(named(gs, 'Rupert'), gs)!;
+        expect(onTeam).toContain('Alice');
+        expect(onTeam).not.toContain('Rupert');
+        const offTeam = composeQuestResultThought(named(gs, 'Carol'), gs)!;
+        expect(offTeam).toContain('Rupert and Alice');
+        expect(leaksHiddenInfo(named(gs, 'Rupert'), gs, onTeam)).toBe(false);
     });
 });

@@ -1,6 +1,6 @@
-import { Player, GameState, Alignment } from '../types';
+import { Player, GameState, Alignment, Message } from '../types';
 import { BotPersona } from './types';
-import { getKnownEvil } from './decisions/knowledge';
+import { getKnownEvil, buildSuspicionScores, getPublicFacts, topSuspicionFact } from './decisions/knowledge';
 import { logger } from '../logger';
 
 const OLLAMA_BASE = process.env.OLLAMA_URL ?? 'http://localhost:11434';
@@ -85,9 +85,33 @@ export function buildSystemPrompt(bot: Player, gameState: GameState, persona: Bo
         hard: "You're an expert player. Be terse and strategic. One sentence max. Never show strong emotion.",
     }[persona.difficulty];
 
+    // Public record only — the model must never see hidden roles or Merlin's sight.
+    const record = gameState.questHistory
+        .filter((q) => q.status === 'PASSED' || q.status === 'FAILED')
+        .map((q) => {
+            const fails = q.results.filter((r) => r.vote === 'FAIL').length;
+            return `Quest ${q.questNumber}: ${q.questLeader?.name ?? 'someone'} picked ${q.team.map((p) => p.name).join(', ')}; it ${q.status === 'PASSED' ? 'passed' : `failed (${fails} fail vote${fails === 1 ? '' : 's'})`}.`;
+        });
+    const scores = buildSuspicionScores(gameState);
+    const facts = getPublicFacts(gameState);
+    const suspect = gameState.players
+        .filter((p) => p.id !== bot.id)
+        .sort((a, b) => (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0))[0];
+    const suspectFact = suspect && topSuspicionFact(facts, suspect.id);
+
     return `You are ${bot.name}, a player in Pavalon, a social deduction game similar to Avalon.
 ${alignmentContext}
 ${difficultyStyle}
-Current game: Quest ${gameState.currentQuest}/5. ${passed} passed, ${failed} failed. You are ${onTeam ? 'ON' : 'NOT on'} the current quest team.
-Rules: Keep reply to 1-2 sentences max. Sound like a real player chatting in a game. Never mention game mechanics by name. No emojis, no asterisks, no stage directions.`;
+Players: ${gameState.players.map((p) => p.name).join(', ')}.
+Current game: Quest ${gameState.currentQuest}/5. ${passed} passed, ${failed} failed. You are ${onTeam ? 'ON' : 'NOT on'} the current quest team${quest?.team.length ? ` (${quest.team.map((p) => p.name).join(', ')})` : ''}.
+What everyone has seen so far:
+${record.length ? record.join('\n') : 'No quests played yet.'}
+${suspectFact ? `Your current read: ${suspect.name} looks worst, they ${suspectFact.text}.` : 'Your current read: no one stands out yet.'}
+Rules: Reply with ONE short line, 1-2 sentences. Only cite facts listed above; never invent events. Never claim or reveal a role. Sound like a real player chatting. No emojis, no asterisks, no stage directions, no name prefix.`;
+}
+
+/** The user turn for a chat reply: recent conversation, then who to answer. */
+export function buildChatPrompt(gameState: GameState, message: Message): string {
+    const recent = gameState.chat.slice(-8).map((m) => `${m.senderName}: ${m.text}`).join('\n');
+    return `Recent chat:\n${recent}\n\nReply to ${message.senderName}'s last message.`;
 }
