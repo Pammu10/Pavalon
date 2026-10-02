@@ -43,6 +43,19 @@ export function getPublicFacts(gameState: GameState): Map<string, PublicFact[]> 
             if (q.questLeader) {
                 add(q.questLeader.id, `picked the team that failed Quest ${q.questNumber}`, 1);
             }
+            // Evil always backs teams carrying Evil. Skip a forced 5th-vote
+            // approval (4 prior rejections), where everyone says yes.
+            if (q.approvedVote && q.pastVotes.length < 4) {
+                for (const v of q.approvedVote.votes) {
+                    if (v.vote === 'APPROVE' && !q.team.some((m) => m.id === v.playerId)) {
+                        add(v.playerId, `voted for the team that failed Quest ${q.questNumber}`, 0.75);
+                    }
+                    // ...and Evil never rejects one, so its opponents read as Good.
+                    if (v.vote === 'REJECT') {
+                        add(v.playerId, `voted against the team that failed Quest ${q.questNumber}`, -0.75);
+                    }
+                }
+            }
         }
         if (q.status === 'PASSED') {
             for (const member of q.team) {
@@ -97,6 +110,78 @@ export function buildSuspicionScores(gameState: GameState): Map<string, number> 
     }
 
     return scores;
+}
+
+function popcount(x: number): number {
+    let c = 0;
+    for (; x; x &= x - 1) c++;
+    return c;
+}
+
+/**
+ * Hard Good's deduction: P(Evil) per player id. Enumerates every possible
+ * Evil line-up (<= 210 at 10 players), drops the impossible ones (a quest
+ * with k fails had >= k Evil aboard; the bot itself is Good; Percival's
+ * Mystics hold exactly one Morgana), and weights the rest by how well they
+ * explain who proposed and backed which teams. Decision-only — never feed
+ * it into spoken thoughts, it uses private knowledge.
+ */
+export function evilProbabilities(bot: Player, gameState: GameState): Map<string, number> {
+    const players = gameState.players;
+    const n = players.length;
+    const evilCount = players.filter((p) => p.alignment === Alignment.EVIL).length; // public via the role list
+    const bit = new Map(players.map((p, i) => [p.id, 1 << i]));
+    const mask = (ps: { id: string }[]) => ps.reduce((m, p) => m | (bit.get(p.id) ?? 0), 0);
+
+    const quests = gameState.questHistory
+        .filter((q) => q.status === 'PASSED' || q.status === 'FAILED')
+        .map((q) => ({
+            team: mask(q.team),
+            fails: q.results.filter((r) => r.vote === 'FAIL').length,
+            passed: q.status === 'PASSED',
+        }));
+    const proposals = gameState.questHistory.flatMap((q) => [
+        ...q.pastVotes.map((pv) => ({ ...pv, forced: false })),
+        ...(q.approvedVote ? [{ leader: q.questLeader, ...q.approvedVote, forced: q.pastVotes.length >= 4 }] : []),
+    ]).map((pr) => ({
+        team: mask(pr.team),
+        leader: pr.leader ? bit.get(pr.leader.id) ?? 0 : 0,
+        // A forced 5th-vote approval says nothing about the voter.
+        votes: pr.forced ? [] : pr.votes.map((v) => ({ bit: bit.get(v.playerId) ?? 0, approve: v.vote === 'APPROVE' })),
+    }));
+
+    const self = bit.get(bot.id) ?? 0;
+    const mystics = getKnownMystics(bot, players);
+    const mysticMask = mask(mystics);
+    const evilMystics = mystics.length === 2 ? 1 : 0; // Merlin + Morgana; a lone Mystic is Merlin
+
+    // Likelihoods tuned in sim/rust against a range of Evil play styles.
+    let total = 0;
+    const evilWeight = new Array<number>(n).fill(0);
+    for (let set = 0; set < 1 << n; set++) {
+        if (set & self || popcount(set) !== evilCount) continue;
+        if (mysticMask && popcount(set & mysticMask) !== evilMystics) continue;
+
+        let w = 1;
+        for (const q of quests) {
+            const aboard = popcount(set & q.team);
+            if (aboard < q.fails) { w = 0; break; }
+            if (q.passed && aboard > 0) w *= 0.1; // Evil rarely lets one pass
+        }
+        if (w === 0) continue;
+        for (const pr of proposals) {
+            const hasEvil = (set & pr.team) !== 0;
+            // Evil leaders seat Evil; Good leaders are a coin flip.
+            w *= pr.leader & set ? (hasEvil ? 0.6 : 0.4) : 0.5;
+            // Every line-up has the same number of Evil voters, so only theirs matter.
+            for (const v of pr.votes) {
+                if (v.bit & set) w *= hasEvil ? (v.approve ? 0.95 : 0.05) : (v.approve ? 0.55 : 0.45);
+            }
+        }
+        total += w;
+        for (let i = 0; i < n; i++) if (set & (1 << i)) evilWeight[i] += w;
+    }
+    return new Map(players.map((p, i) => [p.id, total ? evilWeight[i] / total : 0]));
 }
 
 /** What this bot's role lets it know about other players */

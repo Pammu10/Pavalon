@@ -38,8 +38,11 @@ export function decideQuestVote(bot: Player, gameState: GameState): 'SUCCESS' | 
 
     // Hard
     if (failedQuests === 2) return 'FAIL'; // Always fail if it wins the game
-    if (failedQuests === 1 && Math.random() < 0.92) return 'FAIL'; // Almost always take the win
-    if (failsRequired === 2 && evilCount < 2) return 'SUCCESS'; // Can't reach threshold alone
-    // Occasional strategic fail to spread suspicion, but not obvious
-    return Math.random() < 0.30 ? 'FAIL' : 'SUCCESS';
+    if (failsRequired === 2) return evilCount >= 2 ? 'FAIL' : 'SUCCESS'; // Can't reach threshold alone
+    // One fail is enough: only the first known Evil in seating order fails
+    // (allies all agree on who that is), so a double fail doesn't expose two.
+    const designated = quest.team.find((p) => p.id === bot.id || knownEvil.some((e) => e.id === p.id));
+    if (designated?.id !== bot.id) return 'SUCCESS';
+    // Tuned in sim/rust: bluffing on Quest 1 cost more than the cover it bought.
+    return 'FAIL';
 }

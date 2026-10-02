@@ -35,19 +35,22 @@ export function decideAssassination(bot: Player, gameState: GameState): string |
         return Math.random() < 0.70 ? scored[0].p.id : candidates[Math.floor(Math.random() * candidates.length)].id;
     }
 
-    // Hard: Merlin behavior scoring
+    // Hard: Merlin's tell is steering around Evil — never proposing it,
+    // rejecting teams that carry it, rarely approving them.
     function hardScore(p: Player): number {
-        let score = scoreCandidate(p);
-
-        // Reject votes on teams that had Evil players → strategic intel awareness (Merlin-like)
+        let score = 0;
         for (const q of gameState.questHistory) {
-            if (q.status === 'FAILED') continue;
-            for (const pv of q.pastVotes) {
-                const hasEvil = pv.team.some((t) => knownEvilIds.has(t.id));
-                if (hasEvil) {
-                    const rejected = pv.votes.find((v) => v.playerId === p.id && v.vote === 'REJECT');
-                    if (rejected) score += 1;
-                }
+            const proposals = [
+                ...q.pastVotes,
+                ...(q.approvedVote ? [{ leader: q.questLeader, ...q.approvedVote }] : []),
+            ];
+            for (const pr of proposals) {
+                const hasEvil = pr.team.some((t) => knownEvilIds.has(t.id));
+                if (pr.leader?.id === p.id) score += hasEvil ? -2 : 2.5; // tuned in sim/rust: proposals are Merlin's hardest tell to hide
+                if (!hasEvil) continue;
+                const vote = pr.votes.find((v) => v.playerId === p.id)?.vote;
+                if (vote === 'REJECT') score += 1;
+                if (vote === 'APPROVE') score -= 1;
             }
         }
 
