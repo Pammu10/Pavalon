@@ -29,9 +29,9 @@ export function createUserRouter(gameService: GameService) {
         }
     });
 
-    router.get('/leaderboard', async (_req, res) => {
+    router.get('/leaderboard', async (req, res) => {
         try {
-            const data = await gameService.getLeaderboard();
+            const data = await gameService.getLeaderboard(req.user.id);
             res.json(data);
         } catch {
             res.status(500).json({ message: 'Failed to fetch leaderboard data.' });

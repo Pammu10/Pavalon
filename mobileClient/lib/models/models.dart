@@ -727,7 +727,8 @@ class GameInvite {
 class LeaderboardEntry {
   final String username;
   final dynamic value;
-  const LeaderboardEntry(this.username, this.value);
+  final int? rank;
+  const LeaderboardEntry(this.username, this.value, [this.rank]);
   factory LeaderboardEntry.fromJson(Map<String, dynamic> j) =>
-      LeaderboardEntry(j['username'] as String, j['value']);
+      LeaderboardEntry(j['username'] as String, j['value'], j['rank'] as int?);
 }

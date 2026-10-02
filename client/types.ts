@@ -276,6 +276,8 @@ export interface Achievement {
 export interface LeaderboardEntry {
     username: string;
     value: number | string;
+    /** Real position; set on Pavalon leaderboard entries (lets an off-list user entry show its true rank). */
+    rank?: number;
 }
 
 export interface LeaderboardData {

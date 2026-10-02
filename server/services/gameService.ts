@@ -659,30 +659,27 @@ export class GameService {
         };
     }
 
-    async getLeaderboard(): Promise<LeaderboardData> {
-        const allUsers: {
-            username: string; highest_win_streak: number; assassin_kills: number;
-            total_games: number; total_wins: number; good_wins: number; evil_wins: number;
-        }[] = await db.all('SELECT username, highest_win_streak, assassin_kills, total_games, total_wins, good_wins, evil_wins FROM users WHERE total_games > 0');
+    /** Top 10 per category, plus the requesting user's own entry (with its real rank) when outside the top 10. */
+    async getLeaderboard(userId: number): Promise<LeaderboardData> {
+        // Fixed SQL expressions, never user input.
+        const ranked = (expr: string) => db.all<LeaderboardEntry>(`
+            WITH ranked AS (
+                SELECT id, username, ${expr} AS value,
+                       ROW_NUMBER() OVER (ORDER BY ${expr} DESC, username)::int AS rank
+                FROM users WHERE total_games > 0
+            )
+            SELECT username, value, rank FROM ranked WHERE rank <= 10 OR id = $1 ORDER BY rank
+        `, [userId]);
 
-        const leaderboard: LeaderboardData = { totalWins: [], winRate: [], topAssassins: [], winStreaks: [], bestGood: [], bestEvil: [] };
-
-        for (const user of allUsers) {
-            const winRate = user.total_games > 0 ? Math.round((user.total_wins / user.total_games) * 100) : 0;
-            leaderboard.totalWins.push({ username: user.username, value: user.total_wins });
-            leaderboard.winRate.push({ username: user.username, value: winRate });
-            leaderboard.topAssassins.push({ username: user.username, value: user.assassin_kills });
-            leaderboard.winStreaks.push({ username: user.username, value: user.highest_win_streak });
-            leaderboard.bestGood.push({ username: user.username, value: user.good_wins });
-            leaderboard.bestEvil.push({ username: user.username, value: user.evil_wins });
-        }
-
-        const sortByValue = (a: LeaderboardEntry, b: LeaderboardEntry) => {
-            const diff = (b.value as number) - (a.value as number);
-            return diff !== 0 ? diff : a.username.localeCompare(b.username);
-        };
-        Object.values(leaderboard).forEach((arr) => arr.sort(sortByValue));
-        return leaderboard;
+        const [totalWins, winRate, topAssassins, winStreaks, bestGood, bestEvil] = await Promise.all([
+            ranked('total_wins'),
+            ranked('ROUND(total_wins * 100.0 / total_games)::int'),
+            ranked('assassin_kills'),
+            ranked('highest_win_streak'),
+            ranked('good_wins'),
+            ranked('evil_wins'),
+        ]);
+        return { totalWins, winRate, topAssassins, winStreaks, bestGood, bestEvil };
     }
 
     async endGame(gameState: GameState, winner: Alignment | null, reason: string): Promise<void> {

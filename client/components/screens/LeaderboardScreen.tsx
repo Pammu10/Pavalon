@@ -304,7 +304,7 @@ const LeaderboardList: React.FC<{ title: string; icon: React.ReactNode; entries:
                     <ol>
                         <li className="flex items-center justify-between p-2.5 rounded-lg bg-yellow-800/60 ring-2 ring-yellow-600">
                             <div className="flex items-center gap-4">
-                                <span className="w-6 text-center font-bold text-yellow-300 text-lg">{userEntryIndex + 1}</span>
+                                <span className="w-6 text-center font-bold text-yellow-300 text-lg">{userEntry.rank ?? userEntryIndex + 1}</span>
                                 <span className="text-white font-semibold">{userEntry.username}</span>
                             </div>
                             <span className="font-bold text-yellow-300 text-lg">{userEntry.value}{isPercent ? '%' : ''}</span>
